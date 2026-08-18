@@ -6,7 +6,7 @@ Analyses your Pokémon Showdown replays. See `docs/specs/` for the design and
 ## Workspace layout
 
 ```
-apps/web/                  the app (Vue 3 today, Nuxt from #2 onward)
+apps/web/                  the app
 packages/replay-parser/    pure replay-log parser, zero runtime dependencies
 vite.config.ts             `vp` toolchain config for the whole workspace
 ```

@@ -3,6 +3,8 @@ packages:
   - 'packages/*'
 
 catalog:
+  '@tsconfig/node24': ^24.0.4
+  '@types/node': ^24.13.3
   vite: npm:@voidzero-dev/vite-plus-core@0.2.9
   vitest: 4.1.10
   vite-plus: 0.2.9
