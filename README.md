@@ -1,6 +1,20 @@
 # blueberry-academy
 
-This template should help get you started developing with Vue 3 in Vite.
+Analyses your Pokémon Showdown replays. See `docs/specs/` for the design and
+`CONTEXT.md` for the domain vocabulary.
+
+## Workspace layout
+
+```
+apps/web/                  the app (Vue 3 today, Nuxt from #2 onward)
+packages/replay-parser/    pure replay-log parser, zero runtime dependencies
+vite.config.ts             `vp` toolchain config for the whole workspace
+```
+
+Per-app Vite/Vitest settings live in each package's own `vite.config.ts`; the root
+one is toolchain config (lint, fmt, staged) and is shared. The `vp` commands below
+resolve to `apps/web` via `defaultPackage`; target another package with
+`vp -C packages/replay-parser <command>`.
 
 ## Recommended IDE Setup
 

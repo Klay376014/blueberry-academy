@@ -1,11 +1,12 @@
-import { fileURLToPath, URL } from 'node:url'
+import { defineConfig } from 'vite-plus'
 
-import { defineConfig, lazyPlugins } from 'vite-plus'
-import vue from '@vitejs/plugin-vue'
-import vueDevTools from 'vite-plugin-vue-devtools'
-
-// https://vite.dev/config/
+// Toolchain configuration for the whole workspace. This is `vp` config, not Vite
+// config — per-app Vite/Vitest settings live in each package's own vite.config.ts.
+// See node_modules/vite-plus/docs/guide/monorepo.md
 export default defineConfig({
+  // `vp dev` / `vp build` at the root would otherwise have to guess (or prompt)
+  // which package to act on.
+  defaultPackage: './apps/web',
   staged: {
     '*': 'vp check --fix',
   },
@@ -17,11 +18,5 @@ export default defineConfig({
   fmt: {
     semi: false,
     singleQuote: true,
-  },
-  plugins: lazyPlugins(() => [vue(), vueDevTools()]),
-  resolve: {
-    alias: {
-      '@': fileURLToPath(new URL('./src', import.meta.url)),
-    },
   },
 })
