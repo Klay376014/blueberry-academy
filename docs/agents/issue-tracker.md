@@ -2,8 +2,6 @@
 
 Issues and specs for this repo live as GitHub issues on [`Klay376014/blueberry-academy`](https://github.com/Klay376014/blueberry-academy). Use the `gh` CLI for all operations.
 
-> **Prerequisite.** `gh` is not installed on this machine yet. Run `brew install gh && gh auth login` before the first issue-tracker write; any skill that needs to create or read an issue will fail until then.
-
 ## Conventions
 
 - **Create an issue**: `gh issue create --title "..." --body "..."`. Use a heredoc for multi-line bodies.
