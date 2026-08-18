@@ -2,9 +2,10 @@
 
 - 日期：2026-08-16
 - 狀態：已定案，待實作
-- 相關文件：[實作計畫](../plans/2026-08-16-replay-analytics-plan.md)、[CONTEXT.md](../../CONTEXT.md)
+- 相關文件：[CONTEXT.md](../../CONTEXT.md)、[實作守則](../../AGENTS.md)
+- 實作票：GitHub issues #1–#17（`ready-for-agent`），依相依順序執行
 
-這份文件記錄「為什麼」。實作步驟見計畫文件，領域詞彙見 CONTEXT.md。
+這份文件記錄「為什麼」。實作步驟見 GitHub issues，領域詞彙見 CONTEXT.md。
 
 ---
 

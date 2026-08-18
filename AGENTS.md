@@ -39,3 +39,16 @@ The five canonical triage roles, used verbatim as label strings. See `docs/agent
 ### Domain docs
 
 Single-context: `CONTEXT.md` + `docs/adr/` at the repo root. See `docs/agents/domain.md`.
+
+## 實作守則
+
+適用於 `docs/specs/` 底下任何設計文件的實作工作。
+
+- **先讀 `CONTEXT.md`。** 命名一律使用其中定義的詞彙（game / series / team / bring /
+  signature / regulation / spectated / base species），不要自創同義詞。
+- **不要在 `packages/replay-parser` 引入任何 I/O 或框架依賴。** 它的可測試性完全建立在
+  「純函式」這個性質上。
+- **不要為了讓測試通過而修改 fixture 的 expected snapshot** —— 先確認是實作錯了還是
+  預期錯了。
+- **`service_role` key 絕不可出現在 `apps/web/`。** 它只屬於 `scripts/`。
+- 若某個決定實作起來明顯窒礙難行，回報並更新設計文件的決策紀錄，不要默默改掉。
