@@ -18,7 +18,7 @@
   },
   "devDependencies": {
     "@nuxt/test-utils": "^4.1.0",
-    "@types/jsdom": "^28.0.3",
+    "@pinia/nuxt": "^1.0.2",
     "@types/node": "catalog:",
     "@vue/test-utils": "^2.4.11",
     "jsdom": "^29.1.1",

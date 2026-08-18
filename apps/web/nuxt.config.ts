@@ -10,9 +10,11 @@ export default defineNuxtConfig({
 
   css: ['~/assets/main.css'],
 
+  // Pinia was registered by hand in the old src/main.ts; the module keeps that
+  // capability wired up now that the entry file is gone.
+  modules: ['@pinia/nuxt'],
+
   nitro: {
     preset: 'cloudflare_module',
   },
-
-  devtools: { enabled: true },
 })
