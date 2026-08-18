@@ -122,10 +122,15 @@
    - **必須顯示**：「我們無法驗證 Showdown 帳號擁有權，這只是用來篩選你的對戰紀錄」
 
 4. **`useShowdown.ts` — 抓取層**
-   - `listUserReplays(username)`：翻 `search.json` 分頁至回 `[]`（每頁 51 筆）
-   - `fetchReplay(idWithPassword)`：抓 `<id>.json`
+   - `listUserReplays(username)`：翻 `search.json` 分頁，**page 從 1 起算**，取回不滿 51 筆即停
+   - **相鄰頁必定重疊一筆**（offset 是 `50*(page-1)` 但每次取 51）→ 合併時以 `id` 去重，
+     進度條總數用去重後的數字，否則會虛報
+   - `page > 100` 一律回 `[]`：單一查詢上限約 5001 筆。超量時用 `format=<format_id>` 分批
+   - 選填的賽制篩選：`format` 參數吃 `format_id`（`gen9vgc2026regj`），**不是**顯示名稱
+   - `fetchReplay(idWithPassword)`：抓 `<id>.json`。`format_id` 一律取自這裡的 `formatid` 欄位，
+     **不可**用清單的 `format`（那是 `[Gen 9] …` 顯示名稱）
    - 並發上限 5、失敗指數退避
-   - 測試：mock `fetch`，驗證分頁終止、並發上限、退避
+   - 測試：mock `fetch`，驗證分頁終止、**重疊去重**、`page > 100` 上限、並發上限、退避
 
 5. **`useIngest.ts` — 匯入管線**
    - 順序嚴格為：**取得清單 → 過濾已存在 → 抓取 → gzip 存 Storage → 解析 → 解析身分 → upsert**
@@ -152,6 +157,8 @@
 - [ ] 故意貼一個 404 連結：該筆標為失敗並顯示原因，其餘正常匯入
 - [ ] Storage 中出現 `replay-logs/{user_id}/*.json.gz`
 - [ ] 用另一個帳號登入，查不到第一個帳號的任何 `battles`（RLS 驗證）
+- [ ] 同步一個超過 51 場的帳號：匯入筆數等於去重後的 unique 數（不因分頁重疊而重複或少算）
+- [ ] `battles.format_id` 存的是 `gen9vgc2026regj` 這種 id，不是 `[Gen 9] VGC 2026 Reg J` 顯示名稱
 - [ ] `scripts/reparse.ts` 能重建全部衍生資料且結果一致
 
 ---

@@ -36,17 +36,22 @@
 
 以下都是實測結果，不是假設。設計高度依賴它們，若日後行為改變需重新評估。
 
-| 事實                                                                                                             | 驗證方式                                | 對設計的影響                             |
-| ---------------------------------------------------------------------------------------------------------------- | --------------------------------------- | ---------------------------------------- |
-| `<replay-url>.json` 回傳 metadata + 完整 log                                                                     | 直接 curl 兩個 replay                   | 不需要爬 HTML                            |
-| Showdown replay API **CORS 對所有來源開放**（`access-control-allow-origin` 回應請求來源）                        | 帶 `Origin: http://localhost:5173` 請求 | **瀏覽器可直接抓取**，是全前端匯入的前提 |
-| `search.json?user=<id>&page=N` 分頁列出玩家 replay，**每頁 51 筆**，翻到底回 `[]`                                | 連續請求 page 1–3 與 page 99            | 可依帳號批次同步                         |
-| `search.json` **只回傳公開 replay**（`private:0`）                                                               | 對照兩個 `private:1` 的 replay          | 私人 replay 只能貼含 password 的完整連結 |
-| Cloudflare Workers 免費版：**50 subrequest/請求、CPU 10ms**；付費版：10,000 subrequest、CPU 5 分鐘               | Cloudflare 官方 limits 文件             | **免費版無法在 server 端做匯入或解析**   |
-| Workers 兩個方案都只允許 **6 個同時對外連線**；HTTP 請求 **無 wall-clock 上限**                                  | 同上                                    | 並發上限設 5                             |
-| `pokemonshowdown.com/users/<id>.json` 只有 `username / userid / registertime / group / ratings`，**無 bio 欄位** | 直接 curl 並列出 keys                   | **無法驗證 Showdown 帳號擁有權**         |
-| 同一支 API 提供官方各賽制 ELO/GXE/勝負場數                                                                       | 同上                                    | 未來可做「replay 覆蓋率」對帳            |
-| Vite+ 官方支援 Nuxt（`vp create nuxt` shorthand、`@nuxt/test-utils` 專屬 lint 例外）                             | 讀 `node_modules/vite-plus/docs`        | 換 Nuxt 不會破壞現有工具鏈               |
+| 事實                                                                                                                                    | 驗證方式                                                                               | 對設計的影響                                                            |
+| --------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| `<replay-url>.json` 回傳 metadata + 完整 log                                                                                            | 直接 curl 兩個 replay                                                                  | 不需要爬 HTML                                                           |
+| Showdown replay API **CORS 對所有來源開放**（`access-control-allow-origin` 回應請求來源）                                               | 帶 `Origin: http://localhost:5173` 請求                                                | **瀏覽器可直接抓取**，是全前端匯入的前提                                |
+| `search.json?user=<id>&page=N` 分頁：offset 為 `50*(page-1)` 但每次取 51 筆 → **相鄰頁重疊一筆**；不滿 51 筆即為最後一頁                | 比對 page 1 尾與 page 2 首（重疊 1 筆，unique 93 而非 94）；讀 `server/replays.ts:159` | 合併分頁時**必須以 id 去重**；終止條件用「不滿 51」比等 `[]` 少一次請求 |
+| `page > 100` 直接回 `[]`；`page=0` 回的不是 JSON                                                                                        | 讀 `server/replays.ts:158`；實測 page 0 與 100–102                                     | 分頁**從 1 起算**；單一查詢上限約 5001 筆，超量須用 `format` 分批       |
+| `search.json` 對 `private` 做**精確比對 `= 0`**；`private` 是分級：0 公開 / 1 私人 / 2 prepreplay / 3 已刪除 / 10 autosaved             | 讀 `server/replays.ts:41,163`                                                          | 非 `private:0` 的場次一律抓不到，只能貼含 password 的完整連結           |
+| 清單的 `format` 是**顯示名稱**（`[Gen 9] Anything Goes`）；`format_id` 只在單場 `<id>.json` 的 `formatid` 欄位                          | 對照 `search.json` 與 `<id>.json` 的 keys                                              | `battles.format_id` 只能在抓到單場 JSON 後才填得出來                    |
+| `search.json` 另支援 `format=<format_id>`、`username2`、`byRating` 參數                                                                 | 實測 `format` 篩選有效；讀 `server/replays.ts:153`                                     | 匯入 UI 可提供選填的賽制篩選以減少抓取量                                |
+| replay 只在**有人執行 `/savereplay`** 或伺服器開 `Config.autosavereplays` 時上傳；隱藏房間**仍會**產生 replay（`private=1` + password） | 讀 `server/room-battle.ts:872`、`server/rooms.ts:2067`                                 | **沒有使用者可及的強制存檔機制**；隱藏場次是「查不到」而非「沒紀錄」    |
+| `Config.forcedpublicprefixes`：特定名稱前綴的 **rated** 場次強制公開，免疫 `/modjoin`、`/hideroom`、`/ionext`                           | 讀 `config-example.js:503`、`room-battle.ts:1118`、`username-prefixes.ts:9,99`         | 僅 global staff 可設、**10 天過期**、僅 rated 生效 → **本專案無法利用** |
+| Cloudflare Workers 免費版：**50 subrequest/請求、CPU 10ms**；付費版：10,000 subrequest、CPU 5 分鐘                                      | Cloudflare 官方 limits 文件                                                            | **免費版無法在 server 端做匯入或解析**                                  |
+| Workers 兩個方案都只允許 **6 個同時對外連線**；HTTP 請求 **無 wall-clock 上限**                                                         | 同上                                                                                   | 並發上限設 5                                                            |
+| `pokemonshowdown.com/users/<id>.json` 只有 `username / userid / registertime / group / ratings`，**無 bio 欄位**                        | 直接 curl 並列出 keys                                                                  | **無法驗證 Showdown 帳號擁有權**                                        |
+| 同一支 API 提供官方各賽制 ELO/GXE/勝負場數                                                                                              | 同上                                                                                   | 未來可做「replay 覆蓋率」對帳                                           |
+| Vite+ 官方支援 Nuxt（`vp create nuxt` shorthand、`@nuxt/test-utils` 專屬 lint 例外）                                                    | 讀 `node_modules/vite-plus/docs`                                                       | 換 Nuxt 不會破壞現有工具鏈                                              |
 
 ---
 
@@ -120,7 +125,8 @@ Supabase
 
 ```
 使用者輸入 Showdown 名稱（或貼一批 replay 連結）
-  → 瀏覽器翻 search.json 全部分頁（每頁 51 筆，回 [] 為止）
+  → 瀏覽器翻 search.json 全部分頁（page 從 1 起，取回不滿 51 筆即停）
+  → 以 id 去重（相鄰頁必定重疊一筆）
   → 過濾掉 DB 已有的 replay id
   → 逐筆抓 <id>.json（並發上限 5）
   → raw log gzip 後存 Storage       ← 先存
@@ -296,7 +302,8 @@ spectated 場次的排除。
 | 前端可寫假資料               | 使用者可捏造戰績         | **接受**。個人工具，騙自己沒有獎勵                                                                                                         |
 | 匯入需分頁開著               | 關掉即中斷               | **接受**。已存的不會遺失，重按同步即續傳                                                                                                   |
 | 免費版 Workers               | 未來流量成長會撞牆       | **先驗證成效再考慮升級**。升級路徑已預留（`server/api/` 目錄與同一份 parser package）                                                      |
-| 私人 replay                  | `search.json` 抓不到     | 只能貼含 password 的完整連結                                                                                                               |
+| 私人 replay                  | `search.json` 抓不到     | 只能貼含 password 的完整連結（隱藏場次仍有 replay，只是 `private=1`）                                                                      |
+| 無法強制對手存 replay        | 沒人存檔的場次不存在     | **接受**。`Config.forcedpublicprefixes` 僅 global staff 可設、10 天過期且只對 rated 生效，使用者只能自己每場 `/savereplay`                  |
 | 敘述統計回答不了因果         | 使用者可能誤讀相關為因果 | **接受**，但 UI 措辭須謹慎，避免暗示因果                                                                                                   |
 
 ---
