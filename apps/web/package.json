@@ -4,30 +4,26 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vp dev",
-    "build": "run-p type-check \"build-only {@}\" --",
-    "preview": "vp preview",
+    "dev": "nuxt dev",
+    "build": "nuxt build",
+    "preview": "nuxt preview",
+    "postinstall": "nuxt prepare",
     "test:unit": "vp test",
-    "build-only": "vp build",
-    "type-check": "vue-tsc --build"
+    "type-check": "nuxt typecheck"
   },
   "dependencies": {
+    "nuxt": "^4.5.2",
     "pinia": "^4.0.2",
-    "vue": "^3.5.40",
-    "vue-router": "^5.2.0"
+    "vue": "^3.5.40"
   },
   "devDependencies": {
-    "@tsconfig/node24": "catalog:",
+    "@nuxt/test-utils": "^4.1.0",
     "@types/jsdom": "^28.0.3",
     "@types/node": "catalog:",
-    "@vitejs/plugin-vue": "^6.0.8",
     "@vue/test-utils": "^2.4.11",
-    "@vue/tsconfig": "^0.9.1",
     "jsdom": "^29.1.1",
-    "npm-run-all2": "^9.0.2",
     "typescript": "~6.0.0",
     "vite": "catalog:",
-    "vite-plugin-vue-devtools": "^8.1.5",
     "vite-plus": "catalog:",
     "vitest": "catalog:",
     "vue-tsc": "^3.3.7"

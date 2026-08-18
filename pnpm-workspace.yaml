@@ -2,6 +2,9 @@ packages:
   - 'apps/*'
   - 'packages/*'
 
+allowBuilds:
+  esbuild: true
+
 catalog:
   '@tsconfig/node24': ^24.0.4
   '@types/node': ^24.13.3
