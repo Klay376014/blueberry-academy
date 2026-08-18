@@ -6,15 +6,20 @@ Analyses your Pokémon Showdown replays. See `docs/specs/` for the design and
 ## Workspace layout
 
 ```
-apps/web/                  the app
+apps/web/                  the app — Nuxt, file-based routes, SPA (`ssr: false`)
 packages/replay-parser/    pure replay-log parser, zero runtime dependencies
 vite.config.ts             `vp` toolchain config for the whole workspace
 ```
 
-Per-app Vite/Vitest settings live in each package's own `vite.config.ts`; the root
-one is toolchain config (lint, fmt, staged) and is shared. The `vp` commands below
-resolve to `apps/web` via `defaultPackage`; target another package with
+`apps/web` builds through Nuxt: `apps/web/nuxt.config.ts` owns the app build and
+`apps/web/vitest.config.ts` owns its tests. The root `vite.config.ts` is toolchain
+config (lint, fmt, staged) and is shared. The `vp` commands below resolve to
+`apps/web` via `defaultPackage`; target another package with
 `vp -C packages/replay-parser <command>`.
+
+The app renders client-side only (`ssr: false`) and builds to a `cloudflare_module`
+Worker bundle in `apps/web/.output/`. The reasoning is recorded in
+`docs/specs/2026-08-16-replay-analytics-design.md` §3 and in `nuxt.config.ts`.
 
 ## Recommended IDE Setup
 
@@ -31,32 +36,28 @@ resolve to `apps/web` via `defaultPackage`; target another package with
 
 ## Type Support for `.vue` Imports in TS
 
-TypeScript cannot handle type information for `.vue` imports by default, so we replace the `tsc` CLI with `vue-tsc` for type checking. In editors, we need [Volar](https://marketplace.visualstudio.com/items?itemName=Vue.volar) to make the TypeScript language service aware of `.vue` types.
+`vue-tsc` is the real type gate, run as `vp run type-check` (which calls `nuxt
+typecheck`). `vp check` type-checks with tsgolint, which cannot read Vue SFCs, so
+`apps/web/vue-shims.d.ts` keeps `*.vue` imports resolvable there. In editors,
+[Volar](https://marketplace.visualstudio.com/items?itemName=Vue.volar) makes the
+TypeScript language service aware of `.vue` types.
 
 ## Customize configuration
 
-See [Vite Configuration Reference](https://vite.dev/config/).
+App config lives in [`apps/web/nuxt.config.ts`](https://nuxt.com/docs/api/nuxt-config);
+toolchain config in the root `vite.config.ts`.
 
-## Project Setup
-
-```sh
-pnpm install
-```
-
-### Compile and Hot-Reload for Development
+## Commands
 
 ```sh
-pnpm dev
+vp install          # install dependencies
+vp run dev          # dev server with hot reload, on http://localhost:3000
+vp run build        # production build into apps/web/.output/
+vp run test:unit    # unit tests
+vp run type-check   # nuxt typecheck (vue-tsc)
+vp check            # format, lint and type-check everything
 ```
 
-### Type-Check, Compile and Minify for Production
-
-```sh
-pnpm build
-```
-
-### Run Unit Tests with [Vitest](https://vitest.dev/)
-
-```sh
-pnpm test:unit
-```
+Go through `vp run <script>`, not the built-in `vp dev` / `vp build`. Those are
+_Vite_ commands, and `apps/web` is a Nuxt app — pointing them at it serves a 404.
+Nuxt's dev server is on port 3000, not Vite's 5173.

@@ -1,12 +1,14 @@
 import { defineConfig } from 'vite-plus'
 
 // Toolchain configuration for the whole workspace. This is `vp` config, not Vite
-// config — per-app Vite/Vitest settings live in each package's own vite.config.ts.
+// config — `apps/web` is a Nuxt app, so its build and dev server belong to
+// nuxt.config.ts, and its test settings to vitest.config.ts.
 // See node_modules/vite-plus/docs/guide/monorepo.md
+//
+// There is deliberately no `defaultPackage`: the built-in `vp dev` / `vp build`
+// are Vite commands, and pointing them at a Nuxt app serves a 404. The root
+// package.json scripts delegate to each package's own scripts instead.
 export default defineConfig({
-  // `vp dev` / `vp build` at the root would otherwise have to guess (or prompt)
-  // which package to act on.
-  defaultPackage: './apps/web',
   staged: {
     '*': 'vp check --fix',
   },
