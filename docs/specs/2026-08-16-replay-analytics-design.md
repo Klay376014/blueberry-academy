@@ -324,8 +324,8 @@ spectated 場次的排除。
 | 前端可寫假資料               | 使用者可捏造戰績         | **接受**。個人工具，騙自己沒有獎勵                                                                                                         |
 | 匯入需分頁開著               | 關掉即中斷               | **接受**。已存的不會遺失，重按同步即續傳                                                                                                   |
 | 免費版 Workers               | 未來流量成長會撞牆       | **先驗證成效再考慮升級**。升級路徑已預留（`server/api/` 目錄與同一份 parser package）                                                      |
-| 私人 replay                  | `search.json` 抓不到     | 只能由使用者從 replay 站登入後複製 `<id>-<password>pw` 連結貼進來；`private:2`（無 password）任何方式都取不到                               |
-| 無法強制對手存 replay        | 沒人存檔的場次不存在     | **接受**。`Config.forcedpublicprefixes` 僅 global staff 可設、10 天過期且只對 rated 生效，使用者只能自己每場 `/savereplay`                  |
+| 私人 replay                  | `search.json` 抓不到     | 只能由使用者從 replay 站登入後複製 `<id>-<password>pw` 連結貼進來；`private:2`（無 password）任何方式都取不到                              |
+| 無法強制對手存 replay        | 沒人存檔的場次不存在     | **接受**。`Config.forcedpublicprefixes` 僅 global staff 可設、10 天過期且只對 rated 生效，使用者只能自己每場 `/savereplay`                 |
 | 敘述統計回答不了因果         | 使用者可能誤讀相關為因果 | **接受**，但 UI 措辭須謹慎，避免暗示因果                                                                                                   |
 
 ---
