@@ -66,6 +66,9 @@
 
 1. **建立 fixtures**（先做，測試才有東西吃）
    - `test/fixtures/` 存已取得的兩場：一場天梯 Bo1（含 Mega、吼叫拖出、地震雙殺、Life Orb 自殺、rating delta）、一場賽事 Bo3 Game 1（含 `showteam` 開放隊表、`series_id`、`rating: null`）
+   - 已另外取得一場高價值 fixture：Bo1 doubles、4 回合、**雙方各一次 Mega**
+     （`Raichu-Mega-Y`、`Camerupt-Mega`）、**認輸結束**、雙方都帶 Kangaskhan、
+     且**一方現身數少於 `teamsize`**。單一檔案覆蓋硬點 1、5、6、7、8、9
    - 再補齊邊界 fixture：認輸、平手、單打、長局（>20 回合）
    - fixture 檔名**不得包含 replay password**（原始連結的 password 段落要移除）
 
@@ -79,12 +82,18 @@
    - 測試：Mega / Primal / 地區型態（`Ninetales-Alola` **不可**被還原成 `ninetales`，那是不同寶可夢）
 
 4. **`src/replay.ts` — 狀態機**
-   - 重播 log，追蹤：Team Preview 的 6 隻、首次現身（`switch` **與** `drag`）的集合、`detailschange`、回合數、勝負、認輸/平手
+   - 重播 log，追蹤：Team Preview 的 6 隻、首次現身（`switch` **與** `drag`）的集合、
+     `|teamsize|` 宣告的選出數、`detailschange`、回合數、勝負、認輸/平手
+   - **首次現身集合可能少於 `|teamsize|`**（認輸/速決）→ 一併輸出完整性旗標，不要補值
    - 測試：每個硬點各一個測試（見設計文件 §6）
 
 5. **`src/summarize.ts` — 產出 `ParsedBattle`**
    - 視角中立：同時描述 p1 與 p2，**不知道誰是「我」**
-   - 從 `|raw|` 抽 rating before/after/delta；從 `|uhtml|bestof|` 抽 `series_id`
+   - rating：賽前取各方 `|player|` 的第 5 欄，賽後與 delta 取 `|raw|`。
+     **不可**使用 metadata 的 `rating`（實測它等於輸家的賽後值，見設計文件 §6 硬點 5）
+   - 玩家名稱取**第一個** `|player|<side>|` 行（log 尾端會重發一個只帶 side 的空行）
+   - `end_reason`：認輸只能比對 `|-message|<name> forfeited.` 的自由文字
+   - 從 `|uhtml|bestof|` 抽 `series_id`
    - 匯出 `PARSER_VERSION` 常數
    - **不做 KO 歸因**（見設計文件 §6）
 
@@ -94,7 +103,8 @@
 ### 完成條件
 
 - [ ] `vp run test` 在 `packages/replay-parser` 全綠
-- [ ] 每個設計文件 §6 的硬點都有對應的具名測試
+- [ ] 每個設計文件 §6 的硬點都有對應的具名測試（共 11 條）
+- [ ] 有一個測試涵蓋「現身數 < `|teamsize|`」並斷言完整性旗標為 false
 - [ ] `package.json` 的 `dependencies` 為空
 - [ ] `apps/web` 能 import 並成功解析兩場真實 replay
 
@@ -107,7 +117,9 @@
 1. **Supabase 專案與 schema**
    - migration 建立 `profiles`、`battles`（欄位見設計文件 §5）
    - `regulation` 用 generated column：`regexp_replace(format_id, 'bo[23]$', '')`
-   - 索引：`(user_id, played_at desc)`、`(user_id, format_id, played_at)`、`(user_id, team_signature)`、`details` 的 GIN
+   - `bring_complete boolean`：現身數是否等於 `|teamsize|` 宣告數
+   - 索引：`(user_id, played_at desc)`、`(user_id, format_id, played_at)`、`(user_id, team_signature)`、
+     `(user_id, bring_signature) where bring_complete`、`details` 的 GIN
    - `unique(user_id, replay_id)`
    - RLS：四種操作皆 `user_id = auth.uid()`
    - Storage bucket `replay-logs`，policy 以 `{user_id}/` 路徑前綴隔離
@@ -127,8 +139,12 @@
      進度條總數用去重後的數字，否則會虛報
    - `page > 100` 一律回 `[]`：單一查詢上限約 5001 筆。超量時用 `format=<format_id>` 分批
    - 選填的賽制篩選：`format` 參數吃 `format_id`（`gen9vgc2026regj`），**不是**顯示名稱
-   - `fetchReplay(idWithPassword)`：抓 `<id>.json`。`format_id` 一律取自這裡的 `formatid` 欄位，
+   - `fetchReplay(fullId)`：抓 `<fullId>.json`。`fullId` 對公開場次是 `<id>`，對私人場次是
+     `<id>-<password>pw`（**`pw` 後綴不可省**）。`format_id` 一律取自回應的 `formatid` 欄位，
      **不可**用清單的 `format`（那是 `[Gen 9] …` 顯示名稱）
+   - 不存在的 id 回 **404 + 空 body**，錯誤處理不可假設回應是 JSON
+   - 私人 replay **沒有程式化的列舉途徑**：`/api/replays/searchprivate` 需 Showdown 登入且無 CORS，
+     `search.json` 的 `private=1` 參數被忽略。只能靠使用者手動貼連結
    - 並發上限 5、失敗指數退避
    - 測試：mock `fetch`，驗證分頁終止、**重疊去重**、`page > 100` 上限、並發上限、退避
 
@@ -140,6 +156,8 @@
 
 6. **`pages/import.vue`**
    - 兩個入口：依 Showdown 名稱同步、批次貼連結（換行分隔）
+   - 貼連結入口必須能解析 `-<password>pw` 後綴與 `?p2` 查詢字串，並還原成 `fullId`
+   - UI 需說明「私人場次請到 replay 站登入後選 Private，複製連結貼進來」
    - 進度條 + 即時滾動的逐筆結果清單（成功 / 跳過 / 失敗＋原因）
    - 續傳靠去重自然達成，不需額外游標
 
@@ -153,7 +171,7 @@
 - [ ] 能用 Google 登入並建立 profile
 - [ ] 綁定一個真實 Showdown 名稱後同步，DB 出現對應筆數的 `battles`
 - [ ] 重按同步：全數跳過、不產生重複列
-- [ ] 貼一個私人 replay 連結（含 password）能成功匯入
+- [ ] 貼一個私人 replay 連結（`<id>-<password>pw`）能成功匯入，且 `battles` 有對應列
 - [ ] 故意貼一個 404 連結：該筆標為失敗並顯示原因，其餘正常匯入
 - [ ] Storage 中出現 `replay-logs/{user_id}/*.json.gz`
 - [ ] 用另一個帳號登入，查不到第一個帳號的任何 `battles`（RLS 驗證）
@@ -184,6 +202,7 @@
    - 排序鍵為 **Wilson 下界**，非原始勝率
    - **顯示全部分組**，不隱藏低樣本，但明確標示樣本數
    - 可展開下鑽到該隊的 bring 組合（同樣的排序與標示規則）
+   - bring 下鑽**預設只計 `bring_complete = true`**，並提供「含不完整場次」切換與筆數標示
 
 4. **i18n**
    - 所有介面文案進語系檔
@@ -194,6 +213,7 @@
 - [ ] 匯入真實資料後，勝率走向圖與實際戰績相符（人工抽查 5 場）
 - [ ] 一支只打過 3 場全勝的隊，排序在「20 場 14 勝」的隊**之後**
 - [ ] 每個分組都看得到樣本數
+- [ ] 一場對手認輸、自己只有 3 隻現身的場次：預設不出現在 bring 分組，切換後才出現
 - [ ] Bo3 場次的 rating 曲線出現斷點，而非被內插連起來
 - [ ] 切換「依 game / 依 series」，Bo3 的場數與勝率隨之改變
 - [ ] 切換 Bo1/Bo3 篩選器，隊伍清單隨之改變（驗證兩者被視為不同項目）
