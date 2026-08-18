@@ -51,9 +51,13 @@ toolchain config in the root `vite.config.ts`.
 
 ```sh
 vp install          # install dependencies
-vp run dev          # dev server with hot reload
+vp run dev          # dev server with hot reload, on http://localhost:3000
 vp run build        # production build into apps/web/.output/
 vp run test:unit    # unit tests
 vp run type-check   # nuxt typecheck (vue-tsc)
 vp check            # format, lint and type-check everything
 ```
+
+Go through `vp run <script>`, not the built-in `vp dev` / `vp build`. Those are
+_Vite_ commands, and `apps/web` is a Nuxt app — pointing them at it serves a 404.
+Nuxt's dev server is on port 3000, not Vite's 5173.
