@@ -16,6 +16,7 @@ any kind**, and an empty `dependencies` list. Its testability rests entirely on 
 ```
 src/protocol.ts    line-level tokenizer for the Showdown protocol
 src/species.ts     identity normalisation and base species
+src/battle-only-formes.ts   generated: mid-battle formes → what they were registered as
 src/replay.ts      replays a tokenized log into battle state
 src/summarize.ts   battle state + replay metadata → ParsedBattle
 test/fixtures/     real replays, fetched from Showdown and stored verbatim (see below)
@@ -29,14 +30,12 @@ battle that ends with the Illusion still up sends no `|replace|` at all, so the 
 never says who was really on the field and the bring keeps the borrowed name. Nothing
 in the protocol makes this recoverable.
 
-**Battle-only formes other than Mega and Primal.** `baseSpeciesId` undoes `-Mega` and
-`-Primal` from the species name. Showdown has 126 numbered battle-only formes and that
-covers 96 of them; the rest — `Palafin-Hero`, `Terapagos-Terastal`, `Ogerpon-*-Tera`,
-`Zacian-Crowned`, `Aegislash-Blade`, `Darmanitan-Zen` and friends — still count as a
-second Pokémon in a signature. Several are current-generation staples, so this is a
-real gap rather than a theoretical one. A suffix regex is the wrong shape for the fix:
-the mapping lives in Showdown's own data as `species.battleOnly`, and belongs in a
-table generated at build time so this package keeps its empty `dependencies`.
+**A forme newer than the generated table.** All 128 of Showdown's battle-only formes
+are read back to the forme they were registered as, through `src/battle-only-formes.ts`.
+That file is generated and committed, so it lags a Showdown release: a forme added since
+it was last generated falls through to a `-Mega` / `-Primal` suffix rule, which is right
+for a new Mega and wrong for anything else. `pnpm gen:battle-only-formes` refreshes it,
+and a test fails once `@pkmn/dex` knows a forme the table does not. See ADR-0008.
 
 ## Fixtures
 

@@ -84,7 +84,9 @@ export function replayLog(lines: ProtocolLine[]): BattleState {
       case 'replace': {
         const side = sideOf(args[0])
         if (!side) break
-        const species = baseSpeciesId(speciesOfDetails(args[1] ?? ''))
+        // The registered team is what an ambiguous battle-only forme resolves
+        // against, and |poke| has already been read by the time anyone appears.
+        const species = baseSpeciesId(speciesOfDetails(args[1] ?? ''), state.sides[side].team)
         if (species === '') break
         const position = positionOf(args[0])
         const bring = state.sides[side].bring

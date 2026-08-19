@@ -8,9 +8,11 @@
   },
   "scripts": {
     "test:unit": "vp test",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit",
+    "gen:battle-only-formes": "node scripts/generate-battle-only-formes.mjs"
   },
   "devDependencies": {
+    "@pkmn/dex": "^0.10.11",
     "@tsconfig/node24": "catalog:",
     "typescript": "~6.0.0",
     "vite": "catalog:",

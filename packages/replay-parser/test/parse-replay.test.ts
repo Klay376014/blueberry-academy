@@ -149,6 +149,45 @@ describe('parseReplay', () => {
     expect(battle.p1.bringSignature).toBe('groudon|scrafty|toxapex')
   })
 
+  it('reduces a Mega whose base species is another forme, not the bare species', () => {
+    // Floette-Mega reverts to Floette-Eternal. Taking the suffix off would put
+    // a Floette in the bring that the side never registered, next to the
+    // Floette-Eternal that really was there.
+    const battle = parseReplay(
+      log({
+        p2Team: ['Whimsicott, L50, M', 'Floette-Eternal, L50, F'],
+        lines: [
+          '|switch|p2b: Floette|Floette-Eternal, L50, F|100/100',
+          '|detailschange|p2b: Floette|Floette-Mega, L50, F',
+          '|switch|p2b: Whimsicott|Whimsicott, L50, M|100/100',
+          '|switch|p2b: Floette|Floette-Mega, L50, F|71/100',
+          '|win|Alice',
+        ],
+      }),
+      META,
+    )
+
+    expect(battle.p2.bringSignature).toBe('floetteeternal|whimsicott')
+  })
+
+  it('reduces a forme a Pokémon changes into on the field to the one it came from', () => {
+    const battle = parseReplay(
+      log({
+        p1Team: ['Scrafty, L50, F', 'Toxapex, L50, M', 'Palafin, L50'],
+        lines: [
+          '|switch|p1b: Palafin|Palafin, L50|100/100',
+          '|detailschange|p1b: Palafin|Palafin-Hero, L50',
+          '|switch|p1b: Toxapex|Toxapex, L50, M|100/100',
+          '|switch|p1b: Palafin|Palafin-Hero, L50|100/100',
+          '|win|Alice',
+        ],
+      }),
+      META,
+    )
+
+    expect(battle.p1.bringSignature).toBe('palafin|scrafty|toxapex')
+  })
+
   it('counts a Pokémon into the bring the first time it appears', () => {
     const battle = parseReplay(
       log({ lines: ['|switch|p1b: Toxapex|Toxapex, L50, M|100/100', '|win|Alice'] }),
