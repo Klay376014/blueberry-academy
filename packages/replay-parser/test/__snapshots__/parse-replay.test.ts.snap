@@ -1,0 +1,28 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`parseReplay > parses a real ladder Bo1 replay 1`] = `
+{
+  "formatId": "gen9championsvgc2026regmb",
+  "gameType": "doubles",
+  "p1": {
+    "bringComplete": true,
+    "bringSignature": "garchomp|ninetalesalola|scrafty|toxapex",
+    "teamSignature": "garchomp|gholdengo|ninetalesalola|raichu|scrafty|toxapex",
+    "teamSize": 4,
+    "userId": "davopro1214",
+    "username": "DavoPro1214",
+  },
+  "p2": {
+    "bringComplete": true,
+    "bringSignature": "gholdengo|glimmora|whimsicott|zoroarkhisui",
+    "teamSignature": "gholdengo|glimmora|incineroar|staraptor|whimsicott|zoroarkhisui",
+    "teamSize": 4,
+    "userId": "bibasrozkurwiator",
+    "username": "Bibas Rozkurwiator",
+  },
+  "playedAt": "2026-08-19T09:19:18.000Z",
+  "replayId": "gen9championsvgc2026regmb-2667169457",
+  "turnCount": 15,
+  "winner": "p2",
+}
+`;
