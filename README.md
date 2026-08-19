@@ -49,15 +49,44 @@ toolchain config in the root `vite.config.ts`.
 
 ## Commands
 
+`vite-plus` is a devDependency, so `vp` is not on your `PATH`. Go through the
+package scripts:
+
 ```sh
-vp install          # install dependencies
-vp run dev          # dev server with hot reload, on http://localhost:3000
-vp run build        # production build into apps/web/.output/
-vp run test:unit    # unit tests
-vp run type-check   # nuxt typecheck (vue-tsc)
-vp check            # format, lint and type-check everything
+pnpm install        # install dependencies
+pnpm dev            # dev server with hot reload, on http://localhost:3000
+pnpm build          # production build into apps/web/.output/
+pnpm test:unit      # unit tests
+pnpm type-check     # nuxt typecheck (vue-tsc)
+pnpm check          # format, lint and type-check everything
+pnpm check:fix      # …and fix what it can
 ```
 
-Go through `vp run <script>`, not the built-in `vp dev` / `vp build`. Those are
-_Vite_ commands, and `apps/web` is a Nuxt app — pointing them at it serves a 404.
-Nuxt's dev server is on port 3000, not Vite's 5173.
+For a `vp` subcommand with no script of its own, use `pnpm exec vp <args>`.
+
+Two things that bite:
+
+- Go through `vp run <script>`, not the built-in `vp dev` / `vp build`. Those are
+  _Vite_ commands, and `apps/web` is a Nuxt app — pointing them at it serves a 404. Nuxt's dev server is on port 3000, not Vite's 5173.
+- `pnpm` must match `devEngines.packageManager`. Corepack does not switch
+  versions on its own, so if it shims `pnpm` you will get a version error —
+  `corepack install -g pnpm@<version>` aligns it. The shadcn-vue CLI shells out
+  to `corepack pnpm add` internally and fails the same way.
+
+## UI and i18n
+
+Tailwind v4 through `@tailwindcss/vite`, shadcn-vue components copied into
+`apps/web/app/components/ui/` and auto-imported with a `Ui` prefix
+(`<UiButton>`), `@nuxtjs/i18n` with English as the default locale. The decisions
+and their evidence are in [ADR-0004](docs/adr/0004-tailwind-v4-through-vite-plugin.md)
+through [ADR-0007](docs/adr/0007-self-hosted-inter.md).
+
+Adding a component:
+
+```sh
+cd apps/web && pnpm dlx shadcn-vue@latest add <component>
+pnpm check:fix      # the CLI emits double quotes; the formatter wants single
+```
+
+Pokémon, move and item names are identifiers, not copy — they stay English and
+never enter the locale files.

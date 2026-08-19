@@ -1,0 +1,17 @@
+{
+  "nav": {
+    "home": "首頁",
+    "about": "關於"
+  },
+  "home": {
+    "title": "Blueberry Academy",
+    "tagline": "VGC 對戰紀錄分析。"
+  },
+  "about": {
+    "title": "關於"
+  },
+  "a11y": {
+    "toggleTheme": "切換深淺色",
+    "switchLanguage": "切換語言"
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "nav": {
+    "home": "Home",
+    "about": "About"
+  },
+  "home": {
+    "title": "Blueberry Academy",
+    "tagline": "Replay analytics for VGC."
+  },
+  "about": {
+    "title": "About"
+  },
+  "a11y": {
+    "toggleTheme": "Toggle theme",
+    "switchLanguage": "Switch language"
+  }
+}
