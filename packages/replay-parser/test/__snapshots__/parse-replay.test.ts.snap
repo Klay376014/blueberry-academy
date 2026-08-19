@@ -1,7 +1,92 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
+exports[`parseReplay > parses a real battle long enough for both sides to run their team out 1`] = `
+{
+  "endReason": null,
+  "formatId": "gen9ou",
+  "gameType": "singles",
+  "p1": {
+    "bringComplete": true,
+    "bringSignature": "glimmora|gliscor|hatterene|kingambit|sableye|serperior",
+    "teamSignature": "glimmora|gliscor|hatterene|kingambit|sableye|serperior",
+    "teamSize": 6,
+    "userId": "peterstoric",
+    "username": "Peterstoric",
+  },
+  "p2": {
+    "bringComplete": false,
+    "bringSignature": "darkrai|greattusk|heatran|ironvaliant|landorustherian",
+    "teamSignature": "darkrai|glastrier|greattusk|heatran|ironvaliant|landorustherian",
+    "teamSize": 6,
+    "userId": "gxg22",
+    "username": "GXG22",
+  },
+  "playedAt": "2026-08-19T15:29:39.000Z",
+  "replayId": "gen9ou-2667299955",
+  "turnCount": 31,
+  "winner": "p2",
+}
+`;
+
+exports[`parseReplay > parses a real drawn battle as a tie rather than an undecided one 1`] = `
+{
+  "endReason": null,
+  "formatId": "gen9ou",
+  "gameType": "singles",
+  "p1": {
+    "bringComplete": true,
+    "bringSignature": "blissey|clodsire|corviknight|dondozo|gliscor|toxapex",
+    "teamSignature": "blissey|clodsire|corviknight|dondozo|gliscor|toxapex",
+    "teamSize": 6,
+    "userId": "soccerfan123",
+    "username": "soccer fan 123",
+  },
+  "p2": {
+    "bringComplete": true,
+    "bringSignature": "blissey|clodsire|corviknight|dondozo|gliscor|toxapex",
+    "teamSignature": "blissey|clodsire|corviknight|dondozo|gliscor|toxapex",
+    "teamSize": 6,
+    "userId": "lt133rhlaro",
+    "username": "LT133RH Laro",
+  },
+  "playedAt": "2026-08-19T15:08:02.000Z",
+  "replayId": "gen9ou-2667293085",
+  "turnCount": 100,
+  "winner": "tie",
+}
+`;
+
+exports[`parseReplay > parses a real forfeited battle, won by the side that did not give up 1`] = `
+{
+  "endReason": "forfeit",
+  "formatId": "gen9championsvgc2026regmb",
+  "gameType": "doubles",
+  "p1": {
+    "bringComplete": true,
+    "bringSignature": "delphox|garchomp|glimmora|whimsicott",
+    "teamSignature": "delphox|garchomp|glimmora|kingambit|staraptor|whimsicott",
+    "teamSize": 4,
+    "userId": "rodioromanovich",
+    "username": "rodio romanovich",
+  },
+  "p2": {
+    "bringComplete": true,
+    "bringSignature": "basculegion|blaziken|ninetalesalola|sneasler",
+    "teamSignature": "basculegion|blaziken|kingambit|ninetalesalola|sinistcha|sneasler",
+    "teamSize": 4,
+    "userId": "reallyunlucky",
+    "username": "Really Unlucky",
+  },
+  "playedAt": "2026-08-19T15:32:14.000Z",
+  "replayId": "gen9championsvgc2026regmb-2667301751",
+  "turnCount": 7,
+  "winner": "p1",
+}
+`;
+
 exports[`parseReplay > parses a real ladder Bo1 replay 1`] = `
 {
+  "endReason": null,
   "formatId": "gen9championsvgc2026regmb",
   "gameType": "doubles",
   "p1": {
@@ -23,6 +108,34 @@ exports[`parseReplay > parses a real ladder Bo1 replay 1`] = `
   "playedAt": "2026-08-19T09:19:18.000Z",
   "replayId": "gen9championsvgc2026regmb-2667169457",
   "turnCount": 15,
+  "winner": "p2",
+}
+`;
+
+exports[`parseReplay > parses a real singles battle, where a side has one field position 1`] = `
+{
+  "endReason": null,
+  "formatId": "gen9ou",
+  "gameType": "singles",
+  "p1": {
+    "bringComplete": true,
+    "bringSignature": "dondozo|dragonite|garganacl|hatterene|ironmoth|slowkinggalar",
+    "teamSignature": "dondozo|dragonite|garganacl|hatterene|ironmoth|slowkinggalar",
+    "teamSize": 6,
+    "userId": "antonlikesmen",
+    "username": "AntonLikesmen",
+  },
+  "p2": {
+    "bringComplete": false,
+    "bringSignature": "darkrai|heatran",
+    "teamSignature": "darkrai|glastrier|greattusk|heatran|ironvaliant|landorustherian",
+    "teamSize": 6,
+    "userId": "gxg22",
+    "username": "GXG22",
+  },
+  "playedAt": "2026-08-19T15:17:23.000Z",
+  "replayId": "gen9ou-2667296078",
+  "turnCount": 12,
   "winner": "p2",
 }
 `;
