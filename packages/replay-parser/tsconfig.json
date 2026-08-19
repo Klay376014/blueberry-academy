@@ -1,0 +1,14 @@
+// The parser is plain TypeScript with no DOM and no framework: it must stay a
+// pure function so it can be tested from fixtures alone.
+{
+  "extends": "@tsconfig/node24/tsconfig.json",
+  "include": ["src/**/*.ts", "test/**/*.ts"],
+  "compilerOptions": {
+    "module": "preserve",
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+    "types": [],
+    "noEmit": true,
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.tsbuildinfo"
+  }
+}
