@@ -4,6 +4,7 @@ packages:
 
 allowBuilds:
   esbuild: true
+  vue-demi: true
 
 catalog:
   '@tsconfig/node24': ^24.0.4
