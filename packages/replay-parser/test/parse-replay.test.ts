@@ -1,12 +1,30 @@
 import { describe, expect, it } from 'vite-plus/test'
 import { parseReplay } from '../src/index'
-import type { ReplayMeta } from '../src/index'
+import type { ParsedBattle, ReplayMeta } from '../src/index'
 import fixture from './fixtures/gen9championsvgc2026regmb-2667169457.json'
+import forfeitFixture from './fixtures/gen9championsvgc2026regmb-2667301751.json'
+import tieFixture from './fixtures/gen9ou-2667293085.json'
+import singlesFixture from './fixtures/gen9ou-2667296078.json'
+import longFixture from './fixtures/gen9ou-2667299955.json'
 
 const META: ReplayMeta = {
   replayId: 'gen9test-1',
   formatId: 'gen9championsvgc2026regmb',
   uploadTime: 1787131158,
+}
+
+/** A stored replay, parsed with the metadata its own JSON carries. */
+function parseFixture(replay: {
+  log: string
+  id: string
+  formatid: string
+  uploadtime: number
+}): ParsedBattle {
+  return parseReplay(replay.log, {
+    replayId: replay.id,
+    formatId: replay.formatid,
+    uploadTime: replay.uploadtime,
+  })
 }
 
 interface LadderLog {
@@ -111,6 +129,26 @@ describe('parseReplay', () => {
     expect(battle.p1.bringSignature).toBe('scrafty|toxapex')
   })
 
+  it('reduces a Primal forme to its base species without a |-mega| line to lean on', () => {
+    // Primal reversion changes the species and emits no |-mega|, so a parser
+    // that read the base species off |-mega| would count Groudon twice.
+    const battle = parseReplay(
+      log({
+        p1Team: ['Scrafty, L50, F', 'Toxapex, L50, M', 'Groudon, L50'],
+        lines: [
+          '|switch|p1b: Groudon|Groudon, L50|100/100',
+          '|detailschange|p1b: Groudon|Groudon-Primal, L50',
+          '|switch|p1b: Toxapex|Toxapex, L50, M|100/100',
+          '|switch|p1b: Groudon|Groudon-Primal, L50|80/100',
+          '|win|Alice',
+        ],
+      }),
+      META,
+    )
+
+    expect(battle.p1.bringSignature).toBe('groudon|scrafty|toxapex')
+  })
+
   it('counts a Pokémon into the bring the first time it appears', () => {
     const battle = parseReplay(
       log({ lines: ['|switch|p1b: Toxapex|Toxapex, L50, M|100/100', '|win|Alice'] }),
@@ -144,6 +182,57 @@ describe('parseReplay', () => {
     )
 
     expect(battle.p2.bringSignature).toContain('zoroarkhisui')
+  })
+
+  it('takes the borrowed name back out of the bring when an Illusion drops', () => {
+    // The opening |switch| said Whimsicott, but |replace| says that appearance
+    // was Zoroark all along. Whimsicott was never on the field, so counting it
+    // would inflate the bring by a Pokémon that never came out.
+    const battle = parseReplay(
+      log({
+        p2Team: ['Whimsicott, L50, M', 'Zoroark-Hisui, L50, M'],
+        lines: ['|replace|p2a: Zoroark|Zoroark-Hisui, L50, M', '|win|Alice'],
+      }),
+      META,
+    )
+
+    expect(battle.p2.bringSignature).toBe('zoroarkhisui')
+  })
+
+  it('keeps a borrowed name that had already appeared for real before the Illusion', () => {
+    // Whimsicott opened the battle itself, so the name is in the bring on its
+    // own merit; the later Illusion wearing it must not retract that.
+    const battle = parseReplay(
+      log({
+        p2Team: ['Whimsicott, L50, M', 'Gholdengo, L50', 'Zoroark-Hisui, L50, M'],
+        p2TeamSize: 3,
+        lines: [
+          '|switch|p2a: Gholdengo|Gholdengo, L50|100/100',
+          '|switch|p2a: Whimsicott|Whimsicott, L50, M|100/100',
+          '|replace|p2a: Zoroark|Zoroark-Hisui, L50, M',
+          '|win|Alice',
+        ],
+      }),
+      META,
+    )
+
+    expect(battle.p2.bringSignature).toBe('gholdengo|whimsicott|zoroarkhisui')
+  })
+
+  it('counts the borrowed name again if that Pokémon really appears after the Illusion drops', () => {
+    const battle = parseReplay(
+      log({
+        p2Team: ['Whimsicott, L50, M', 'Zoroark-Hisui, L50, M'],
+        lines: [
+          '|replace|p2a: Zoroark|Zoroark-Hisui, L50, M',
+          '|switch|p2a: Whimsicott|Whimsicott, L50, M|100/100',
+          '|win|Alice',
+        ],
+      }),
+      META,
+    )
+
+    expect(battle.p2.bringSignature).toBe('whimsicott|zoroarkhisui')
   })
 
   it('marks the bring complete only when as many Pokémon appeared as the team size says were picked', () => {
@@ -181,6 +270,21 @@ describe('parseReplay', () => {
     expect(battle.winner).toBeNull()
   })
 
+  it('reads a forfeit off the free-text message Showdown sends before the win', () => {
+    // There is no protocol line for forfeiting; the only trace is this English
+    // sentence, and |win| looks exactly like a battle that was played out.
+    const battle = parseReplay(log({ lines: ['|-message|Bob forfeited.', '|win|Alice'] }), META)
+
+    expect(battle.endReason).toBe('forfeit')
+    expect(battle.winner).toBe('p1')
+  })
+
+  it('leaves the end reason unset when the battle was played out', () => {
+    const battle = parseReplay(log({ lines: ['|win|Alice'] }), META)
+
+    expect(battle.endReason).toBe(null)
+  })
+
   it('counts the turns the battle lasted', () => {
     const battle = parseReplay(log({ lines: ['|turn|2', '|turn|3', '|win|Alice'] }), META)
 
@@ -188,12 +292,41 @@ describe('parseReplay', () => {
   })
 
   it('parses a real ladder Bo1 replay', () => {
-    const battle = parseReplay(fixture.log, {
-      replayId: fixture.id,
-      formatId: fixture.formatid,
-      uploadTime: fixture.uploadtime,
-    })
+    expect(parseFixture(fixture)).toMatchSnapshot()
+  })
 
+  it('parses a real forfeited battle, won by the side that did not give up', () => {
+    const battle = parseFixture(forfeitFixture)
+
+    expect(battle.endReason).toBe('forfeit')
+    expect(battle.winner).toBe('p1')
+    expect(battle.p2.username).toBe('Really Unlucky')
+    expect(battle).toMatchSnapshot()
+  })
+
+  it('parses a real drawn battle as a tie rather than an undecided one', () => {
+    const battle = parseFixture(tieFixture)
+
+    expect(battle.winner).toBe('tie')
+    expect(battle.endReason).toBe(null)
+    expect(battle).toMatchSnapshot()
+  })
+
+  it('parses a real singles battle, where a side has one field position', () => {
+    const battle = parseFixture(singlesFixture)
+
+    expect(battle.gameType).toBe('singles')
+    expect(battle.winner).toBe('p2')
+    expect(battle).toMatchSnapshot()
+  })
+
+  it('parses a real battle long enough for both sides to run their team out', () => {
+    // 31 turns. Of 408 public Champions doubles replays scanned, none passed 20
+    // turns, so the long-game case can only come from singles.
+    const battle = parseFixture(longFixture)
+
+    expect(battle.turnCount).toBe(31)
+    expect(battle.p1.bringComplete).toBe(true)
     expect(battle).toMatchSnapshot()
   })
 })

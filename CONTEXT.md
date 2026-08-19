@@ -44,7 +44,7 @@ VGC 玩家最在意的往往是 bring 而非 team —— 同一支隊對上不�
 - `team_signature` — 登錄 6 隻
 - `bring_signature` — 實際選出 4 隻
 
-計算簽章時必須把 Mega 型態還原成 base species（見下方「Base species」）。
+計算簽章時必須把 Mega 與 Primal 型態還原成 base species（見下方「Base species」）。
 
 ## 隊伍的同一性
 
@@ -96,7 +96,9 @@ Supabase Storage。它是**唯一的真實來源**，解析結果一律視為可
 **Base species**
 還原掉型態變化後的物種。`detailschange` 會把 `Floette-Eternal` 變成 `Floette-Mega`；
 若不還原，同一隻寶可夢會在簽章中被算成兩隻。太晶化不改變 species，但 Mega、
-Primal、型態切換都會。
+Primal、型態切換都會。解析器目前只還原 Mega 與 Primal，其餘對戰限定型態
+（`Palafin-Hero`、`Terapagos-Terastal` 等）仍會被算成兩隻 —— 見
+`packages/replay-parser/README.md` 的已知限制。
 
 **Parser version**
 `battles.parser_version` 記錄該列是由哪一版解析器產生。解析器改版後，用

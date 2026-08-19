@@ -18,16 +18,36 @@ src/protocol.ts    line-level tokenizer for the Showdown protocol
 src/species.ts     identity normalisation and base species
 src/replay.ts      replays a tokenized log into battle state
 src/summarize.ts   battle state + replay metadata → ParsedBattle
-test/fixtures/     real replays, fetched from Showdown and stored verbatim
+test/fixtures/     real replays, fetched from Showdown and stored verbatim (see below)
 ```
 
-## Known limitation
+## Known limitations
 
-A Pokémon that switches in under Illusion is recorded in the bring under the name it
-was wearing, and the `|replace|` line that reveals it adds the real one. The bring is
-therefore right only when the Pokémon whose name was borrowed also appears for real —
-which it does in the fixture. Correcting the false entry needs the parser to know which
-appearance the Illusion covered, and is left for the forme and edge-case work in #5.
+**An Illusion that never drops.** `|replace|` is what reveals the Pokémon behind an
+Illusion, and the borrowed name is taken back out of the bring when it arrives. A
+battle that ends with the Illusion still up sends no `|replace|` at all, so the log
+never says who was really on the field and the bring keeps the borrowed name. Nothing
+in the protocol makes this recoverable.
 
-Fixtures are public replays (`private: 0`), so neither their names nor their contents
-carry a replay password.
+**Battle-only formes other than Mega and Primal.** `baseSpeciesId` undoes `-Mega` and
+`-Primal` from the species name. Showdown has 126 numbered battle-only formes and that
+covers 96 of them; the rest — `Palafin-Hero`, `Terapagos-Terastal`, `Ogerpon-*-Tera`,
+`Zacian-Crowned`, `Aegislash-Blade`, `Darmanitan-Zen` and friends — still count as a
+second Pokémon in a signature. Several are current-generation staples, so this is a
+real gap rather than a theoretical one. A suffix regex is the wrong shape for the fix:
+the mapping lives in Showdown's own data as `species.battleOnly`, and belongs in a
+table generated at build time so this package keeps its empty `dependencies`.
+
+## Fixtures
+
+Real replays, fetched from Showdown and stored with their metadata intact. All of them
+are public (`private: 0`, `password: null`), so neither their names nor their contents
+carry a replay password — `test/package.test.ts` fails if a private one is ever added.
+
+| Fixture                                | What it is there for                                                                       |
+| -------------------------------------- | ------------------------------------------------------------------------------------------ |
+| `gen9championsvgc2026regmb-2667169457` | A ladder Bo1: Mega, a regional forme, an Illusion, and both sides holding the same Pokémon |
+| `gen9championsvgc2026regmb-2667301751` | A forfeit, which the protocol only reports as free text                                    |
+| `gen9ou-2667293085`                    | A tie — 100 turns of two identical stall teams                                             |
+| `gen9ou-2667296078`                    | Singles, where a side has one field position                                               |
+| `gen9ou-2667299955`                    | 31 turns; of 408 public Champions doubles replays scanned, none passed 20                  |

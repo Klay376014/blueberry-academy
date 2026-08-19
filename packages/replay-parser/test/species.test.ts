@@ -33,6 +33,13 @@ describe('baseSpeciesId', () => {
     expect(baseSpeciesId('Glimmora-Mega')).toBe('glimmora')
   })
 
+  it('reduces a Primal forme to the species it reverted from', () => {
+    // Primal reversion is the same kind of in-battle state change as Mega, and
+    // it arrives with no |-mega| line to cross-check against.
+    expect(baseSpeciesId('Groudon-Primal')).toBe('groudon')
+    expect(baseSpeciesId('Kyogre-Primal')).toBe('kyogre')
+  })
+
   it('keeps a regional forme, which is a different Pokémon', () => {
     expect(baseSpeciesId('Ninetales-Alola')).toBe('ninetalesalola')
   })

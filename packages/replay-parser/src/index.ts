@@ -4,7 +4,7 @@ import { summarize } from './summarize'
 
 export type { ProtocolLine } from './protocol'
 export type { SideId } from './replay'
-export type { ParsedBattle, ParsedSide, ReplayMeta } from './summarize'
+export type { EndReason, ParsedBattle, ParsedSide, ReplayMeta } from './summarize'
 
 import type { ParsedBattle, ReplayMeta } from './summarize'
 

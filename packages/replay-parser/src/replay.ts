@@ -24,6 +24,8 @@ export interface BattleState {
   /** The name Showdown declared the winner, still un-normalised. */
   winnerUsername: string | null
   tie: boolean
+  /** Whether a side gave up rather than played the battle out. */
+  forfeited: boolean
 }
 
 /** Replays a tokenized log, accumulating the facts a `ParsedBattle` is built from. */
@@ -34,7 +36,17 @@ export function replayLog(lines: ProtocolLine[]): BattleState {
     turnCount: 0,
     winnerUsername: null,
     tie: false,
+    forfeited: false,
   }
+
+  /**
+   * What the latest appearance at each field position added to the bring.
+   * |replace| means that appearance was an Illusion wearing another Pokémon's
+   * name, so the borrowed name has to come back out — but only if that
+   * appearance is what introduced it. A name the side had already shown for
+   * real stands on its own.
+   */
+  const latestAppearance = new Map<string, { species: string; introduced: boolean }>()
 
   for (const { type, args } of lines) {
     switch (type) {
@@ -70,16 +82,27 @@ export function replayLog(lines: ProtocolLine[]): BattleState {
       case 'switch':
       case 'drag':
       case 'replace': {
-        // Any of the three is a Pokémon showing itself for the first time,
-        // which is what makes it part of the bring. |replace| is Illusion
-        // dropping: the |switch| before it named another Pokémon, and that
-        // name stays in the bring — see the note in the package README.
         const side = sideOf(args[0])
         if (!side) break
         const species = baseSpeciesId(speciesOfDetails(args[1] ?? ''))
-        if (species !== '' && !state.sides[side].bring.includes(species)) {
-          state.sides[side].bring.push(species)
+        if (species === '') break
+        const position = positionOf(args[0])
+        const bring = state.sides[side].bring
+
+        if (type === 'replace') {
+          const borrowed = latestAppearance.get(position)
+          if (borrowed?.introduced === true) {
+            const at = bring.indexOf(borrowed.species)
+            if (at !== -1) bring.splice(at, 1)
+          }
         }
+
+        // A Pokémon that reappears later is already in the bring, so nothing is
+        // added — which is also how a retracted name gets counted again once it
+        // really comes out.
+        const introduced = !bring.includes(species)
+        if (introduced) bring.push(species)
+        latestAppearance.set(position, { species, introduced })
         break
       }
 
@@ -96,6 +119,12 @@ export function replayLog(lines: ProtocolLine[]): BattleState {
       case 'tie':
         state.tie = true
         break
+
+      case '-message':
+        // Forfeiting has no protocol line of its own: Showdown says so in this
+        // English sentence and then sends a |win| like any other battle.
+        if (args[0]?.endsWith(' forfeited.') === true) state.forfeited = true
+        break
     }
   }
 
@@ -104,6 +133,15 @@ export function replayLog(lines: ProtocolLine[]): BattleState {
 
 function emptySide(): SideState {
   return { username: '', teamSize: null, team: [], bring: [] }
+}
+
+/**
+ * The field position a protocol argument names (`p1a` out of `p1a: Scrafty`).
+ * A position is what an Illusion is worn at, so it is what the borrowed name
+ * has to be remembered against.
+ */
+function positionOf(arg: string | undefined): string {
+  return arg?.split(':')[0]?.trim() ?? ''
 }
 
 /**

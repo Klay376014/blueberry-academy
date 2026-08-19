@@ -25,6 +25,9 @@ export interface ParsedSide {
   bringComplete: boolean
 }
 
+/** Why a battle ended, when the log says something beyond who won. */
+export type EndReason = 'forfeit'
+
 /**
  * A parsed battle, described from neither side's point of view. Which side is
  * "me" is resolved when the battle is written to the database, so one parse
@@ -39,6 +42,8 @@ export interface ParsedBattle {
   turnCount: number
   /** The winning side, `tie` for a draw, or null when the log declared neither. */
   winner: SideId | 'tie' | null
+  /** Why the battle ended, or null when it was simply played out. */
+  endReason: EndReason | null
   p1: ParsedSide
   p2: ParsedSide
 }
@@ -55,6 +60,7 @@ export function summarize(state: BattleState, meta: ReplayMeta): ParsedBattle {
     gameType: state.gameType,
     turnCount: state.turnCount,
     winner: state.tie ? 'tie' : sideOfUsername(state.winnerUsername, p1, p2),
+    endReason: state.forfeited ? 'forfeit' : null,
     p1,
     p2,
   }
