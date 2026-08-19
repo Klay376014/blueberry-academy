@@ -13,8 +13,8 @@ export interface SideState {
   teamSize: number | null
   /** Base species ids of the registered team, in `|poke|` order. */
   team: string[]
-  /** Base species ids that appeared on the field, in first-appearance order. */
-  appeared: string[]
+  /** The bring: base species ids that appeared, in first-appearance order. */
+  bring: string[]
 }
 
 export interface BattleState {
@@ -71,12 +71,14 @@ export function replayLog(lines: ProtocolLine[]): BattleState {
       case 'drag':
       case 'replace': {
         // Any of the three is a Pokémon showing itself for the first time,
-        // which is what makes it part of the bring.
+        // which is what makes it part of the bring. |replace| is Illusion
+        // dropping: the |switch| before it named another Pokémon, and that
+        // name stays in the bring — see the note in the package README.
         const side = sideOf(args[0])
         if (!side) break
         const species = baseSpeciesId(speciesOfDetails(args[1] ?? ''))
-        if (species !== '' && !state.sides[side].appeared.includes(species)) {
-          state.sides[side].appeared.push(species)
+        if (species !== '' && !state.sides[side].bring.includes(species)) {
+          state.sides[side].bring.push(species)
         }
         break
       }
@@ -101,7 +103,7 @@ export function replayLog(lines: ProtocolLine[]): BattleState {
 }
 
 function emptySide(): SideState {
-  return { username: '', teamSize: null, team: [], appeared: [] }
+  return { username: '', teamSize: null, team: [], bring: [] }
 }
 
 /**

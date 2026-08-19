@@ -1,10 +1,11 @@
 /**
  * Species and identity normalisation.
  *
- * Signatures are built from base species ids, so anything that changes a
- * Pokémon's species mid-battle has to be undone first — otherwise one Pokémon
- * is counted twice. Regional formes are *not* undone: Ninetales-Alola is a
- * different Pokémon from Ninetales, not a temporary state of it.
+ * Signatures are built from base species ids, so a species change mid-battle
+ * has to be undone first — otherwise one Pokémon is counted twice. Mega
+ * evolution is undone here; Primal reversion and the other forme changes land
+ * with the rest of the forme work in #5. Regional formes are *not* undone:
+ * Ninetales-Alola is a different Pokémon from Ninetales, not a state of it.
  */
 
 /**

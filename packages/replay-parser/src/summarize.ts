@@ -37,8 +37,8 @@ export interface ParsedBattle {
   playedAt: string
   gameType: string
   turnCount: number
-  /** The winning side, or null for a tie. */
-  winner: SideId | null
+  /** The winning side, `tie` for a draw, or null when the log declared neither. */
+  winner: SideId | 'tie' | null
   p1: ParsedSide
   p2: ParsedSide
 }
@@ -54,7 +54,7 @@ export function summarize(state: BattleState, meta: ReplayMeta): ParsedBattle {
     playedAt: new Date(meta.uploadTime * 1000).toISOString(),
     gameType: state.gameType,
     turnCount: state.turnCount,
-    winner: winnerSide(state, [p1, p2]),
+    winner: state.tie ? 'tie' : sideOfUsername(state.winnerUsername, p1, p2),
     p1,
     p2,
   }
@@ -66,8 +66,10 @@ function summarizeSide(side: SideState): ParsedSide {
     userId: toID(side.username),
     teamSize: side.teamSize,
     teamSignature: signatureOf(side.team),
-    bringSignature: signatureOf(side.appeared),
-    bringComplete: side.appeared.length === side.teamSize,
+    bringSignature: signatureOf(side.bring),
+    // teamSize is null when the log carried no |teamsize|; the bring cannot be
+    // known complete then, only observed.
+    bringComplete: side.teamSize !== null && side.bring.length === side.teamSize,
   }
 }
 
@@ -76,12 +78,13 @@ function signatureOf(speciesIds: string[]): string {
   return [...speciesIds].sort().join('|')
 }
 
-function winnerSide(state: BattleState, sides: [ParsedSide, ParsedSide]): SideId | null {
-  if (state.tie || state.winnerUsername === null) return null
+/** The side a Showdown name belongs to, compared as normalised user ids. */
+function sideOfUsername(username: string | null, p1: ParsedSide, p2: ParsedSide): SideId | null {
+  if (username === null) return null
 
-  const winnerId = toID(state.winnerUsername)
-  const [p1, p2] = sides
-  if (winnerId !== '' && winnerId === p1.userId) return 'p1'
-  if (winnerId !== '' && winnerId === p2.userId) return 'p2'
+  const userId = toID(username)
+  if (userId === '') return null
+  if (userId === p1.userId) return 'p1'
+  if (userId === p2.userId) return 'p2'
   return null
 }

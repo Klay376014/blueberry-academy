@@ -17,18 +17,9 @@ export interface ProtocolLine {
 const FREE_TEXT_TYPES = new Map([
   ['c', 1], // |c|<user>|<message>
   ['c:', 2], // |c:|<timestamp>|<user>|<message>
-  ['chat', 1],
   ['-message', 0],
-  ['bigerror', 0],
-  ['error', 0],
-  ['html', 0],
-  ['inactive', 0],
-  ['inactiveoff', 0],
-  ['message', 0],
-  ['popup', 0],
   ['raw', 0],
   ['uhtml', 1], // |uhtml|<name>|<html>
-  ['uhtmlchange', 1],
 ])
 
 /** Tokenizes a raw replay log. Empty lines are dropped; nothing else is. */
