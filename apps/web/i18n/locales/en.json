@@ -2,7 +2,8 @@
   "nav": {
     "home": "Home",
     "about": "About",
-    "signOut": "Sign out"
+    "signOut": "Sign out",
+    "settings": "Settings"
   },
   "home": {
     "title": "Blueberry Academy",
@@ -22,5 +23,23 @@
     "completing": "Signing you in…",
     "failed": "That sign-in did not go through.",
     "retry": "Try again"
+  },
+  "settings": {
+    "title": "Settings",
+    "aliases": {
+      "title": "Showdown names",
+      "tagline": "Add every name you play under and they all count as the same you — after a rename, on an alt, on a separate account for a different format.",
+      "unverified": "We cannot verify that a Showdown account is yours, and neither can anyone else: Showdown has no way for another site to check. These names only decide which of the battles you import are treated as your own — they grant nothing, and the same name may be on more than one person’s list.",
+      "label": "Showdown name",
+      "placeholder": "NotLittleStar",
+      "bind": "Add name",
+      "remove": "Remove {name}",
+      "removeShort": "Remove",
+      "empty": "No names yet. Add the one you play under.",
+      "alreadyBound": "{name} is already on your list. Names are compared without case or punctuation, so NotLittleStar and notlittlestar are the same name.",
+      "unusable": "That is not a Showdown name — it needs at least one letter or digit.",
+      "loadFailed": "We could not read your names, so nothing can be changed here right now. Reload the page to try again.",
+      "failed": "That change did not save."
+    }
   }
 }

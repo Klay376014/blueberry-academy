@@ -4,6 +4,10 @@ import { summarize } from './summarize'
 import { buildTimeline } from './timeline'
 
 export { PARSER_VERSION } from './version'
+// Identity normalisation, exported because the app compares Showdown names
+// too: an alias list is only "the same me" if both sides normalise the same
+// way. See CONTEXT.md, "身分".
+export { toID } from './species'
 export type { ProtocolLine } from './protocol'
 export type { SideId } from './replay'
 export type { EndReason, ParsedBattle, ParsedSide, ReplayMeta } from './summarize'
