@@ -1,7 +1,8 @@
 {
   "nav": {
     "home": "Home",
-    "about": "About"
+    "about": "About",
+    "signOut": "Sign out"
   },
   "home": {
     "title": "Blueberry Academy",
@@ -13,5 +14,13 @@
   "a11y": {
     "toggleTheme": "Toggle theme",
     "switchLanguage": "Switch language"
+  },
+  "login": {
+    "title": "Sign in",
+    "tagline": "Google only — there is no password to forget.",
+    "google": "Continue with Google",
+    "completing": "Signing you in…",
+    "failed": "That sign-in did not go through.",
+    "retry": "Try again"
   }
 }

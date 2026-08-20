@@ -38,6 +38,11 @@ __screenshots__/
 # Vite
 *.timestamp-*-*.mjs
 
+# Env — the anon key is public, but .env also holds the Google OAuth secret
+.env
+.env.*
+!.env.example
+
 # Nuxt
 .nuxt
 .output

@@ -13,6 +13,17 @@ export default defineNuxtConfig({
 
   css: ['~/assets/tailwind.css'],
 
+  // Both are public by design: the browser is the only thing that talks to
+  // Supabase (see the design document §3), and the anon key is safe there
+  // because RLS is what actually guards the data. Set them through
+  // NUXT_PUBLIC_SUPABASE_URL / NUXT_PUBLIC_SUPABASE_ANON_KEY; see .env.example.
+  runtimeConfig: {
+    public: {
+      supabaseUrl: '',
+      supabaseAnonKey: '',
+    },
+  },
+
   // @pinia/nuxt: Pinia was registered by hand in the old src/main.ts; the
   // module keeps that capability wired up now that the entry file is gone.
   // @nuxt/fonts: self-hosts Inter, see docs/adr/0007-self-hosted-inter.md.

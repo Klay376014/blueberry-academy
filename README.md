@@ -98,6 +98,37 @@ covers what `regulation` derives, what the unique key refuses, and — as two
 actual users under RLS — that neither can read, write or delete anything of the
 other's, in the database or in the `replay-logs` bucket.
 
+## Authentication
+
+Google only — there is no password sign-in, in the UI or in the project
+(`[auth.email] enable_signup = false`). Signing up creates the `profiles` row
+through a database trigger, so the alias list always has somewhere to go. Every
+route is behind the login except `/login`, `/auth/callback` and `/about`; the
+allowlist is in `app/middleware/auth.global.ts` and a new page is protected by
+default. The reasoning for hand-wiring the client instead of using
+`@nuxtjs/supabase` is in
+[ADR-0009](docs/adr/0009-supabase-client-without-the-nuxt-module.md).
+
+To sign in locally you need Google OAuth credentials of your own:
+
+1. In Google Cloud console, create an OAuth 2.0 Client ID (type: Web
+   application) and add `http://127.0.0.1:54321/auth/v1/callback` as an
+   authorised redirect URI.
+2. Export the pair before `pnpm db:start`, so that the local Supabase reads them:
+
+   ```sh
+   export SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID="…"
+   export SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET="…"
+   ```
+
+   Left unset, the stack still starts — the Google button just fails at Google.
+
+3. Copy `apps/web/.env.example` to `apps/web/.env` and fill in the anon key that
+   `pnpm db:start` printed.
+
+For the hosted project the same two values go in Supabase's Auth settings, with
+the redirect URI pointing at that project instead.
+
 ## UI and i18n
 
 Tailwind v4 through `@tailwindcss/vite`, shadcn-vue components copied into

@@ -7,16 +7,34 @@ begin;
 
 create extension if not exists pgtap;
 
-select plan(14);
+select plan(17);
 
 -- Two users who have never met.
 insert into auth.users (id, email) values
   ('11111111-1111-1111-1111-111111111111', 'one@example.test'),
   ('22222222-2222-2222-2222-222222222222', 'two@example.test');
 
-insert into public.profiles (id, showdown_usernames) values
-  ('11111111-1111-1111-1111-111111111111', array['NotLittleStar']),
-  ('22222222-2222-2222-2222-222222222222', array['SomeoneElse']);
+-- Nothing inserts into profiles here: signing up is what creates the row.
+select is(
+  (select count(*)::int from public.profiles
+   where id in (
+     '11111111-1111-1111-1111-111111111111',
+     '22222222-2222-2222-2222-222222222222'
+   )),
+  2,
+  'signing up creates the profile the alias list will be written to'
+);
+select is(
+  (select showdown_usernames from public.profiles
+   where id = '11111111-1111-1111-1111-111111111111'),
+  '{}'::text[],
+  'a fresh profile starts with no Showdown aliases'
+);
+
+update public.profiles set showdown_usernames = array['NotLittleStar']
+  where id = '11111111-1111-1111-1111-111111111111';
+update public.profiles set showdown_usernames = array['SomeoneElse']
+  where id = '22222222-2222-2222-2222-222222222222';
 
 insert into public.battles (user_id, replay_id, played_at, format_id, bring_complete) values
   ('11111111-1111-1111-1111-111111111111', 'gen9championsvgc2026regmbbo3-1', now(), 'gen9championsvgc2026regmbbo3', true),
@@ -102,6 +120,18 @@ select lives_ok(
     values ('11111111-1111-1111-1111-111111111111', 'mine', now(), 'gen9vgc2026regj', false)$$,
   'a user can write a battle onto themselves'
 );
+
+-- the profile's lifetime follows the auth user's -------------------------
+
+reset role;
+delete from auth.users where id = '22222222-2222-2222-2222-222222222222';
+select is(
+  (select count(*)::int from public.profiles
+   where id = '22222222-2222-2222-2222-222222222222'),
+  0,
+  'deleting the auth user takes the profile with it'
+);
+set local role authenticated;
 
 -- storage, isolated by the leading path segment ----------------------------
 
