@@ -32,6 +32,13 @@ function toggleTheme() {
       >
         {{ t('nav.about') }}
       </NuxtLink>
+      <NuxtLink
+        v-if="user"
+        :to="localePath('/settings')"
+        class="rounded-md px-2 py-1 text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground [&.router-link-exact-active]:text-foreground"
+      >
+        {{ t('nav.settings') }}
+      </NuxtLink>
     </nav>
 
     <div class="flex items-center gap-2">

@@ -32,8 +32,19 @@ export default defineNuxtPlugin(async () => {
   const { data } = await client.auth.getSession()
   user.value = data.session?.user ?? null
 
+  const aliases = useShowdownAliases()
+
   client.auth.onAuthStateChange((_event, session) => {
-    user.value = session?.user ?? null
+    const next = session?.user ?? null
+
+    // Anybody but the same person still being signed in means the alias list
+    // in memory belongs to somebody else. The app is ssr: false, so signing
+    // out and signing in again happens without the page ever reloading --
+    // left alone, one user's names would be on the next user's screen, and
+    // could be written into their profile.
+    if (next?.id !== user.value?.id) aliases.value = null
+
+    user.value = next
   })
 
   return { provide: { supabase: client } }

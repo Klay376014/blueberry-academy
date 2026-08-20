@@ -40,6 +40,7 @@ async function bootPlugin() {
 describe('the Supabase plugin', () => {
   beforeEach(() => {
     useCurrentUser().value = null
+    useShowdownAliases().value = null
     supabaseAuth.getSession.mockResolvedValue({ data: { session: null } })
     supabaseAuth.onAuthStateChange.mockReset()
   })
@@ -55,6 +56,20 @@ describe('the Supabase plugin', () => {
     // after the plugins, and a session that has not landed yet is
     // indistinguishable from being signed out.
     expect(useCurrentUser().value).toMatchObject({ id: 'stored' })
+  })
+
+  it("drops one user's Showdown names when somebody else signs in", async () => {
+    await bootPlugin()
+    const aliases = useShowdownAliases()
+    aliases.value = ['NotLittleStar']
+
+    const onChange = supabaseAuth.onAuthStateChange.mock.calls[0]?.[0]
+    onChange('SIGNED_IN', { user: { id: 'somebody-else' } })
+
+    // ssr: false, so signing out and in again never reloads the page. Left
+    // alone, the first user's names would be on the second user's screen --
+    // and could be written into their profile.
+    expect(aliases.value).toBeNull()
   })
 
   it('follows the session as it changes', async () => {

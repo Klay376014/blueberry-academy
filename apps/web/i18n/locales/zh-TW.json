@@ -2,7 +2,8 @@
   "nav": {
     "home": "首頁",
     "about": "關於",
-    "signOut": "登出"
+    "signOut": "登出",
+    "settings": "設定"
   },
   "home": {
     "title": "Blueberry Academy",
@@ -22,5 +23,23 @@
     "completing": "正在完成登入…",
     "failed": "這次登入沒有成功。",
     "retry": "再試一次"
+  },
+  "settings": {
+    "title": "設定",
+    "aliases": {
+      "title": "Showdown 名稱",
+      "tagline": "把你用過的名稱都加進來，它們全部算同一個你 —— 改名後的、小號、不同賽制用的另一個帳號。",
+      "unverified": "我們無法驗證某個 Showdown 帳號是不是你的，任何人都不行：Showdown 沒有提供讓其他網站確認的方式。這份清單只用來判斷你匯入的對戰哪些算是你自己的 —— 它不給你任何權限，同一個名稱也可能出現在別人的清單裡。",
+      "label": "Showdown 名稱",
+      "placeholder": "NotLittleStar",
+      "bind": "新增名稱",
+      "remove": "移除 {name}",
+      "removeShort": "移除",
+      "empty": "還沒有名稱。把你在用的那個加進來。",
+      "alreadyBound": "{name} 已經在清單裡了。名稱比對時不分大小寫與符號，NotLittleStar 與 notlittlestar 是同一個名稱。",
+      "unusable": "這不是 Showdown 名稱 —— 至少要有一個英數字元。",
+      "loadFailed": "讀不到你的名稱清單，所以這裡暫時不能變更。重新載入頁面再試一次。",
+      "failed": "這次變更沒有存進去。"
+    }
   }
 }
