@@ -1,9 +1,10 @@
 # replay-parser
 
-Parses Showdown replay logs into a perspective-neutral `ParsedBattle`:
+Parses Showdown replay logs, two ways:
 
 ```ts
 parseReplay(log: string, meta: ReplayMeta): ParsedBattle
+parseTimeline(log: string): BattleTimeline
 ```
 
 `ParsedBattle` describes p1 and p2 alike and does not know which of them is "me" —
@@ -19,6 +20,7 @@ src/species.ts     identity normalisation and base species
 src/battle-only-formes.ts   generated: mid-battle formes → what they were registered as
 src/replay.ts      replays a tokenized log into battle state
 src/summarize.ts   battle state + replay metadata → ParsedBattle
+src/timeline.ts    the same log as a flat, per-turn event stream for display
 src/version.ts     PARSER_VERSION, stored on every row this parser produced
 test/fixtures/     real replays, fetched from Showdown and stored verbatim (see below)
 ```
@@ -63,11 +65,56 @@ A Bo3 replay is a single game. The `|uhtml|bestof|` line links to the parent bat
 games of a series share, and its room id is kept as `seriesId`. Games are always the unit
 of storage; a series result is derived from the games that carry the same id.
 
+## The timeline
+
+`parseTimeline` answers a different question from `parseReplay`: not _whose team was
+this and who won_, but _what happened on screen_. The two are deliberately independent —
+`parseReplay` runs once per battle at import time, `parseTimeline` runs when somebody
+opens a battle to read it — so neither pays for the other's work, and the timeline is
+never stored. See CONTEXT.md for how the two differ on formes and Illusion.
+
+What the protocol makes awkward, and how this file handles it:
+
+- **`|-damage|` reports what is left, not what was lost.** The running HP of each field
+  position is tracked so an event can carry the drop it caused. HP fields are not plain
+  numbers either: `93/100 brn`, `0 fnt` and one measured `50/100g` all appear, so only
+  the digits before the slash are read.
+- **Most lines carry only a nickname.** `|-damage|p2a: nothing new there|38/100` names
+  nobody recognisable; the species comes from the latest appearance at that position.
+  Both are kept, since a trainer's own nicknames are often the easier of the two to read.
+- **A forme change makes a new combatant.** Events from before a Mega keep showing the
+  forme that was on the field when they happened.
+- **`|replace|` tells every event at that position who it really was**, without rewriting
+  the name it was wearing. The lie is what the opponent played against, and erasing it
+  would erase the battle.
+- **What is read is what Showdown shows.** The list of structured line types was widened
+  after a fresh ladder replay was run through it: Protect activating, a screen going up,
+  a berry being eaten and an ability triggering are all on screen in Showdown, and a
+  timeline without them shows moves that appear to do nothing at all.
+- **Unread line types are kept** as `{ kind: 'unknown', raw }`, rebuilt from the tokens —
+  so a legacy untyped line comes back with a leading `||`, which is the one thing `raw`
+  does not reproduce exactly. Showdown's
+  protocol is far larger than what is read here, and a turn that quietly went empty
+  would be untraceable. Only the bare `|` spacer and `[silent]` lines are dropped —
+  Showdown does not show those either.
+- **The timeline starts at `|start|`.** Players, rules and team preview belong to
+  `ParsedBattle`; a `|t:|` before `|start|` is therefore not read, and the opening turn
+  of such a log has no `startedAt`.
+- **An Ally Switch moves everything with the Pokémon.** `|swap|` trades the two
+  positions' occupants, their running HP, and their pending Illusion reveal.
+- **A truncated log yields the turns that parsed.** Nothing throws: the battle itself
+  was already recorded at import time, and half a timeline still reads.
+
 ## No KO attribution
 
-`ParsedBattle` says nothing about who knocked out what. `|faint|` does not name a culprit
-— the cause may be recoil, Life Orb, Rough Skin, weather or status — so attribution is
-left out until a view needs it, at which point a re-parse can add it from the stored logs.
+Neither output says who knocked out what. `|faint|` does not name a culprit — the cause
+may be recoil, Life Orb, Rough Skin, weather or status — so attribution is left out until
+a view needs it, at which point a re-parse can add it from the stored logs.
+
+The timeline does not sneak it back in either. `|-damage|` carries a `[from]` for burn,
+items and abilities, but never for move damage, so a damage event is only ever attributed
+to what the log itself named. Reading it off the nearest `|move|` would be a guess that
+breaks on spread moves, recoil and anything else that lands between the two lines.
 
 ## Known limitations
 
@@ -76,6 +123,12 @@ Illusion, and the borrowed name is taken back out of the bring when it arrives. 
 battle that ends with the Illusion still up sends no `|replace|` at all, so the log
 never says who was really on the field and the bring keeps the borrowed name. Nothing
 in the protocol makes this recoverable.
+
+**An Illusion that switches out and back.** `|replace|` tells the events at that position
+who they really were, but only back to the current arrival. A Zoroark that leaves the
+field under its disguise and returns before the illusion breaks leaves its earlier stint
+unlabelled — the alternative, matching by the borrowed name, would mislabel a real
+Pokémon of that name that had stood there, which is the worse error.
 
 **A forme newer than the generated table.** All 128 of Showdown's battle-only formes
 are read back to the forme they were registered as, through `src/battle-only-formes.ts`.

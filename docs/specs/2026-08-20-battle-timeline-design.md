@@ -95,9 +95,10 @@ DB 那份是匯入當時的解析結果，timeline 這份是現在解的。單�
 
 ### 未知的型別要保留，不能丟
 
-只解析畫面要用的型別：`move`、`switch`/`drag`/`replace`、`-damage`/`-heal`、`faint`、
-`-terastallize`/`-mega`/`detailschange`、`-crit`/`-supereffective`/`-resisted`/`-immune`/
-`-miss`/`-fail`、`-status`、`-weather`、`-boost`/`-unboost`、`cant`。
+只解析畫面要用的型別：`move`、`switch`/`drag`/`replace`/`swap`、`-damage`/`-heal`、
+`faint`、`-terastallize`/`-mega`/`detailschange`/`-formechange`、`-crit`/`-supereffective`/
+`-resisted`/`-immune`/`-miss`/`-fail`、`-status`、`-weather`、`-boost`/`-unboost`、`cant`、
+`-singleturn`/`-activate`、`-sidestart`/`-sideend`、`-enditem`、`-ability`、`-mustrecharge`。
 
 其餘一律保留為 `{ kind: 'unknown', raw }`，UI 預設不顯示。理由與 gametype-agnostic
 同一條：**不認得的東西要留著而不是消失**，否則 Showdown 加一種訊息、使用者就少看到一段，
@@ -105,6 +106,18 @@ DB 那份是匯入當時的解析結果，timeline 這份是現在解的。單�
 
 `cant`（麻痺、畏縮、飽了）在清單裡，因為它是「這隻這回合什麼都沒做」的唯一解釋；
 少了它，畫面上會有一個無故消失的行動。
+
+**這份清單在實作後依實測擴充過一次。** 拿一場全新的天梯 replay 試跑，132 個事件裡有
+31 個落進 `unknown`，其中 `-activate`（守住擋下攻擊）、`-singleturn`（守住生效）、
+`-sidestart`/`-sideend`（光牆、反射、順風）、`-enditem`（吃樹果）、`-ability`（特性發動）、
+`-mustrecharge`（破壞光線後的硬直）**都是 Showdown 畫面上真的會顯示的東西**。少了它們，
+畫面會出現「A 使出寄生種子 → 然後什麼都沒有」這種看起來像招式憑空消失的段落。
+補進去之後同一場的 `unknown` 從 31 降到 11，剩下的是 `poke`/`player`/`rule`/`upkeep`/
+`j`/`l` 這些本來就不該顯示的。
+
+`swap`（Ally Switch）與 `-formechange`（Aegislash、Mimikyu、Morpeko 的型態切換）也不在
+原始清單上，但它們**會改變場上狀態** —— 不讀的話後續事件會掛到錯的那隻身上，或整場
+繼續叫它 Aegislash-Shield。這兩個是 code review 抓出來的。
 
 ### 顯示名：物種與綽號都給
 
