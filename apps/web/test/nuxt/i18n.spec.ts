@@ -1,8 +1,12 @@
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { mountSuspended } from '@nuxt/test-utils/runtime'
 import App from '../../app/app.vue'
+import { signIn } from '../helpers'
 
+// `/` sits behind the login, so these mount as a signed-in user.
 describe('i18n', () => {
+  beforeEach(signIn)
+
   it('defaults to English', async () => {
     const wrapper = await mountSuspended(App, { route: '/' })
 

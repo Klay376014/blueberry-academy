@@ -98,6 +98,61 @@ covers what `regulation` derives, what the unique key refuses, and — as two
 actual users under RLS — that neither can read, write or delete anything of the
 other's, in the database or in the `replay-logs` bucket.
 
+## Authentication
+
+Google only — there is no password sign-in, in the UI or in the project:
+with `[auth.email] enable_signup = false` the local stack reports
+`email: false` and the password grant answers `422 email_provider_disabled`. Signing up creates the `profiles` row
+through a database trigger, so the alias list always has somewhere to go. Every
+route is behind the login except `/login`, `/auth/callback` and `/about`; the
+allowlist is in `app/middleware/auth.global.ts` and a new page is protected by
+default. The reasoning for hand-wiring the client instead of using
+`@nuxtjs/supabase` is in
+[ADR-0009](docs/adr/0009-supabase-client-without-the-nuxt-module.md).
+
+To sign in locally you need Google OAuth credentials of your own:
+
+1. In Google Cloud console, create an OAuth 2.0 Client ID (type: Web
+   application) and add `http://127.0.0.1:54321/auth/v1/callback` as an
+   authorised redirect URI.
+2. Put the pair in `supabase/.env`, which the CLI loads on its own (gitignored;
+   no need to `source` it):
+
+   ```sh
+   SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID="…apps.googleusercontent.com"
+   SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET="GOCSPX-…"
+   ```
+
+   Left unset, the stack still starts — the Google button just fails at Google.
+   To check the pair landed, without printing the secret:
+
+   ```sh
+   curl -s -o /dev/null -w '%{redirect_url}\n' \
+     'http://127.0.0.1:54321/auth/v1/authorize?provider=google'
+   ```
+
+   A 302 to `accounts.google.com` carrying your `client_id` means yes; an empty
+   `client_id` means the CLI never saw the variables.
+
+3. Copy `apps/web/.env.example` to `apps/web/.env` and fill in the anon key that
+   `pnpm db:start` printed.
+
+For the hosted project the same two values go in Supabase's Auth settings, with
+the redirect URI pointing at that project instead.
+
+If the last hop of the round trip lands on a refused connection, check what the
+dev server is actually bound to:
+
+```sh
+lsof -nP -iTCP:3000 -sTCP:LISTEN
+```
+
+`redirectTo` is built from `window.location.origin`, so the browser comes back
+to whichever of `localhost` / `127.0.0.1` you started on — and a dev server
+bound to `[::1]` only serves the first of those. `nuxt.config.ts` pins the host
+to `127.0.0.1` so that both names reach it; that line is load-bearing for the
+OAuth flow, not a preference.
+
 ## UI and i18n
 
 Tailwind v4 through `@tailwindcss/vite`, shadcn-vue components copied into

@@ -1,7 +1,8 @@
 {
   "nav": {
     "home": "首頁",
-    "about": "關於"
+    "about": "關於",
+    "signOut": "登出"
   },
   "home": {
     "title": "Blueberry Academy",
@@ -13,5 +14,13 @@
   "a11y": {
     "toggleTheme": "切換深淺色",
     "switchLanguage": "切換語言"
+  },
+  "login": {
+    "title": "登入",
+    "tagline": "只用 Google —— 沒有密碼可以忘記。",
+    "google": "以 Google 繼續",
+    "completing": "正在完成登入…",
+    "failed": "這次登入沒有成功。",
+    "retry": "再試一次"
   }
 }

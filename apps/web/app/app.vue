@@ -4,6 +4,7 @@ import { Moon, Sun } from '@lucide/vue'
 const { t, locale, locales, setLocale } = useI18n()
 const localePath = useLocalePath()
 const colorMode = useColorMode()
+const { user, signOut } = useAuth()
 
 // The nav's own <a> hrefs are asserted in test/nuxt/routing.spec.ts, so the
 // locale and theme switchers deliberately sit outside <nav>.
@@ -34,6 +35,9 @@ function toggleTheme() {
     </nav>
 
     <div class="flex items-center gap-2">
+      <UiButton v-if="user" variant="outline" size="sm" data-testid="sign-out" @click="signOut()">
+        {{ t('nav.signOut') }}
+      </UiButton>
       <UiButton
         v-if="otherLocale"
         variant="outline"

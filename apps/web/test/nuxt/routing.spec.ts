@@ -1,8 +1,13 @@
-import { describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it } from 'vitest'
 import { mountSuspended } from '@nuxt/test-utils/runtime'
 import App from '../../app/app.vue'
+import { signIn } from '../helpers'
 
+// `/` sits behind the login now; the redirect itself is asserted in
+// auth.spec.ts.
 describe('file-based routes', () => {
+  beforeEach(signIn)
+
   it('renders the home page at /', async () => {
     const wrapper = await mountSuspended(App, { route: '/' })
     expect(wrapper.find('main h1').text()).toBe('Blueberry Academy')
