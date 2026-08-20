@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vite-plus/test'
-import { parseReplay } from '../src/index'
+import { PARSER_VERSION, parseReplay } from '../src/index'
 import type { ParsedBattle, ReplayMeta } from '../src/index'
 import fixture from './fixtures/gen9championsvgc2026regmb-2667169457.json'
 import forfeitFixture from './fixtures/gen9championsvgc2026regmb-2667301751.json'
+import unratedSeriesFixture from './fixtures/gen9championsvgc2026regmbbo3-2667579302.json'
+import seriesFixture from './fixtures/gen9championsvgc2026regmbbo3-2667582547.json'
 import tieFixture from './fixtures/gen9ou-2667293085.json'
 import singlesFixture from './fixtures/gen9ou-2667296078.json'
 import longFixture from './fixtures/gen9ou-2667299955.json'
@@ -30,6 +32,9 @@ function parseFixture(replay: {
 interface LadderLog {
   p1Name?: string
   p2Name?: string
+  /** The 5th `|player|` column: the rating a side carried into the game. */
+  p1Rating?: string
+  p2Rating?: string
   p1TeamSize?: number
   p2TeamSize?: number
   p1Team?: string[]
@@ -42,6 +47,8 @@ interface LadderLog {
 function log({
   p1Name = 'Alice',
   p2Name = 'Bob',
+  p1Rating = '1444',
+  p2Rating = '1534',
   p1TeamSize = 4,
   p2TeamSize = 4,
   p1Team = ['Scrafty, L50, F', 'Toxapex, L50, M'],
@@ -50,8 +57,8 @@ function log({
 }: LadderLog = {}): string {
   return [
     '|gametype|doubles',
-    `|player|p1|${p1Name}|benga|1444`,
-    `|player|p2|${p2Name}|gentleman|1534`,
+    `|player|p1|${p1Name}|benga|${p1Rating}`,
+    `|player|p2|${p2Name}|gentleman|${p2Rating}`,
     `|teamsize|p1|${p1TeamSize}`,
     `|teamsize|p2|${p2TeamSize}`,
     ...p1Team.map((details) => `|poke|p1|${details}|`),
@@ -297,6 +304,14 @@ describe('parseReplay', () => {
     expect(battle.winner).toBe('p2')
   })
 
+  it('leaves the winning side unresolved when the |win| name matches neither player', () => {
+    // Every identity comparison goes through toID; a name that normalises to
+    // neither side cannot be turned into a result by guessing.
+    const battle = parseReplay(log({ lines: ['|win|Someone Else'] }), META)
+
+    expect(battle.winner).toBeNull()
+  })
+
   it('reports a tie as a tie, not as an undecided battle', () => {
     const battle = parseReplay(log({ lines: ['|tie'] }), META)
 
@@ -328,6 +343,122 @@ describe('parseReplay', () => {
     const battle = parseReplay(log({ lines: ['|turn|2', '|turn|3', '|win|Alice'] }), META)
 
     expect(battle.turnCount).toBe(3)
+  })
+
+  it('reads each side rating from its own |player| line and its own |raw| line', () => {
+    // The pre-battle rating is the 5th |player| column; the post-battle rating
+    // and the delta only exist in the free text Showdown sends afterwards.
+    const battle = parseReplay(
+      log({
+        lines: [
+          '|win|Alice',
+          "|raw|Alice's rating: 1444 &rarr; <strong>1459</strong><br />(+15 for winning)",
+          "|raw|Bob's rating: 1534 &rarr; <strong>1519</strong><br />(-15 for losing)",
+        ],
+      }),
+      META,
+    )
+
+    expect(battle.p1).toMatchObject({ ratingBefore: 1444, ratingAfter: 1459, ratingDelta: 15 })
+    expect(battle.p2).toMatchObject({ ratingBefore: 1534, ratingAfter: 1519, ratingDelta: -15 })
+  })
+
+  it('reads the rating delta from after the rating, not from anywhere in the line', () => {
+    // Showdown names are free enough to contain a parenthesised number, and
+    // the delta is only the one that follows the new rating.
+    const battle = parseReplay(
+      log({
+        p1Name: 'Ann (3 for me)',
+        lines: [
+          '|win|Ann (3 for me)',
+          "|raw|Ann (3 for me)'s rating: 1444 &rarr; <strong>1459</strong><br />(+15 for winning)",
+        ],
+      }),
+      META,
+    )
+
+    expect(battle.p1.ratingDelta).toBe(15)
+  })
+
+  it('leaves the rating null on both sides when the game was unrated', () => {
+    // Tournament Bo3 games carry no rating at all: no 5th |player| column and
+    // no |raw| line afterwards. The curve is meant to break there, not guess.
+    const battle = parseReplay(log({ p1Rating: '', p2Rating: '', lines: ['|win|Alice'] }), META)
+
+    expect(battle.p1).toMatchObject({ ratingBefore: null, ratingAfter: null, ratingDelta: null })
+    expect(battle.p2).toMatchObject({ ratingBefore: null, ratingAfter: null, ratingDelta: null })
+  })
+
+  it("never takes a rating from the replay metadata, which holds the loser's", () => {
+    // Measured on this replay: the metadata rating is 1429, which is the
+    // post-battle rating of p1 — the side that lost. Writing it to the winner
+    // would draw their rating curve out of their opponent's numbers.
+    const battle = parseFixture(fixture)
+
+    expect(fixture.rating).toBe(1429)
+    expect(battle.winner).toBe('p2')
+    expect(battle.p2.ratingAfter).toBe(1549)
+    expect(battle.p2.ratingBefore).toBe(1534)
+    expect(battle.p1.ratingAfter).toBe(1429)
+  })
+
+  it('takes the series id of a Bo3 game from the |uhtml|bestof| link to its parent', () => {
+    // A Bo3 replay is a single game; the only thing tying it to its siblings is
+    // the room id of the parent battle in this line.
+    const battle = parseReplay(
+      log({
+        lines: [
+          '|uhtml|bestof|<h2><strong>Game 2</strong> of <a href="/game-bestof3-gen9championsvgc2026regmbbo3-2667580698">a best-of-3</a></h2>',
+          '|win|Alice',
+        ],
+      }),
+      META,
+    )
+
+    expect(battle.seriesId).toBe('game-bestof3-gen9championsvgc2026regmbbo3-2667580698')
+  })
+
+  it('leaves the series id null for a ladder Bo1, which belongs to no series', () => {
+    const battle = parseReplay(log({ lines: ['|win|Alice'] }), META)
+
+    expect(battle.seriesId).toBeNull()
+  })
+
+  it('reads a singles game and a doubles game through the same path, recording each game type', () => {
+    // Nothing assumes two field positions: a side with one is not a special
+    // case, so a user syncing an account never sees half their games vanish.
+    const doubles = parseReplay(log({ lines: ['|win|Alice'] }), META)
+    const singles = parseReplay(
+      log({ lines: ['|win|Alice'] }).replace('|gametype|doubles', '|gametype|singles'),
+      META,
+    )
+
+    expect(doubles.gameType).toBe('doubles')
+    expect(singles.gameType).toBe('singles')
+    expect({ ...singles, gameType: 'doubles' }).toEqual(doubles)
+  })
+
+  it('records a game type it has never heard of rather than dropping the game', () => {
+    const battle = parseReplay(
+      log({ lines: ['|win|Alice'] }).replace('|gametype|doubles', '|gametype|multi'),
+      META,
+    )
+
+    expect(battle.gameType).toBe('multi')
+  })
+
+  it('carries no KO attribution, which the protocol cannot support', () => {
+    // |faint| never names the culprit — the cause may be recoil, Life Orb,
+    // Rough Skin, weather or status. Guessing is left out until a view needs
+    // it and a re-parse can add it.
+    const battle = parseReplay(log({ lines: ['|faint|p2a: Whimsicott', '|win|Alice'] }), META)
+
+    const fields = [...Object.keys(battle), ...Object.keys(battle.p1), ...Object.keys(battle.p2)]
+    expect(fields.filter((field) => /ko|kill|faint|knockout/i.test(field))).toEqual([])
+  })
+
+  it('exports the parser version that produced a result, so rows can be re-parsed', () => {
+    expect(PARSER_VERSION).toMatch(/^\d+$/)
   })
 
   it('parses a real ladder Bo1 replay', () => {
@@ -366,6 +497,30 @@ describe('parseReplay', () => {
 
     expect(battle.turnCount).toBe(31)
     expect(battle.p1.bringComplete).toBe(true)
+    expect(battle).toMatchSnapshot()
+  })
+
+  it('parses a real Bo3 game that carries no rating at all', () => {
+    // A tournament game has no 5th |player| column and no |raw| afterwards.
+    // Nothing about it may fail; the rating is simply absent.
+    const battle = parseFixture(unratedSeriesFixture)
+
+    expect(unratedSeriesFixture.rating).toBeNull()
+    expect(battle.p1).toMatchObject({ ratingBefore: null, ratingAfter: null, ratingDelta: null })
+    expect(battle.p2).toMatchObject({ ratingBefore: null, ratingAfter: null, ratingDelta: null })
+    expect(battle.seriesId).toBe('game-bestof3-gen9championsvgc2026regmbbo3-2667579301')
+    expect(battle).toMatchSnapshot()
+  })
+
+  it('parses a real Bo3 game played on open team sheets, where |showteam| reveals both teams', () => {
+    // Open team sheets add |showteam| lines carrying items, abilities and
+    // moves. None of that is part of a team's identity, so the signatures are
+    // built from |poke| exactly as on the ladder.
+    const battle = parseFixture(seriesFixture)
+
+    expect(seriesFixture.log).toContain('|showteam|p1|')
+    expect(battle.seriesId).toBe('game-bestof3-gen9championsvgc2026regmbbo3-2667580698')
+    expect(battle.winner).toBe('p1')
     expect(battle).toMatchSnapshot()
   })
 })

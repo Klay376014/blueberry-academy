@@ -268,6 +268,9 @@ importers:
       reka-ui:
         specifier: 2.10.3
         version: 2.10.3(vue@3.5.41(typescript@6.0.3))
+      replay-parser:
+        specifier: workspace:*
+        version: link:../../packages/replay-parser
       tailwind-merge:
         specifier: ^3.6.0
         version: 3.6.0

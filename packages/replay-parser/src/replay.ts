@@ -1,5 +1,5 @@
 import type { ProtocolLine } from './protocol'
-import { baseSpeciesId, speciesOfDetails } from './species'
+import { baseSpeciesId, speciesOfDetails, toID } from './species'
 
 /** The two sides of a battle. Perspective-neutral: neither of them is "me". */
 export type SideId = 'p1' | 'p2'
@@ -9,12 +9,21 @@ const SIDE_IDS: SideId[] = ['p1', 'p2']
 export interface SideState {
   /** As displayed by Showdown, from the first `|player|` line for this side. */
   username: string
+  /** This side's rating going into the game, from its own `|player|` line. */
+  ratingBefore: number | null
   /** How many Pokémon this side picked, from `|teamsize|`. */
   teamSize: number | null
   /** Base species ids of the registered team, in `|poke|` order. */
   team: string[]
   /** The bring: base species ids that appeared, in first-appearance order. */
   bring: string[]
+}
+
+/** What Showdown said a rating became once the game was over. */
+export interface RatingUpdate {
+  after: number
+  /** The change Showdown itself reported, rather than one derived from it. */
+  delta: number | null
 }
 
 export interface BattleState {
@@ -26,6 +35,10 @@ export interface BattleState {
   tie: boolean
   /** Whether a side gave up rather than played the battle out. */
   forfeited: boolean
+  /** The parent battle a Bo3 game belongs to, or null outside a series. */
+  seriesId: string | null
+  /** Post-battle ratings, keyed by the normalised name `|raw|` named them for. */
+  ratingUpdates: Map<string, RatingUpdate>
 }
 
 /** Replays a tokenized log, accumulating the facts a `ParsedBattle` is built from. */
@@ -37,6 +50,8 @@ export function replayLog(lines: ProtocolLine[]): BattleState {
     winnerUsername: null,
     tie: false,
     forfeited: false,
+    seriesId: null,
+    ratingUpdates: new Map(),
   }
 
   /**
@@ -61,6 +76,9 @@ export function replayLog(lines: ProtocolLine[]): BattleState {
         // The first line is the one that carries the real name.
         if (side && username !== '' && state.sides[side].username === '') {
           state.sides[side].username = username
+          // The rating a side carried in is the 5th column of that same line.
+          // It is absent from tournament games, which are simply unrated.
+          state.sides[side].ratingBefore = optionalNumber(args[3])
         }
         break
       }
@@ -122,6 +140,23 @@ export function replayLog(lines: ProtocolLine[]): BattleState {
         state.tie = true
         break
 
+      case 'uhtml': {
+        // A Bo3 game is stored as its own replay; this is the only line that
+        // names the parent battle its siblings share.
+        if (args[0] === 'bestof' && state.seriesId === null) {
+          state.seriesId = seriesIdOf(args[1] ?? '')
+        }
+        break
+      }
+
+      case 'raw': {
+        // Showdown reports the post-battle rating as free text, one line per
+        // side, and sends other prose through |raw| too.
+        const update = ratingUpdateOf(args[0] ?? '')
+        if (update) state.ratingUpdates.set(update.userId, update.rating)
+        break
+      }
+
       case '-message':
         // Forfeiting has no protocol line of its own: Showdown says so in this
         // English sentence and then sends a |win| like any other battle.
@@ -134,7 +169,48 @@ export function replayLog(lines: ProtocolLine[]): BattleState {
 }
 
 function emptySide(): SideState {
-  return { username: '', teamSize: null, team: [], bring: [] }
+  return { username: '', ratingBefore: null, teamSize: null, team: [], bring: [] }
+}
+
+/** A protocol column read as a number, or null when it is absent or not one. */
+function optionalNumber(arg: string | undefined): number | null {
+  if (arg === undefined || arg === '') return null
+  const value = Number(arg)
+  return Number.isFinite(value) ? value : null
+}
+
+/** The parent battle room a `|uhtml|bestof|` header links to. */
+const BEST_OF_LINK = /href="\/(game-bestof\d+-[^"]+)"/
+
+function seriesIdOf(html: string): string | null {
+  return BEST_OF_LINK.exec(html)?.[1] ?? null
+}
+
+/**
+ * `Alice's rating: 1444 &rarr; <strong>1459</strong><br />(+15 for winning)`,
+ * which is the only place a post-battle rating appears. The name is matched
+ * greedily so that a player whose own name ends in `'s` still resolves.
+ */
+const RATING_LINE = /^(.*)'s rating: \d+ &rarr; <strong>(\d+)<\/strong>/
+/**
+ * The change Showdown reported for that rating, e.g. `(-15 for losing)`. It is
+ * only ever read from the tail after the rating, since a player's own name may
+ * contain something that looks like one.
+ */
+const RATING_DELTA = /\(([+-]?\d+) for /
+
+function ratingUpdateOf(text: string): { userId: string; rating: RatingUpdate } | null {
+  const match = RATING_LINE.exec(text)
+  if (!match) return null
+
+  const userId = toID(match[1] ?? '')
+  if (userId === '') return null
+
+  const delta = RATING_DELTA.exec(text.slice(match[0].length))
+  return {
+    userId,
+    rating: { after: Number(match[2]), delta: delta ? Number(delta[1]) : null },
+  }
 }
 
 /**
