@@ -1,5 +1,75 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
+exports[`parseReplay > parses a real Bo3 game played on open team sheets, where |showteam| reveals both teams 1`] = `
+{
+  "endReason": null,
+  "formatId": "gen9championsvgc2026regmbbo3",
+  "gameType": "doubles",
+  "p1": {
+    "bringComplete": false,
+    "bringSignature": "arcaninehisui|basculegion|raichu",
+    "ratingAfter": null,
+    "ratingBefore": 1159,
+    "ratingDelta": null,
+    "teamSignature": "arcaninehisui|basculegion|farigiraf|raichu|staraptor|sylveon",
+    "teamSize": 4,
+    "userId": "duke33",
+    "username": "Duke33",
+  },
+  "p2": {
+    "bringComplete": true,
+    "bringSignature": "charizard|gholdengo|glimmora|mamoswine",
+    "ratingAfter": null,
+    "ratingBefore": 1296,
+    "ratingDelta": null,
+    "teamSignature": "charizard|dragonite|gholdengo|glimmora|mamoswine|whimsicott",
+    "teamSize": 4,
+    "userId": "kmmuller2020",
+    "username": "KMMULLER2020",
+  },
+  "playedAt": "2026-08-20T02:35:49.000Z",
+  "replayId": "gen9championsvgc2026regmbbo3-2667582547",
+  "seriesId": "game-bestof3-gen9championsvgc2026regmbbo3-2667580698",
+  "turnCount": 5,
+  "winner": "p1",
+}
+`;
+
+exports[`parseReplay > parses a real Bo3 game that carries no rating at all 1`] = `
+{
+  "endReason": null,
+  "formatId": "gen9championsvgc2026regmbbo3",
+  "gameType": "doubles",
+  "p1": {
+    "bringComplete": true,
+    "bringSignature": "mrrime|scovillain|sneasler|toxapex",
+    "ratingAfter": null,
+    "ratingBefore": null,
+    "ratingDelta": null,
+    "teamSignature": "froslass|mrrime|scovillain|sneasler|toxapex|whimsicott",
+    "teamSize": 4,
+    "userId": "endras125",
+    "username": "endras125",
+  },
+  "p2": {
+    "bringComplete": true,
+    "bringSignature": "charizard|excadrill|rotomwash|venusaur",
+    "ratingAfter": null,
+    "ratingBefore": null,
+    "ratingDelta": null,
+    "teamSignature": "charizard|ditto|excadrill|ninetales|rotomwash|venusaur",
+    "teamSize": 4,
+    "userId": "garysgay",
+    "username": "Gary's gay",
+  },
+  "playedAt": "2026-08-20T02:39:00.000Z",
+  "replayId": "gen9championsvgc2026regmbbo3-2667579302",
+  "seriesId": "game-bestof3-gen9championsvgc2026regmbbo3-2667579301",
+  "turnCount": 6,
+  "winner": "p1",
+}
+`;
+
 exports[`parseReplay > parses a real battle long enough for both sides to run their team out 1`] = `
 {
   "endReason": null,
@@ -8,6 +78,9 @@ exports[`parseReplay > parses a real battle long enough for both sides to run th
   "p1": {
     "bringComplete": true,
     "bringSignature": "glimmora|gliscor|hatterene|kingambit|sableye|serperior",
+    "ratingAfter": 1136,
+    "ratingBefore": 1165,
+    "ratingDelta": -29,
     "teamSignature": "glimmora|gliscor|hatterene|kingambit|sableye|serperior",
     "teamSize": 6,
     "userId": "peterstoric",
@@ -16,6 +89,9 @@ exports[`parseReplay > parses a real battle long enough for both sides to run th
   "p2": {
     "bringComplete": false,
     "bringSignature": "darkrai|greattusk|heatran|ironvaliant|landorustherian",
+    "ratingAfter": 1138,
+    "ratingBefore": 1109,
+    "ratingDelta": 29,
     "teamSignature": "darkrai|glastrier|greattusk|heatran|ironvaliant|landorustherian",
     "teamSize": 6,
     "userId": "gxg22",
@@ -23,6 +99,7 @@ exports[`parseReplay > parses a real battle long enough for both sides to run th
   },
   "playedAt": "2026-08-19T15:29:39.000Z",
   "replayId": "gen9ou-2667299955",
+  "seriesId": null,
   "turnCount": 31,
   "winner": "p2",
 }
@@ -36,6 +113,9 @@ exports[`parseReplay > parses a real drawn battle as a tie rather than an undeci
   "p1": {
     "bringComplete": true,
     "bringSignature": "blissey|clodsire|corviknight|dondozo|gliscor|toxapex",
+    "ratingAfter": 1895,
+    "ratingBefore": 1896,
+    "ratingDelta": -1,
     "teamSignature": "blissey|clodsire|corviknight|dondozo|gliscor|toxapex",
     "teamSize": 6,
     "userId": "soccerfan123",
@@ -44,6 +124,9 @@ exports[`parseReplay > parses a real drawn battle as a tie rather than an undeci
   "p2": {
     "bringComplete": true,
     "bringSignature": "blissey|clodsire|corviknight|dondozo|gliscor|toxapex",
+    "ratingAfter": 1881,
+    "ratingBefore": 1880,
+    "ratingDelta": 1,
     "teamSignature": "blissey|clodsire|corviknight|dondozo|gliscor|toxapex",
     "teamSize": 6,
     "userId": "lt133rhlaro",
@@ -51,6 +134,7 @@ exports[`parseReplay > parses a real drawn battle as a tie rather than an undeci
   },
   "playedAt": "2026-08-19T15:08:02.000Z",
   "replayId": "gen9ou-2667293085",
+  "seriesId": null,
   "turnCount": 100,
   "winner": "tie",
 }
@@ -64,6 +148,9 @@ exports[`parseReplay > parses a real forfeited battle, won by the side that did 
   "p1": {
     "bringComplete": true,
     "bringSignature": "delphox|garchomp|glimmora|whimsicott",
+    "ratingAfter": 1332,
+    "ratingBefore": 1309,
+    "ratingDelta": 23,
     "teamSignature": "delphox|garchomp|glimmora|kingambit|staraptor|whimsicott",
     "teamSize": 4,
     "userId": "rodioromanovich",
@@ -72,6 +159,9 @@ exports[`parseReplay > parses a real forfeited battle, won by the side that did 
   "p2": {
     "bringComplete": true,
     "bringSignature": "basculegion|blaziken|ninetalesalola|sneasler",
+    "ratingAfter": 1331,
+    "ratingBefore": 1354,
+    "ratingDelta": -23,
     "teamSignature": "basculegion|blaziken|kingambit|ninetalesalola|sinistcha|sneasler",
     "teamSize": 4,
     "userId": "reallyunlucky",
@@ -79,6 +169,7 @@ exports[`parseReplay > parses a real forfeited battle, won by the side that did 
   },
   "playedAt": "2026-08-19T15:32:14.000Z",
   "replayId": "gen9championsvgc2026regmb-2667301751",
+  "seriesId": null,
   "turnCount": 7,
   "winner": "p1",
 }
@@ -92,6 +183,9 @@ exports[`parseReplay > parses a real ladder Bo1 replay 1`] = `
   "p1": {
     "bringComplete": true,
     "bringSignature": "garchomp|ninetalesalola|scrafty|toxapex",
+    "ratingAfter": 1429,
+    "ratingBefore": 1444,
+    "ratingDelta": -15,
     "teamSignature": "garchomp|gholdengo|ninetalesalola|raichu|scrafty|toxapex",
     "teamSize": 4,
     "userId": "davopro1214",
@@ -100,6 +194,9 @@ exports[`parseReplay > parses a real ladder Bo1 replay 1`] = `
   "p2": {
     "bringComplete": true,
     "bringSignature": "gholdengo|glimmora|whimsicott|zoroarkhisui",
+    "ratingAfter": 1549,
+    "ratingBefore": 1534,
+    "ratingDelta": 15,
     "teamSignature": "gholdengo|glimmora|incineroar|staraptor|whimsicott|zoroarkhisui",
     "teamSize": 4,
     "userId": "bibasrozkurwiator",
@@ -107,6 +204,7 @@ exports[`parseReplay > parses a real ladder Bo1 replay 1`] = `
   },
   "playedAt": "2026-08-19T09:19:18.000Z",
   "replayId": "gen9championsvgc2026regmb-2667169457",
+  "seriesId": null,
   "turnCount": 15,
   "winner": "p2",
 }
@@ -120,6 +218,9 @@ exports[`parseReplay > parses a real singles battle, where a side has one field 
   "p1": {
     "bringComplete": true,
     "bringSignature": "dondozo|dragonite|garganacl|hatterene|ironmoth|slowkinggalar",
+    "ratingAfter": 1000,
+    "ratingBefore": 1000,
+    "ratingDelta": 0,
     "teamSignature": "dondozo|dragonite|garganacl|hatterene|ironmoth|slowkinggalar",
     "teamSize": 6,
     "userId": "antonlikesmen",
@@ -128,6 +229,9 @@ exports[`parseReplay > parses a real singles battle, where a side has one field 
   "p2": {
     "bringComplete": false,
     "bringSignature": "darkrai|heatran",
+    "ratingAfter": 1040,
+    "ratingBefore": 1000,
+    "ratingDelta": 40,
     "teamSignature": "darkrai|glastrier|greattusk|heatran|ironvaliant|landorustherian",
     "teamSize": 6,
     "userId": "gxg22",
@@ -135,6 +239,7 @@ exports[`parseReplay > parses a real singles battle, where a side has one field 
   },
   "playedAt": "2026-08-19T15:17:23.000Z",
   "replayId": "gen9ou-2667296078",
+  "seriesId": null,
   "turnCount": 12,
   "winner": "p2",
 }

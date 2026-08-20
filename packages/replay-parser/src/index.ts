@@ -2,6 +2,7 @@ import { tokenizeLog } from './protocol'
 import { replayLog } from './replay'
 import { summarize } from './summarize'
 
+export { PARSER_VERSION } from './version'
 export type { ProtocolLine } from './protocol'
 export type { SideId } from './replay'
 export type { EndReason, ParsedBattle, ParsedSide, ReplayMeta } from './summarize'
