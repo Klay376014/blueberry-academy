@@ -19,6 +19,12 @@ log 尾端的 `|uhtml|bestof|` 行帶著母對戰 id 與下一場的連結。`ba
 
 > 說「一場」時務必指明是 game 還是 series。程式碼中不要出現裸的 `match` 或 `game` 命名。
 
+**Game type（對戰型式）**
+Showdown 的 `|gametype|` —— `singles` / `doubles` / `multi` / `freeforall`。存進
+`battles.game_type`。它與上面的 game / series 軸**毫無關係**，只是 Showdown 沿用了同一個字。
+解析器不假設任何型式（不預設「一定有 p1a/p1b 兩個位置」），匯入時全部照收，
+儀表板預設篩 doubles —— 這樣使用者同步帳號時不會看到一半場次莫名消失。
+
 ## 隊伍的兩層
 
 **Team（登錄隊伍）**

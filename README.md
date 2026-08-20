@@ -87,12 +87,13 @@ pnpm db:reset       # re-apply every migration from zero
 pnpm db:test        # pgTAP tests in supabase/tests/
 ```
 
-The local ports are shifted by +100 from the CLI defaults (API on 54421, database
-on 54422, Studio on 54423) so that a second Supabase project running on the same
-machine does not collide with this one.
+The ports the CLI prints are shifted by +100 from its defaults (API on 54421,
+database on 54422, Studio on 54423) so that a second Supabase project running on
+the same machine does not collide with this one.
 
-`supabase/tests/` is where the schema's guarantees are checked: the columns and
-indexes design document §5 asks for, what `regulation` derives, and — as two
+`supabase/tests/` is where the schema's guarantees are checked. `schema.test.sql`
+covers the columns and indexes design document §5 asks for; `behaviour.test.sql`
+covers what `regulation` derives, what the unique key refuses, and — as two
 actual users under RLS — that neither can read, write or delete anything of the
 other's, in the database or in the `replay-logs` bucket.
 

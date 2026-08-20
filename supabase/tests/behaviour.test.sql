@@ -1,5 +1,7 @@
 -- Behavioural checks: what the derived column derives, what the unique key
--- refuses, and what one user can reach of another user's data.
+-- refuses, and what one user can reach of another user's data -- in the
+-- database and in the replay-logs bucket. Structural checks live in
+-- schema.test.sql.
 
 begin;
 

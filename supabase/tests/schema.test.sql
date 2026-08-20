@@ -2,13 +2,13 @@
 -- document lists, the derived column, the unique key and the five indexes.
 --
 -- Behavioural checks (RLS isolation, storage path isolation, what the derived
--- column actually derives) live in rls.test.sql.
+-- column actually derives) live in behaviour.test.sql.
 
 begin;
 
 create extension if not exists pgtap;
 
-select plan(31);
+select plan(32);
 
 -- profiles ------------------------------------------------------------------
 
@@ -56,7 +56,7 @@ select columns_are(
     'parse_error',
     'created_at'
   ],
-  'battles covers design document §5 and nothing else'
+  'battles covers design document §5, plus a surrogate key and an insert time'
 );
 select col_type_is('public', 'battles', 'details', 'jsonb', 'details is JSONB');
 select col_type_is(
@@ -66,6 +66,10 @@ select col_type_is(
 select col_not_null(
   'public', 'battles', 'bring_complete',
   'bring_complete always answers the question, never leaves it open'
+);
+select col_hasnt_default(
+  'public', 'battles', 'bring_complete',
+  'bring_complete has no default, so a writer cannot skip it and still look answered'
 );
 
 -- The signature columns stay open: a spectated battle has no team of mine.
@@ -143,17 +147,19 @@ select is(
   true,
   'profiles has row level security enabled'
 );
+-- One `for all` policy covers reading, writing, changing and removing; that
+-- the four are actually covered is proven in behaviour.test.sql.
 select bag_eq(
-  $$select cmd::text from pg_policies
-    where schemaname = 'public' and tablename = 'battles'$$,
-  $$values ('SELECT'), ('INSERT'), ('UPDATE'), ('DELETE')$$,
-  'battles has one policy per operation'
+  $$select cmd::text || ' ' || coalesce(qual, '') || ' ' || coalesce(with_check, '')
+    from pg_policies where schemaname = 'public' and tablename = 'battles'$$,
+  $$values ('ALL (user_id = auth.uid()) (user_id = auth.uid())')$$,
+  'every operation on battles is gated on user_id = auth.uid()'
 );
 select bag_eq(
-  $$select cmd::text from pg_policies
-    where schemaname = 'public' and tablename = 'profiles'$$,
-  $$values ('SELECT'), ('INSERT'), ('UPDATE'), ('DELETE')$$,
-  'profiles has one policy per operation'
+  $$select cmd::text || ' ' || coalesce(qual, '') || ' ' || coalesce(with_check, '')
+    from pg_policies where schemaname = 'public' and tablename = 'profiles'$$,
+  $$values ('ALL (id = auth.uid()) (id = auth.uid())')$$,
+  'every operation on profiles is gated on id = auth.uid()'
 );
 
 -- Storage ------------------------------------------------------------------
@@ -172,8 +178,8 @@ select bag_eq(
   $$select cmd::text from pg_policies
     where schemaname = 'storage' and tablename = 'objects'
       and policyname like 'replay_logs%'$$,
-  $$values ('SELECT'), ('INSERT'), ('UPDATE'), ('DELETE')$$,
-  'replay-logs has one storage policy per operation'
+  $$values ('ALL')$$,
+  'every operation on a raw log is gated by the same path rule'
 );
 
 select * from finish();

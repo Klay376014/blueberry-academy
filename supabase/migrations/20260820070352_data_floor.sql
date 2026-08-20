@@ -58,7 +58,7 @@ create table public.battles (
   -- a series result is derived from the games that share this id.
   series_id text,
 
-  -- Which side is "me". All three are null for a spectated battle, one where
+  -- Which side is "me". All four are null for a spectated battle, one where
   -- neither player is in this user's alias list.
   my_side text check (my_side in ('p1', 'p2')),
   my_username text,
@@ -73,9 +73,18 @@ create table public.battles (
   -- Whether as many Pokémon appeared as |teamsize| says were picked. A player
   -- who forfeits early leaves the fourth pick never having shown up, which is
   -- common rather than exceptional, so the stats layer takes only true.
-  bring_complete boolean not null default false,
+  --
+  -- No default on purpose: the stats layer filters on true, so a default of
+  -- false would let a writer that forgot this column drop battles out of every
+  -- bring view while looking like it had answered the question.
+  bring_complete boolean not null,
 
   turn_count integer,
+
+  -- Left unconstrained where my_side and result are not: a forfeit is only
+  -- recognised by matching free text in the log ('<name> forfeited.'), so the
+  -- set of reasons grows as more of that text is understood. A CHECK would
+  -- turn each new reason into a migration.
   end_reason text,
 
   -- Opponent's team, who fainted, Mega/Tera use — everything the views that
@@ -133,27 +142,22 @@ create index battles_details_idx on public.battles using gin (details);
 -- anything into their own battles. That risk is accepted: these are personal
 -- statistics only they can see, so faking them is lying to yourself.
 
+-- One rule per table rather than four identical ones: the predicate is the
+-- same for reading, writing, changing and removing, and `for all` says so.
+
 alter table public.profiles enable row level security;
 
-create policy profiles_select_own on public.profiles
-  for select to authenticated using (id = auth.uid());
-create policy profiles_insert_own on public.profiles
-  for insert to authenticated with check (id = auth.uid());
-create policy profiles_update_own on public.profiles
-  for update to authenticated using (id = auth.uid()) with check (id = auth.uid());
-create policy profiles_delete_own on public.profiles
-  for delete to authenticated using (id = auth.uid());
+create policy profiles_own on public.profiles
+  for all to authenticated
+  using (id = auth.uid())
+  with check (id = auth.uid());
 
 alter table public.battles enable row level security;
 
-create policy battles_select_own on public.battles
-  for select to authenticated using (user_id = auth.uid());
-create policy battles_insert_own on public.battles
-  for insert to authenticated with check (user_id = auth.uid());
-create policy battles_update_own on public.battles
-  for update to authenticated using (user_id = auth.uid()) with check (user_id = auth.uid());
-create policy battles_delete_own on public.battles
-  for delete to authenticated using (user_id = auth.uid());
+create policy battles_own on public.battles
+  for all to authenticated
+  using (user_id = auth.uid())
+  with check (user_id = auth.uid());
 
 -- Storage -------------------------------------------------------------------
 
@@ -170,34 +174,13 @@ on conflict (id) do nothing;
 
 -- Isolated by the leading path segment, which is the owner's user id.
 
-create policy replay_logs_select_own on storage.objects
-  for select to authenticated
-  using (
-    bucket_id = 'replay-logs'
-    and (storage.foldername(name))[1] = auth.uid()::text
-  );
-
-create policy replay_logs_insert_own on storage.objects
-  for insert to authenticated
-  with check (
-    bucket_id = 'replay-logs'
-    and (storage.foldername(name))[1] = auth.uid()::text
-  );
-
-create policy replay_logs_update_own on storage.objects
-  for update to authenticated
+create policy replay_logs_own on storage.objects
+  for all to authenticated
   using (
     bucket_id = 'replay-logs'
     and (storage.foldername(name))[1] = auth.uid()::text
   )
   with check (
-    bucket_id = 'replay-logs'
-    and (storage.foldername(name))[1] = auth.uid()::text
-  );
-
-create policy replay_logs_delete_own on storage.objects
-  for delete to authenticated
-  using (
     bucket_id = 'replay-logs'
     and (storage.foldername(name))[1] = auth.uid()::text
   );
