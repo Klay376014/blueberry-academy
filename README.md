@@ -87,9 +87,10 @@ pnpm db:reset       # re-apply every migration from zero
 pnpm db:test        # pgTAP tests in supabase/tests/
 ```
 
-The ports the CLI prints are shifted by +100 from its defaults (API on 54421,
-database on 54422, Studio on 54423) so that a second Supabase project running on
-the same machine does not collide with this one.
+The stack sits on the CLI's default ports (API on 54321, database on 54322,
+Studio on 54323), so only one local Supabase project can run at a time — stop
+the other one with `supabase stop --project-id <its-id>` first. Stopping keeps
+its data in a Docker volume.
 
 `supabase/tests/` is where the schema's guarantees are checked. `schema.test.sql`
 covers the columns and indexes design document §5 asks for; `behaviour.test.sql`
