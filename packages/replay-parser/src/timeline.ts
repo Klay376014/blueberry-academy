@@ -57,6 +57,14 @@ export type TimelineEvent =
   | { kind: 'fail'; pokemon: Combatant }
   /** Ally Switch: the pokemon now stands where `from` used to be occupied. */
   | { kind: 'swap'; pokemon: Combatant; from: string }
+  /** An effect on one Pokémon: Protect going up, then Protect stopping a move. */
+  | { kind: 'effect'; pokemon: Combatant; effect: string; phase: 'start' | 'activate' }
+  /** An effect on one side of the field: Reflect, Light Screen, Tailwind. */
+  | { kind: 'sideEffect'; side: SideId; effect: string; phase: 'start' | 'end' }
+  | { kind: 'endItem'; pokemon: Combatant; item: string }
+  | { kind: 'ability'; pokemon: Combatant; ability: string }
+  /** A turn spent recharging after Hyper Beam and its like. */
+  | { kind: 'mustRecharge'; pokemon: Combatant }
   /** A line this parser does not read, kept verbatim rather than dropped. */
   | { kind: 'unknown'; raw: string }
 
@@ -292,6 +300,50 @@ export function buildTimeline(lines: ProtocolLine[]): BattleTimeline {
         break
       }
 
+      case '-singleturn':
+      case '-activate': {
+        const pokemon = occupant(field, args[0] ?? '')
+        if (!pokemon) break
+        push({
+          kind: 'effect',
+          pokemon,
+          effect: effectNameOf(args[1] ?? ''),
+          phase: type === '-singleturn' ? 'start' : 'activate',
+        })
+        break
+      }
+
+      case '-sidestart':
+      case '-sideend': {
+        const side = sideOf(args[0] ?? '')
+        if (side === null) break
+        push({
+          kind: 'sideEffect',
+          side,
+          effect: effectNameOf(args[1] ?? ''),
+          phase: type === '-sidestart' ? 'start' : 'end',
+        })
+        break
+      }
+
+      case '-enditem': {
+        const pokemon = occupant(field, args[0] ?? '')
+        if (pokemon) push({ kind: 'endItem', pokemon, item: args[1] ?? '' })
+        break
+      }
+
+      case '-ability': {
+        const pokemon = occupant(field, args[0] ?? '')
+        if (pokemon) push({ kind: 'ability', pokemon, ability: args[1] ?? '' })
+        break
+      }
+
+      case '-mustrecharge': {
+        const pokemon = occupant(field, args[0] ?? '')
+        if (pokemon) push({ kind: 'mustRecharge', pokemon })
+        break
+      }
+
       case 'faint': {
         const pokemon = occupant(field, args[0] ?? '')
         // |faint| never names a culprit: the cause may be recoil, an item, an
@@ -438,6 +490,15 @@ function swap(state: FieldState, from: string, to: string): Combatant[] {
 function healthOf(field: string): number | null {
   const digits = /^\d+/.exec(field.trim())
   return digits ? Number(digits[0]) : null
+}
+
+/**
+ * The name of an effect, without the kind that sometimes prefixes it. Showdown
+ * sends `Reflect` in one line and `move: Light Screen` in the next, and the
+ * prefix says nothing a reader needs.
+ */
+function effectNameOf(effect: string): string {
+  return effect.replace(/^(move|ability|item):\s*/, '')
 }
 
 /** What the log said caused a change, e.g. `[from] item: Life Orb`. */

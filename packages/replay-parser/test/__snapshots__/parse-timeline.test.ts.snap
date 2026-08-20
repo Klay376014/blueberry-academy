@@ -98,8 +98,16 @@ exports[`parseTimeline > parses a real Bo3 game end to end 1`] = `
           ],
         },
         {
-          "kind": "unknown",
-          "raw": "|-singleturn|p1b: Arcanine|Protect",
+          "effect": "Protect",
+          "kind": "effect",
+          "phase": "start",
+          "pokemon": {
+            "nickname": "Arcanine",
+            "position": "p1b",
+            "revealedSpecies": null,
+            "side": "p1",
+            "species": "Arcanine-Hisui",
+          },
         },
         {
           "actor": {
@@ -122,8 +130,16 @@ exports[`parseTimeline > parses a real Bo3 game end to end 1`] = `
           ],
         },
         {
-          "kind": "unknown",
-          "raw": "|-singleturn|p2a: Glimmora|move: Protect",
+          "effect": "Protect",
+          "kind": "effect",
+          "phase": "start",
+          "pokemon": {
+            "nickname": "Glimmora",
+            "position": "p2a",
+            "revealedSpecies": null,
+            "side": "p2",
+            "species": "Glimmora",
+          },
         },
         {
           "actor": {
@@ -146,8 +162,16 @@ exports[`parseTimeline > parses a real Bo3 game end to end 1`] = `
           ],
         },
         {
-          "kind": "unknown",
-          "raw": "|-singleturn|p2b: Gholdengo|Protect",
+          "effect": "Protect",
+          "kind": "effect",
+          "phase": "start",
+          "pokemon": {
+            "nickname": "Gholdengo",
+            "position": "p2b",
+            "revealedSpecies": null,
+            "side": "p2",
+            "species": "Gholdengo",
+          },
         },
         {
           "actor": {
@@ -170,8 +194,16 @@ exports[`parseTimeline > parses a real Bo3 game end to end 1`] = `
           ],
         },
         {
-          "kind": "unknown",
-          "raw": "|-activate|p2a: Glimmora|move: Protect",
+          "effect": "Protect",
+          "kind": "effect",
+          "phase": "activate",
+          "pokemon": {
+            "nickname": "Glimmora",
+            "position": "p2a",
+            "revealedSpecies": null,
+            "side": "p2",
+            "species": "Glimmora",
+          },
         },
         {
           "kind": "unknown",
@@ -315,8 +347,15 @@ exports[`parseTimeline > parses a real Bo3 game end to end 1`] = `
           "result": "supereffective",
         },
         {
-          "kind": "unknown",
-          "raw": "|-enditem|p1b: Arcanine|Focus Sash",
+          "item": "Focus Sash",
+          "kind": "endItem",
+          "pokemon": {
+            "nickname": "Arcanine",
+            "position": "p1b",
+            "revealedSpecies": null,
+            "side": "p1",
+            "species": "Arcanine-Hisui",
+          },
         },
         {
           "from": null,
@@ -374,8 +413,16 @@ exports[`parseTimeline > parses a real Bo3 game end to end 1`] = `
           ],
         },
         {
-          "kind": "unknown",
-          "raw": "|-singleturn|p1a: Raichu|Protect",
+          "effect": "Protect",
+          "kind": "effect",
+          "phase": "start",
+          "pokemon": {
+            "nickname": "Raichu",
+            "position": "p1a",
+            "revealedSpecies": null,
+            "side": "p1",
+            "species": "Raichu-Mega-Y",
+          },
         },
         {
           "actor": {
@@ -398,8 +445,16 @@ exports[`parseTimeline > parses a real Bo3 game end to end 1`] = `
           ],
         },
         {
-          "kind": "unknown",
-          "raw": "|-singleturn|p2b: Mamoswine|Protect",
+          "effect": "Protect",
+          "kind": "effect",
+          "phase": "start",
+          "pokemon": {
+            "nickname": "Mamoswine",
+            "position": "p2b",
+            "revealedSpecies": null,
+            "side": "p2",
+            "species": "Mamoswine",
+          },
         },
         {
           "actor": {
@@ -422,8 +477,16 @@ exports[`parseTimeline > parses a real Bo3 game end to end 1`] = `
           ],
         },
         {
-          "kind": "unknown",
-          "raw": "|-activate|p2b: Mamoswine|move: Protect",
+          "effect": "Protect",
+          "kind": "effect",
+          "phase": "activate",
+          "pokemon": {
+            "nickname": "Mamoswine",
+            "position": "p2b",
+            "revealedSpecies": null,
+            "side": "p2",
+            "species": "Mamoswine",
+          },
         },
         {
           "actor": {
@@ -522,8 +585,16 @@ exports[`parseTimeline > parses a real Bo3 game end to end 1`] = `
           ],
         },
         {
-          "kind": "unknown",
-          "raw": "|-singleturn|p2a: Glimmora|move: Protect",
+          "effect": "Protect",
+          "kind": "effect",
+          "phase": "start",
+          "pokemon": {
+            "nickname": "Glimmora",
+            "position": "p2a",
+            "revealedSpecies": null,
+            "side": "p2",
+            "species": "Glimmora",
+          },
         },
         {
           "actor": {
@@ -580,8 +651,16 @@ exports[`parseTimeline > parses a real Bo3 game end to end 1`] = `
           ],
         },
         {
-          "kind": "unknown",
-          "raw": "|-activate|p2a: Glimmora|move: Protect",
+          "effect": "Protect",
+          "kind": "effect",
+          "phase": "activate",
+          "pokemon": {
+            "nickname": "Glimmora",
+            "position": "p2a",
+            "revealedSpecies": null,
+            "side": "p2",
+            "species": "Glimmora",
+          },
         },
         {
           "actor": {
@@ -801,12 +880,22 @@ exports[`parseTimeline > parses a real Bo3 game end to end 1`] = `
           },
         },
         {
-          "kind": "unknown",
-          "raw": "|-activate|p2a: Glimmora|ability: Toxic Debris",
+          "effect": "Toxic Debris",
+          "kind": "effect",
+          "phase": "activate",
+          "pokemon": {
+            "nickname": "Glimmora",
+            "position": "p2a",
+            "revealedSpecies": null,
+            "side": "p2",
+            "species": "Glimmora",
+          },
         },
         {
-          "kind": "unknown",
-          "raw": "|-sidestart|p1: Duke33|move: Toxic Spikes",
+          "effect": "Toxic Spikes",
+          "kind": "sideEffect",
+          "phase": "start",
+          "side": "p1",
         },
         {
           "kind": "faint",

@@ -251,11 +251,11 @@ describe('parseTimeline', () => {
     // Showdown's protocol is far larger than what this parser reads. An
     // unrecognised line is kept verbatim: a turn that quietly went empty would
     // be a bug nobody could trace.
-    const timeline = parseTimeline(log({ lines: ['|-sidestart|p1: Alice|move: Tailwind'] }))
+    const timeline = parseTimeline(log({ lines: ['|-prepare|p1a: Scrafty|Solar Beam'] }))
 
     expect(timeline.turns[1]?.events[0]).toEqual({
       kind: 'unknown',
-      raw: '|-sidestart|p1: Alice|move: Tailwind',
+      raw: '|-prepare|p1a: Scrafty|Solar Beam',
     })
   })
 
@@ -461,5 +461,70 @@ describe('parseTimeline', () => {
 
     expect(disguised.every((event) => event.pokemon.revealedSpecies === 'Zoroark-Hisui')).toBe(true)
     expect(ally.every((event) => event.pokemon.revealedSpecies === null)).toBe(true)
+  })
+
+  it('separates a protection going up from that protection stopping a move', () => {
+    // Measured on a fresh ladder game: without these two, a turn shows a move
+    // being used and then nothing at all, and the move looks like it vanished.
+    const timeline = parseTimeline(
+      log({
+        lines: [
+          '|move|p1a: Scrafty|Protect|p1a: Scrafty',
+          '|-singleturn|p1a: Scrafty|Protect',
+          '|move|p2a: Whimsicott|Moonblast|p1a: Scrafty',
+          '|-activate|p1a: Scrafty|move: Protect',
+        ],
+      }),
+    )
+
+    expect(timeline.turns[1]?.events[1]).toMatchObject({
+      kind: 'effect',
+      phase: 'start',
+      effect: 'Protect',
+      pokemon: { species: 'Scrafty' },
+    })
+    expect(timeline.turns[1]?.events[3]).toMatchObject({
+      kind: 'effect',
+      phase: 'activate',
+      effect: 'Protect',
+    })
+  })
+
+  it('reads a screen going up and coming down as belonging to a side, not a Pokémon', () => {
+    // Reflect, Light Screen and Tailwind sit on a side of the field. The name
+    // arrives with or without a `move:` prefix depending on the effect.
+    const timeline = parseTimeline(
+      log({
+        lines: [
+          '|-sidestart|p2: Bob|Reflect',
+          '|-sidestart|p1: Alice|move: Tailwind',
+          '|-sideend|p1: Alice|move: Tailwind',
+        ],
+      }),
+    )
+
+    expect(timeline.turns[1]?.events).toMatchObject([
+      { kind: 'sideEffect', side: 'p2', effect: 'Reflect', phase: 'start' },
+      { kind: 'sideEffect', side: 'p1', effect: 'Tailwind', phase: 'start' },
+      { kind: 'sideEffect', side: 'p1', effect: 'Tailwind', phase: 'end' },
+    ])
+  })
+
+  it('reads a consumed item, a triggered ability and a turn spent recharging', () => {
+    const timeline = parseTimeline(
+      log({
+        lines: [
+          '|-enditem|p1a: Scrafty|Sitrus Berry|[eat]',
+          '|-ability|p2a: Whimsicott|Stamina|boost',
+          '|-mustrecharge|p1a: Scrafty',
+        ],
+      }),
+    )
+
+    expect(timeline.turns[1]?.events).toMatchObject([
+      { kind: 'endItem', item: 'Sitrus Berry', pokemon: { species: 'Scrafty' } },
+      { kind: 'ability', ability: 'Stamina', pokemon: { species: 'Whimsicott' } },
+      { kind: 'mustRecharge', pokemon: { species: 'Scrafty' } },
+    ])
   })
 })

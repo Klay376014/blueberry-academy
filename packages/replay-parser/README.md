@@ -87,6 +87,10 @@ What the protocol makes awkward, and how this file handles it:
 - **`|replace|` tells every event at that position who it really was**, without rewriting
   the name it was wearing. The lie is what the opponent played against, and erasing it
   would erase the battle.
+- **What is read is what Showdown shows.** The list of structured line types was widened
+  after a fresh ladder replay was run through it: Protect activating, a screen going up,
+  a berry being eaten and an ability triggering are all on screen in Showdown, and a
+  timeline without them shows moves that appear to do nothing at all.
 - **Unread line types are kept** as `{ kind: 'unknown', raw }`, rebuilt from the tokens —
   so a legacy untyped line comes back with a leading `||`, which is the one thing `raw`
   does not reproduce exactly. Showdown's
