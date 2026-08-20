@@ -1,8 +1,12 @@
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { mountSuspended } from '@nuxt/test-utils/runtime'
 import App from '../../app/app.vue'
+import { signIn } from '../helpers'
 
 describe('shadcn-vue components', () => {
+  // Without this these would assert against the login page, not the home page.
+  beforeEach(signIn)
+
   it('registers ui/button/Button.vue as <UiButton>', async () => {
     const wrapper = await mountSuspended(App, { route: '/' })
     const toggle = wrapper.get('[data-testid="theme-toggle"]')

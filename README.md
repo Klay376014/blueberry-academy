@@ -100,8 +100,9 @@ other's, in the database or in the `replay-logs` bucket.
 
 ## Authentication
 
-Google only — there is no password sign-in, in the UI or in the project
-(`[auth.email] enable_signup = false`). Signing up creates the `profiles` row
+Google only — there is no password sign-in, in the UI or in the project:
+with `[auth.email] enable_signup = false` the local stack reports
+`email: false` and the password grant answers `422 email_provider_disabled`. Signing up creates the `profiles` row
 through a database trigger, so the alias list always has somewhere to go. Every
 route is behind the login except `/login`, `/auth/callback` and `/about`; the
 allowlist is in `app/middleware/auth.global.ts` and a new page is protected by

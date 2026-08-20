@@ -42,6 +42,20 @@ server 端讀不到登入狀態**，得自己補 cookie 那一段（或屆時改
 `detectSessionInUrl` 關掉是配套而非偏好：`/auth/callback` 自己呼叫
 `exchangeCodeForSession()`，才知道什麼時候換完；開著會讓 client 與該頁搶同一個 code。
 
+## 為什麼不要「順手」裝回模組
+
+未來讀到 `app/plugins/supabase.client.ts` 的人會覺得它是在重造官方模組已經做好的事，
+而且**看起來只要 `modules: ['@nuxtjs/supabase']` 一行就能刪掉四個檔案**。
+
+不要在「只是想整理程式碼」的時候做這件事。裝模組會一併改掉 session 的存放方式與擋路由
+的表達方式，而擋路由目前是 deny-by-default（白名單三條）—— 換成模組的 `redirectOptions`
+要重新確認同樣的預設仍然成立，漏掉的話新加的頁面會默默變成公開。
+
+值得裝回來的時機只有一個：**真的有路由要開 SSR 或 server route 要讀登入狀態**。
+那時 cookie session 是必需品，模組就從多餘變成正解。屆時請連 `test/nuxt/auth.spec.ts`
+與 `auth-client.spec.ts` 一起讀 —— 那兩支測試定義了「擋路由」與「登入三件事」現在
+保證了什麼，換實作前後應該都要綠。
+
 ## 替代方案
 
 - **`@nuxtjs/supabase`** —— 未來開 SSR 時的正解。現在裝的代價是多一套慣例與用不到的

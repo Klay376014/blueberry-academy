@@ -13,12 +13,14 @@ const PUBLIC_ROUTES = new Set([
 
 export default defineNuxtRouteMiddleware((to) => {
   // Nuxt i18n names routes `<name>___<locale>`, e.g. `index___zh-TW`.
-  const [name, locale] = String(to.name ?? '').split('___')
+  const [name = '', locale] = String(to.name ?? '').split('___')
 
-  if (name !== undefined && PUBLIC_ROUTES.has(name)) return
+  if (PUBLIC_ROUTES.has(name)) return
 
-  const { user } = useAuth()
-  if (user.value) return
+  // Straight to the state rather than through useAuth: reading who is signed
+  // in is all this needs, and useAuth would build a Supabase accessor and a
+  // path helper on every navigation to answer it.
+  if (useCurrentUser().value) return
 
   const localePath = useLocalePath()
   // Send them to the login page of the locale they were heading for, rather

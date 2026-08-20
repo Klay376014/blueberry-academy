@@ -3,6 +3,7 @@ import { mountSuspended, mockNuxtImport } from '@nuxt/test-utils/runtime'
 import type { RouteLocationNormalized } from 'vue-router'
 import authMiddleware from '../../app/middleware/auth.global'
 import App from '../../app/app.vue'
+import { signIn, signOut as signOutState } from '../helpers'
 
 // vi.hoisted, because mockNuxtImport's factory is lifted above this file's
 // own initialisation and would otherwise read these before they exist.
@@ -22,14 +23,6 @@ mockNuxtImport('useAuth', () => () => ({
   completeSignIn,
 }))
 
-function signIn() {
-  useCurrentUser().value = { id: 'test-user' } as never
-}
-
-function signOutState() {
-  useCurrentUser().value = null
-}
-
 // The real one navigates; the mock only records where it was pointed, which is
 // the whole of what the middleware decides.
 mockNuxtImport('navigateTo', () => navigateToMock)
@@ -46,15 +39,6 @@ describe('the auth middleware', () => {
   })
 
   it('sends a signed-out visitor to the login page', async () => {
-    const result = await authMiddleware(route('index___en', '/'), route('index___en', '/'))
-
-    expect(result).toMatchObject({ path: '/login' })
-  })
-
-  it('keeps a signed-out visitor out after signing out', async () => {
-    signIn()
-    signOutState()
-
     const result = await authMiddleware(route('index___en', '/'), route('index___en', '/'))
 
     expect(result).toMatchObject({ path: '/login' })
@@ -121,9 +105,12 @@ describe('the login page', () => {
 })
 
 describe('the OAuth callback page', () => {
-  it('trades the code for a session and then goes to the dashboard', async () => {
+  beforeEach(() => {
     signOutState()
     navigateToMock.mockClear()
+  })
+
+  it('trades the code for a session and then goes to the dashboard', async () => {
     completeSignIn.mockResolvedValue(undefined)
 
     await mountSuspended(App, { route: '/auth/callback?code=abc123' })
@@ -135,7 +122,6 @@ describe('the OAuth callback page', () => {
   })
 
   it('says so when the exchange is refused, rather than hanging', async () => {
-    signOutState()
     completeSignIn.mockRejectedValue(new Error('code already used'))
 
     const wrapper = await mountSuspended(App, { route: '/auth/callback?code=spent' })
@@ -148,9 +134,9 @@ describe('the OAuth callback page', () => {
 })
 
 describe('the header', () => {
-  it('offers no way out while nobody is signed in', async () => {
-    signOutState()
+  beforeEach(signOutState)
 
+  it('offers no way out while nobody is signed in', async () => {
     const wrapper = await mountSuspended(App, { route: '/login' })
 
     expect(wrapper.find('[data-testid="sign-out"]').exists()).toBe(false)
@@ -163,6 +149,5 @@ describe('the header', () => {
     await wrapper.get('[data-testid="sign-out"]').trigger('click')
 
     expect(signOut).toHaveBeenCalledOnce()
-    signOutState()
   })
 })

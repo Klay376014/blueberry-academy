@@ -1,13 +1,10 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { mountSuspended } from '@nuxt/test-utils/runtime'
 import App from '../../app/app.vue'
+import { signIn } from '../helpers'
 
-// `/` is behind the login now, so these mount as a signed-in user; the
-// redirect itself is asserted in auth.spec.ts.
-function signIn() {
-  useCurrentUser().value = { id: 'test-user' } as never
-}
-
+// `/` sits behind the login now; the redirect itself is asserted in
+// auth.spec.ts.
 describe('file-based routes', () => {
   beforeEach(signIn)
 

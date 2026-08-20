@@ -223,6 +223,12 @@ web3 = 30
 # No password sign-in: the only way in is Google (Discord later). Off here as
 # well as absent from the UI, so it is a property of the project rather than of
 # whichever page happens to be rendered.
+#
+# This one key is enough, despite reading like it only blocks new accounts:
+# with it off, GoTrue reports `email: false` in /auth/v1/settings and the
+# password grant answers 422 email_provider_disabled. Measured 2026-08-20
+# against CLI 2.105.0. (`[auth.email] enabled` is not a key this CLI accepts --
+# it fails config parsing.)
 enable_signup = false
 # If enabled, a user will be required to confirm any email change on both the old, and new email
 # addresses. If disabled, only the new email is required to confirm.
