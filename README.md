@@ -8,6 +8,7 @@ Analyses your Pokémon Showdown replays. See `docs/specs/` for the design and
 ```
 apps/web/                  the app — Nuxt, file-based routes, SPA (`ssr: false`)
 packages/replay-parser/    pure replay-log parser, zero runtime dependencies
+supabase/                  schema migrations, RLS and Storage policies, pgTAP tests
 vite.config.ts             `vp` toolchain config for the whole workspace
 ```
 
@@ -72,6 +73,28 @@ Two things that bite:
   versions on its own, so if it shims `pnpm` you will get a version error —
   `corepack install -g pnpm@<version>` aligns it. The shadcn-vue CLI shells out
   to `corepack pnpm add` internally and fails the same way.
+
+## Database
+
+The schema lives in `supabase/migrations/` at the repo root, not under
+`apps/web` — it is not the app's, and the maintenance scripts read it too. Needs
+Docker and the [Supabase CLI](https://supabase.com/docs/guides/cli) on your
+`PATH`.
+
+```sh
+pnpm db:start       # bring the local stack up
+pnpm db:reset       # re-apply every migration from zero
+pnpm db:test        # pgTAP tests in supabase/tests/
+```
+
+The local ports are shifted by +100 from the CLI defaults (API on 54421, database
+on 54422, Studio on 54423) so that a second Supabase project running on the same
+machine does not collide with this one.
+
+`supabase/tests/` is where the schema's guarantees are checked: the columns and
+indexes design document §5 asks for, what `regulation` derives, and — as two
+actual users under RLS — that neither can read, write or delete anything of the
+other's, in the database or in the `replay-logs` bucket.
 
 ## UI and i18n
 
