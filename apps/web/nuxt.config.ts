@@ -13,6 +13,16 @@ export default defineNuxtConfig({
 
   css: ['~/assets/tailwind.css'],
 
+  // Pinned to IPv4 loopback. Left to itself the dev server binds [::1] only,
+  // and then http://127.0.0.1:3000 refuses connections while
+  // http://localhost:3000 works -- which breaks the OAuth round trip, because
+  // redirectTo is built from whichever of the two the browser happens to be
+  // on. Bound here, both names reach it: browsers fall back to IPv4 for
+  // localhost, and 127.0.0.1 is literal.
+  devServer: {
+    host: '127.0.0.1',
+  },
+
   // Both are public by design: the browser is the only thing that talks to
   // Supabase (see the design document §3), and the anon key is safe there
   // because RLS is what actually guards the data. Set them through

@@ -108,6 +108,7 @@ describe('the OAuth callback page', () => {
   beforeEach(() => {
     signOutState()
     navigateToMock.mockClear()
+    completeSignIn.mockReset()
   })
 
   it('trades the code for a session and then goes to the dashboard', async () => {
@@ -116,8 +117,28 @@ describe('the OAuth callback page', () => {
     await mountSuspended(App, { route: '/auth/callback?code=abc123' })
 
     await vi.waitFor(() => {
-      expect(completeSignIn).toHaveBeenCalledWith(window.location.href)
+      // The code itself, not the URL it arrived in: that is what
+      // exchangeCodeForSession takes.
+      expect(completeSignIn).toHaveBeenCalledWith('abc123')
       expect(navigateToMock).toHaveBeenCalledWith('/')
+    })
+  })
+
+  it('comes back into the locale the user signed in from', async () => {
+    completeSignIn.mockResolvedValue(undefined)
+
+    await mountSuspended(App, { route: '/zh-TW/auth/callback?code=abc123' })
+
+    await vi.waitFor(() => {
+      expect(navigateToMock).toHaveBeenCalledWith('/zh-TW')
+    })
+  })
+
+  it('says so when Google came back with no code at all', async () => {
+    await mountSuspended(App, { route: '/auth/callback' })
+
+    await vi.waitFor(() => {
+      expect(completeSignIn).not.toHaveBeenCalled()
     })
   })
 

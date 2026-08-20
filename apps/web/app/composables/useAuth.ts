@@ -18,7 +18,10 @@ export function useAuth() {
   async function signInWithGoogle() {
     const { error } = await $supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: { redirectTo: `${window.location.origin}/auth/callback` },
+      // Through localePath, so a zh-TW user comes back to
+      // /zh-TW/auth/callback and the page that greets them -- and the
+      // dashboard it forwards to -- are still in their language.
+      options: { redirectTo: `${window.location.origin}${localePath('/auth/callback')}` },
     })
     if (error) throw error
   }
@@ -27,9 +30,13 @@ export function useAuth() {
    * Trades the code Google sent us back with for a session. Explicit rather
    * than through the client's `detectSessionInUrl`, so that the callback page
    * knows when it is finished instead of polling for a session to appear.
+   *
+   * Takes the code, not the URL it arrived in -- that is what
+   * `exchangeCodeForSession` accepts, and handing it the whole URL fails at
+   * the token endpoint.
    */
-  async function completeSignIn(url: string) {
-    const { error } = await $supabase.auth.exchangeCodeForSession(url)
+  async function completeSignIn(code: string) {
+    const { error } = await $supabase.auth.exchangeCodeForSession(code)
     if (error) throw error
   }
 

@@ -13,6 +13,11 @@ export default defineNuxtPlugin(async () => {
 
   const client = createClient(supabaseUrl, supabaseAnonKey, {
     auth: {
+      // Spelled out because the default is 'implicit', which returns the
+      // access and refresh tokens in the URL fragment -- into browser history,
+      // into anything the user copies out of the address bar. PKCE returns a
+      // single-use code instead, which is what /auth/callback exchanges.
+      flowType: 'pkce',
       // The callback page trades the code itself, so the client must not race
       // it by consuming the URL first.
       detectSessionInUrl: false,

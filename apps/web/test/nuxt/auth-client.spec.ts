@@ -72,11 +72,23 @@ describe('the Supabase plugin', () => {
     await bootPlugin()
 
     const options = createClient.mock.calls[0]?.[2] as {
-      auth: { detectSessionInUrl: boolean }
+      auth: { detectSessionInUrl: boolean; flowType: string }
     }
     // The callback page trades the code explicitly; both doing it means one of
     // them finds the code already spent.
     expect(options.auth.detectSessionInUrl).toBe(false)
+  })
+
+  it('asks for PKCE, so no token ever lands in the URL', async () => {
+    await bootPlugin()
+
+    const options = createClient.mock.calls[0]?.[2] as {
+      auth: { flowType: string }
+    }
+    // auth-js defaults to 'implicit', which comes back as
+    // #access_token=…&refresh_token=… in the fragment -- and leaves the
+    // callback page with no code to exchange at all.
+    expect(options.auth.flowType).toBe('pkce')
   })
 })
 
@@ -92,6 +104,8 @@ describe('useAuth', () => {
 
     await useAuth().signInWithGoogle()
 
+    // The path goes through localePath, so a zh-TW user comes back to
+    // /zh-TW/auth/callback and stays in their language.
     expect(supabaseAuth.signInWithOAuth).toHaveBeenCalledWith({
       provider: 'google',
       options: { redirectTo: `${window.location.origin}/auth/callback` },
@@ -104,22 +118,23 @@ describe('useAuth', () => {
     await expect(useAuth().signInWithGoogle()).rejects.toThrow('nope')
   })
 
-  it('trades the callback URL for a session', async () => {
+  it('trades the code for a session, and passes a code rather than a URL', async () => {
     supabaseAuth.exchangeCodeForSession.mockResolvedValue({ error: null })
 
-    await useAuth().completeSignIn('http://localhost:3000/auth/callback?code=abc')
+    await useAuth().completeSignIn('34e770dd-9ff9-416c-87fa-43b31d7ef225')
 
-    expect(supabaseAuth.exchangeCodeForSession).toHaveBeenCalledWith(
-      'http://localhost:3000/auth/callback?code=abc',
-    )
+    // exchangeCodeForSession(authCode: string) -- handing it the whole
+    // callback URL fails at the token endpoint, which is what "That sign-in
+    // did not go through." looked like from the outside.
+    const [passed] = supabaseAuth.exchangeCodeForSession.mock.calls[0] ?? []
+    expect(passed).toBe('34e770dd-9ff9-416c-87fa-43b31d7ef225')
+    expect(String(passed)).not.toMatch(/^https?:/)
   })
 
   it('reports a refused exchange, which is what puts the retry link on screen', async () => {
     supabaseAuth.exchangeCodeForSession.mockResolvedValue({ error: new Error('code used') })
 
-    await expect(useAuth().completeSignIn('http://localhost:3000/auth/callback')).rejects.toThrow(
-      'code used',
-    )
+    await expect(useAuth().completeSignIn('already-spent')).rejects.toThrow('code used')
   })
 
   it('signs out and lands on the login page', async () => {

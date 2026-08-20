@@ -39,8 +39,18 @@ Workers 免費版的 50 subrequest 與 10ms CPU 上限讓 server 端根本跑不
 server 端讀不到登入狀態**，得自己補 cookie 那一段（或屆時改裝模組）。這是這個決定
 唯一真正的債，寫在這裡是為了讓那天的人知道要找什麼。
 
-`detectSessionInUrl` 關掉是配套而非偏好：`/auth/callback` 自己呼叫
-`exchangeCodeForSession()`，才知道什麼時候換完；開著會讓 client 與該頁搶同一個 code。
+`flowType: 'pkce'` 與 `detectSessionInUrl: false` 都是配套而非偏好，兩個都不能省：
+
+- **`flowType`**：`@supabase/auth-js` 的**預設是 `'implicit'`**（實測 `GoTrueClient.js:21`）。
+  Implicit flow 把 access/refresh token 放在 URL fragment 回傳
+  （`#access_token=…&refresh_token=…`），token 因此進了網址列與瀏覽歷史，而且
+  **完全沒有 code 可以交換** —— callback 頁會直接失敗。
+- **`detectSessionInUrl`**：`/auth/callback` 自己呼叫 `exchangeCodeForSession()`，
+  才知道什麼時候換完；開著會讓 client 與該頁搶同一個 code。
+
+`exchangeCodeForSession()` 收的是 **code 本身**，不是 code 所在的那個 URL
+（`exchangeCodeForSession(authCode: string)`）。傳整個 URL 會在 token endpoint
+失敗，而且從畫面上只看得到「登入沒有成功」。
 
 ## 為什麼不要「順手」裝回模組
 
