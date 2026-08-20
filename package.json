@@ -13,6 +13,9 @@
     "check:fix": "vp check --fix",
     "lint": "vp lint",
     "format": "vp fmt",
+    "db:start": "supabase start",
+    "db:reset": "supabase db reset",
+    "db:test": "supabase test db",
     "prepare": "vp config"
   },
   "devDependencies": {
