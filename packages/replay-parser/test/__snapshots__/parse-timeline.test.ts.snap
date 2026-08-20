@@ -1,0 +1,869 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`parseTimeline > parses a real Bo3 game end to end 1`] = `
+{
+  "turns": [
+    {
+      "events": [
+        {
+          "how": "switch",
+          "kind": "switch",
+          "pokemon": {
+            "nickname": "Raichu",
+            "position": "p1a",
+            "revealedSpecies": null,
+            "side": "p1",
+            "species": "Raichu",
+          },
+        },
+        {
+          "how": "switch",
+          "kind": "switch",
+          "pokemon": {
+            "nickname": "Arcanine",
+            "position": "p1b",
+            "revealedSpecies": null,
+            "side": "p1",
+            "species": "Arcanine-Hisui",
+          },
+        },
+        {
+          "how": "switch",
+          "kind": "switch",
+          "pokemon": {
+            "nickname": "Glimmora",
+            "position": "p2a",
+            "revealedSpecies": null,
+            "side": "p2",
+            "species": "Glimmora",
+          },
+        },
+        {
+          "how": "switch",
+          "kind": "switch",
+          "pokemon": {
+            "nickname": "Gholdengo",
+            "position": "p2b",
+            "revealedSpecies": null,
+            "side": "p2",
+            "species": "Gholdengo",
+          },
+        },
+      ],
+      "number": 0,
+      "startedAt": null,
+    },
+    {
+      "events": [
+        {
+          "kind": "formeChange",
+          "pokemon": {
+            "nickname": "Raichu",
+            "position": "p1a",
+            "revealedSpecies": null,
+            "side": "p1",
+            "species": "Raichu-Mega-Y",
+          },
+          "species": "Raichu-Mega-Y",
+        },
+        {
+          "kind": "mega",
+          "pokemon": {
+            "nickname": "Raichu",
+            "position": "p1a",
+            "revealedSpecies": null,
+            "side": "p1",
+            "species": "Raichu-Mega-Y",
+          },
+          "stone": "Raichunite Y",
+        },
+        {
+          "actor": {
+            "nickname": "Arcanine",
+            "position": "p1b",
+            "revealedSpecies": null,
+            "side": "p1",
+            "species": "Arcanine-Hisui",
+          },
+          "kind": "move",
+          "move": "Protect",
+          "targets": [
+            {
+              "nickname": "Arcanine",
+              "position": "p1b",
+              "revealedSpecies": null,
+              "side": "p1",
+              "species": "Arcanine-Hisui",
+            },
+          ],
+        },
+        {
+          "kind": "unknown",
+          "raw": "|-singleturn|p1b: Arcanine|Protect",
+        },
+        {
+          "actor": {
+            "nickname": "Glimmora",
+            "position": "p2a",
+            "revealedSpecies": null,
+            "side": "p2",
+            "species": "Glimmora",
+          },
+          "kind": "move",
+          "move": "Spiky Shield",
+          "targets": [
+            {
+              "nickname": "Glimmora",
+              "position": "p2a",
+              "revealedSpecies": null,
+              "side": "p2",
+              "species": "Glimmora",
+            },
+          ],
+        },
+        {
+          "kind": "unknown",
+          "raw": "|-singleturn|p2a: Glimmora|move: Protect",
+        },
+        {
+          "actor": {
+            "nickname": "Gholdengo",
+            "position": "p2b",
+            "revealedSpecies": null,
+            "side": "p2",
+            "species": "Gholdengo",
+          },
+          "kind": "move",
+          "move": "Protect",
+          "targets": [
+            {
+              "nickname": "Gholdengo",
+              "position": "p2b",
+              "revealedSpecies": null,
+              "side": "p2",
+              "species": "Gholdengo",
+            },
+          ],
+        },
+        {
+          "kind": "unknown",
+          "raw": "|-singleturn|p2b: Gholdengo|Protect",
+        },
+        {
+          "actor": {
+            "nickname": "Raichu",
+            "position": "p1a",
+            "revealedSpecies": null,
+            "side": "p1",
+            "species": "Raichu-Mega-Y",
+          },
+          "kind": "move",
+          "move": "Zap Cannon",
+          "targets": [
+            {
+              "nickname": "Glimmora",
+              "position": "p2a",
+              "revealedSpecies": null,
+              "side": "p2",
+              "species": "Glimmora",
+            },
+          ],
+        },
+        {
+          "kind": "unknown",
+          "raw": "|-activate|p2a: Glimmora|move: Protect",
+        },
+        {
+          "kind": "unknown",
+          "raw": "|upkeep",
+        },
+      ],
+      "number": 1,
+      "startedAt": "2026-08-20T02:30:41.000Z",
+    },
+    {
+      "events": [
+        {
+          "actor": {
+            "nickname": "Raichu",
+            "position": "p1a",
+            "revealedSpecies": null,
+            "side": "p1",
+            "species": "Raichu-Mega-Y",
+          },
+          "kind": "move",
+          "move": "Zap Cannon",
+          "targets": [
+            {
+              "nickname": "Glimmora",
+              "position": "p2a",
+              "revealedSpecies": null,
+              "side": "p2",
+              "species": "Glimmora",
+            },
+          ],
+        },
+        {
+          "from": null,
+          "hpAfter": 8,
+          "hpBefore": 100,
+          "hpDelta": -92,
+          "kind": "damage",
+          "pokemon": {
+            "nickname": "Glimmora",
+            "position": "p2a",
+            "revealedSpecies": null,
+            "side": "p2",
+            "species": "Glimmora",
+          },
+        },
+        {
+          "kind": "status",
+          "pokemon": {
+            "nickname": "Glimmora",
+            "position": "p2a",
+            "revealedSpecies": null,
+            "side": "p2",
+            "species": "Glimmora",
+          },
+          "status": "par",
+        },
+        {
+          "actor": {
+            "nickname": "Arcanine",
+            "position": "p1b",
+            "revealedSpecies": null,
+            "side": "p1",
+            "species": "Arcanine-Hisui",
+          },
+          "kind": "move",
+          "move": "Flare Blitz",
+          "targets": [
+            {
+              "nickname": "Gholdengo",
+              "position": "p2b",
+              "revealedSpecies": null,
+              "side": "p2",
+              "species": "Gholdengo",
+            },
+          ],
+        },
+        {
+          "kind": "hitResult",
+          "pokemon": {
+            "nickname": "Gholdengo",
+            "position": "p2b",
+            "revealedSpecies": null,
+            "side": "p2",
+            "species": "Gholdengo",
+          },
+          "result": "supereffective",
+        },
+        {
+          "from": null,
+          "hpAfter": 0,
+          "hpBefore": 100,
+          "hpDelta": -100,
+          "kind": "damage",
+          "pokemon": {
+            "nickname": "Gholdengo",
+            "position": "p2b",
+            "revealedSpecies": null,
+            "side": "p2",
+            "species": "Gholdengo",
+          },
+        },
+        {
+          "kind": "faint",
+          "pokemon": {
+            "nickname": "Gholdengo",
+            "position": "p2b",
+            "revealedSpecies": null,
+            "side": "p2",
+            "species": "Gholdengo",
+          },
+        },
+        {
+          "actor": {
+            "nickname": "Glimmora",
+            "position": "p2a",
+            "revealedSpecies": null,
+            "side": "p2",
+            "species": "Glimmora",
+          },
+          "kind": "move",
+          "move": "Earth Power",
+          "targets": [
+            {
+              "nickname": "Arcanine",
+              "position": "p1b",
+              "revealedSpecies": null,
+              "side": "p1",
+              "species": "Arcanine-Hisui",
+            },
+          ],
+        },
+        {
+          "kind": "hitResult",
+          "pokemon": {
+            "nickname": "Arcanine",
+            "position": "p1b",
+            "revealedSpecies": null,
+            "side": "p1",
+            "species": "Arcanine-Hisui",
+          },
+          "result": "supereffective",
+        },
+        {
+          "kind": "unknown",
+          "raw": "|-enditem|p1b: Arcanine|Focus Sash",
+        },
+        {
+          "from": null,
+          "hpAfter": 1,
+          "hpBefore": 100,
+          "hpDelta": -99,
+          "kind": "damage",
+          "pokemon": {
+            "nickname": "Arcanine",
+            "position": "p1b",
+            "revealedSpecies": null,
+            "side": "p1",
+            "species": "Arcanine-Hisui",
+          },
+        },
+        {
+          "kind": "unknown",
+          "raw": "|upkeep",
+        },
+        {
+          "how": "switch",
+          "kind": "switch",
+          "pokemon": {
+            "nickname": "Mamoswine",
+            "position": "p2b",
+            "revealedSpecies": null,
+            "side": "p2",
+            "species": "Mamoswine",
+          },
+        },
+      ],
+      "number": 2,
+      "startedAt": "2026-08-20T02:31:03.000Z",
+    },
+    {
+      "events": [
+        {
+          "actor": {
+            "nickname": "Raichu",
+            "position": "p1a",
+            "revealedSpecies": null,
+            "side": "p1",
+            "species": "Raichu-Mega-Y",
+          },
+          "kind": "move",
+          "move": "Protect",
+          "targets": [
+            {
+              "nickname": "Raichu",
+              "position": "p1a",
+              "revealedSpecies": null,
+              "side": "p1",
+              "species": "Raichu-Mega-Y",
+            },
+          ],
+        },
+        {
+          "kind": "unknown",
+          "raw": "|-singleturn|p1a: Raichu|Protect",
+        },
+        {
+          "actor": {
+            "nickname": "Mamoswine",
+            "position": "p2b",
+            "revealedSpecies": null,
+            "side": "p2",
+            "species": "Mamoswine",
+          },
+          "kind": "move",
+          "move": "Protect",
+          "targets": [
+            {
+              "nickname": "Mamoswine",
+              "position": "p2b",
+              "revealedSpecies": null,
+              "side": "p2",
+              "species": "Mamoswine",
+            },
+          ],
+        },
+        {
+          "kind": "unknown",
+          "raw": "|-singleturn|p2b: Mamoswine|Protect",
+        },
+        {
+          "actor": {
+            "nickname": "Arcanine",
+            "position": "p1b",
+            "revealedSpecies": null,
+            "side": "p1",
+            "species": "Arcanine-Hisui",
+          },
+          "kind": "move",
+          "move": "Flare Blitz",
+          "targets": [
+            {
+              "nickname": "Mamoswine",
+              "position": "p2b",
+              "revealedSpecies": null,
+              "side": "p2",
+              "species": "Mamoswine",
+            },
+          ],
+        },
+        {
+          "kind": "unknown",
+          "raw": "|-activate|p2b: Mamoswine|move: Protect",
+        },
+        {
+          "actor": {
+            "nickname": "Glimmora",
+            "position": "p2a",
+            "revealedSpecies": null,
+            "side": "p2",
+            "species": "Glimmora",
+          },
+          "kind": "move",
+          "move": "Earth Power",
+          "targets": [
+            {
+              "nickname": "Arcanine",
+              "position": "p1b",
+              "revealedSpecies": null,
+              "side": "p1",
+              "species": "Arcanine-Hisui",
+            },
+          ],
+        },
+        {
+          "kind": "hitResult",
+          "pokemon": {
+            "nickname": "Arcanine",
+            "position": "p1b",
+            "revealedSpecies": null,
+            "side": "p1",
+            "species": "Arcanine-Hisui",
+          },
+          "result": "supereffective",
+        },
+        {
+          "from": null,
+          "hpAfter": 0,
+          "hpBefore": 1,
+          "hpDelta": -1,
+          "kind": "damage",
+          "pokemon": {
+            "nickname": "Arcanine",
+            "position": "p1b",
+            "revealedSpecies": null,
+            "side": "p1",
+            "species": "Arcanine-Hisui",
+          },
+        },
+        {
+          "kind": "faint",
+          "pokemon": {
+            "nickname": "Arcanine",
+            "position": "p1b",
+            "revealedSpecies": null,
+            "side": "p1",
+            "species": "Arcanine-Hisui",
+          },
+        },
+        {
+          "kind": "unknown",
+          "raw": "|upkeep",
+        },
+        {
+          "how": "switch",
+          "kind": "switch",
+          "pokemon": {
+            "nickname": "Basculegion",
+            "position": "p1b",
+            "revealedSpecies": null,
+            "side": "p1",
+            "species": "Basculegion",
+          },
+        },
+      ],
+      "number": 3,
+      "startedAt": "2026-08-20T02:31:35.000Z",
+    },
+    {
+      "events": [
+        {
+          "actor": {
+            "nickname": "Glimmora",
+            "position": "p2a",
+            "revealedSpecies": null,
+            "side": "p2",
+            "species": "Glimmora",
+          },
+          "kind": "move",
+          "move": "Spiky Shield",
+          "targets": [
+            {
+              "nickname": "Glimmora",
+              "position": "p2a",
+              "revealedSpecies": null,
+              "side": "p2",
+              "species": "Glimmora",
+            },
+          ],
+        },
+        {
+          "kind": "unknown",
+          "raw": "|-singleturn|p2a: Glimmora|move: Protect",
+        },
+        {
+          "actor": {
+            "nickname": "Mamoswine",
+            "position": "p2b",
+            "revealedSpecies": null,
+            "side": "p2",
+            "species": "Mamoswine",
+          },
+          "kind": "move",
+          "move": "Ice Shard",
+          "targets": [
+            {
+              "nickname": "Raichu",
+              "position": "p1a",
+              "revealedSpecies": null,
+              "side": "p1",
+              "species": "Raichu-Mega-Y",
+            },
+          ],
+        },
+        {
+          "from": null,
+          "hpAfter": 63,
+          "hpBefore": 100,
+          "hpDelta": -37,
+          "kind": "damage",
+          "pokemon": {
+            "nickname": "Raichu",
+            "position": "p1a",
+            "revealedSpecies": null,
+            "side": "p1",
+            "species": "Raichu-Mega-Y",
+          },
+        },
+        {
+          "actor": {
+            "nickname": "Raichu",
+            "position": "p1a",
+            "revealedSpecies": null,
+            "side": "p1",
+            "species": "Raichu-Mega-Y",
+          },
+          "kind": "move",
+          "move": "Zap Cannon",
+          "targets": [
+            {
+              "nickname": "Glimmora",
+              "position": "p2a",
+              "revealedSpecies": null,
+              "side": "p2",
+              "species": "Glimmora",
+            },
+          ],
+        },
+        {
+          "kind": "unknown",
+          "raw": "|-activate|p2a: Glimmora|move: Protect",
+        },
+        {
+          "actor": {
+            "nickname": "Basculegion",
+            "position": "p1b",
+            "revealedSpecies": null,
+            "side": "p1",
+            "species": "Basculegion",
+          },
+          "kind": "move",
+          "move": "Wave Crash",
+          "targets": [
+            {
+              "nickname": "Mamoswine",
+              "position": "p2b",
+              "revealedSpecies": null,
+              "side": "p2",
+              "species": "Mamoswine",
+            },
+          ],
+        },
+        {
+          "kind": "hitResult",
+          "pokemon": {
+            "nickname": "Mamoswine",
+            "position": "p2b",
+            "revealedSpecies": null,
+            "side": "p2",
+            "species": "Mamoswine",
+          },
+          "result": "supereffective",
+        },
+        {
+          "from": null,
+          "hpAfter": 0,
+          "hpBefore": 100,
+          "hpDelta": -100,
+          "kind": "damage",
+          "pokemon": {
+            "nickname": "Mamoswine",
+            "position": "p2b",
+            "revealedSpecies": null,
+            "side": "p2",
+            "species": "Mamoswine",
+          },
+        },
+        {
+          "kind": "faint",
+          "pokemon": {
+            "nickname": "Mamoswine",
+            "position": "p2b",
+            "revealedSpecies": null,
+            "side": "p2",
+            "species": "Mamoswine",
+          },
+        },
+        {
+          "from": "Recoil",
+          "hpAfter": 68,
+          "hpBefore": 100,
+          "hpDelta": -32,
+          "kind": "damage",
+          "pokemon": {
+            "nickname": "Basculegion",
+            "position": "p1b",
+            "revealedSpecies": null,
+            "side": "p1",
+            "species": "Basculegion",
+          },
+        },
+        {
+          "kind": "unknown",
+          "raw": "|upkeep",
+        },
+        {
+          "how": "switch",
+          "kind": "switch",
+          "pokemon": {
+            "nickname": "Charizard",
+            "position": "p2b",
+            "revealedSpecies": null,
+            "side": "p2",
+            "species": "Charizard",
+          },
+        },
+      ],
+      "number": 4,
+      "startedAt": "2026-08-20T02:32:05.000Z",
+    },
+    {
+      "events": [
+        {
+          "kind": "formeChange",
+          "pokemon": {
+            "nickname": "Charizard",
+            "position": "p2b",
+            "revealedSpecies": null,
+            "side": "p2",
+            "species": "Charizard-Mega-Y",
+          },
+          "species": "Charizard-Mega-Y",
+        },
+        {
+          "kind": "mega",
+          "pokemon": {
+            "nickname": "Charizard",
+            "position": "p2b",
+            "revealedSpecies": null,
+            "side": "p2",
+            "species": "Charizard-Mega-Y",
+          },
+          "stone": "Charizardite Y",
+        },
+        {
+          "from": "ability: Drought",
+          "kind": "weather",
+          "weather": "SunnyDay",
+        },
+        {
+          "actor": {
+            "nickname": "Raichu",
+            "position": "p1a",
+            "revealedSpecies": null,
+            "side": "p1",
+            "species": "Raichu-Mega-Y",
+          },
+          "kind": "move",
+          "move": "Zap Cannon",
+          "targets": [
+            {
+              "nickname": "Charizard",
+              "position": "p2b",
+              "revealedSpecies": null,
+              "side": "p2",
+              "species": "Charizard-Mega-Y",
+            },
+          ],
+        },
+        {
+          "kind": "hitResult",
+          "pokemon": {
+            "nickname": "Charizard",
+            "position": "p2b",
+            "revealedSpecies": null,
+            "side": "p2",
+            "species": "Charizard-Mega-Y",
+          },
+          "result": "supereffective",
+        },
+        {
+          "from": null,
+          "hpAfter": 0,
+          "hpBefore": 100,
+          "hpDelta": -100,
+          "kind": "damage",
+          "pokemon": {
+            "nickname": "Charizard",
+            "position": "p2b",
+            "revealedSpecies": null,
+            "side": "p2",
+            "species": "Charizard-Mega-Y",
+          },
+        },
+        {
+          "kind": "faint",
+          "pokemon": {
+            "nickname": "Charizard",
+            "position": "p2b",
+            "revealedSpecies": null,
+            "side": "p2",
+            "species": "Charizard-Mega-Y",
+          },
+        },
+        {
+          "actor": {
+            "nickname": "Basculegion",
+            "position": "p1b",
+            "revealedSpecies": null,
+            "side": "p1",
+            "species": "Basculegion",
+          },
+          "kind": "move",
+          "move": "Wave Crash",
+          "targets": [
+            {
+              "nickname": "Glimmora",
+              "position": "p2a",
+              "revealedSpecies": null,
+              "side": "p2",
+              "species": "Glimmora",
+            },
+          ],
+        },
+        {
+          "kind": "hitResult",
+          "pokemon": {
+            "nickname": "Glimmora",
+            "position": "p2a",
+            "revealedSpecies": null,
+            "side": "p2",
+            "species": "Glimmora",
+          },
+          "result": "supereffective",
+        },
+        {
+          "from": null,
+          "hpAfter": 0,
+          "hpBefore": 8,
+          "hpDelta": -8,
+          "kind": "damage",
+          "pokemon": {
+            "nickname": "Glimmora",
+            "position": "p2a",
+            "revealedSpecies": null,
+            "side": "p2",
+            "species": "Glimmora",
+          },
+        },
+        {
+          "kind": "unknown",
+          "raw": "|-activate|p2a: Glimmora|ability: Toxic Debris",
+        },
+        {
+          "kind": "unknown",
+          "raw": "|-sidestart|p1: Duke33|move: Toxic Spikes",
+        },
+        {
+          "kind": "faint",
+          "pokemon": {
+            "nickname": "Glimmora",
+            "position": "p2a",
+            "revealedSpecies": null,
+            "side": "p2",
+            "species": "Glimmora",
+          },
+        },
+        {
+          "from": "Recoil",
+          "hpAfter": 65,
+          "hpBefore": 68,
+          "hpDelta": -3,
+          "kind": "damage",
+          "pokemon": {
+            "nickname": "Basculegion",
+            "position": "p1b",
+            "revealedSpecies": null,
+            "side": "p1",
+            "species": "Basculegion",
+          },
+        },
+        {
+          "kind": "unknown",
+          "raw": "|win|Duke33",
+        },
+        {
+          "kind": "unknown",
+          "raw": "||KMMULLER2020 is ready for game 3.",
+        },
+        {
+          "kind": "unknown",
+          "raw": "|inactive|Duke33 has 30 seconds to confirm battle start!",
+        },
+        {
+          "kind": "unknown",
+          "raw": "||Duke33 is ready for game 3.",
+        },
+        {
+          "kind": "unknown",
+          "raw": "|uhtml|next|Next: <a href="/battle-gen9championsvgc2026regmbbo3-2667583736"><strong>Game 3 of 3</strong></a>",
+        },
+        {
+          "kind": "unknown",
+          "raw": "|l|☆Duke33",
+        },
+        {
+          "kind": "unknown",
+          "raw": "|player|p1|",
+        },
+      ],
+      "number": 5,
+      "startedAt": "2026-08-20T02:32:29.000Z",
+    },
+  ],
+}
+`;
