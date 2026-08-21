@@ -5,6 +5,9 @@ const { t } = useI18n()
 const { aliases, loaded, load, bindAlias, unbindAlias } = useProfile()
 
 const typed = ref('')
+/** Unique per component instance, so the label keeps pointing at its own input
+ * even if this block is ever rendered more than once on a page. */
+const aliasInputId = useId()
 /** Which of the "that name was not added" messages to show, if any. */
 const notice = ref<Exclude<BindResult, 'bound'> | null>(null)
 /** The name that notice is about, held apart from the field the user is still
@@ -81,11 +84,11 @@ async function unbind(name: string) {
 
       <form class="mt-6 flex items-end gap-2" data-testid="alias-form" @submit.prevent="bind">
         <div class="flex-1">
-          <label class="text-sm font-medium" for="alias-input">
+          <label class="text-sm font-medium" :for="aliasInputId">
             {{ t('settings.aliases.label') }}
           </label>
           <input
-            id="alias-input"
+            :id="aliasInputId"
             v-model="typed"
             class="mt-1 h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs transition-colors placeholder:text-muted-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none disabled:opacity-50"
             :placeholder="t('settings.aliases.placeholder')"
@@ -126,7 +129,7 @@ async function unbind(name: string) {
             :aria-label="t('settings.aliases.remove', { name: alias })"
             :disabled="!loaded"
             data-testid="alias-remove"
-            @click="unbind(alias)"
+            @click="() => unbind(alias)"
           >
             {{ t('settings.aliases.removeShort') }}
           </UiButton>

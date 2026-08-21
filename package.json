@@ -21,6 +21,7 @@
   "devDependencies": {
     "@tsconfig/node24": "catalog:",
     "@types/node": "catalog:",
+    "oxlint-plugin-vize": "^0.350.2",
     "vite": "catalog:",
     "vite-plus": "catalog:"
   },

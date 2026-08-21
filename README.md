@@ -43,6 +43,29 @@ typecheck`). `vp check` type-checks with tsgolint, which cannot read Vue SFCs, s
 [Volar](https://marketplace.visualstudio.com/items?itemName=Vue.volar) makes the
 TypeScript language service aware of `.vue` types.
 
+## Linting Vue templates
+
+oxlint checks the `<script>` block of an SFC but not the `<template>` — oxc's own
+compatibility page says "no template linting yet", so `v-for` without a `:key`
+and `v-html` on a component used to be caught by nothing.
+[`oxlint-plugin-vize`](https://www.npmjs.com/package/oxlint-plugin-vize) fills
+that in through the root `vite.config.ts` (`nuxt` preset), inside `vp lint` and
+`vp check` rather than beside them.
+
+Two things to know:
+
+- **An SFC with no `<script>` block is skipped entirely**, so its template is
+  still unchecked. This is an upstream limitation. The fix upstream offers is the
+  separate `oxlint-vize` CLI, which would bypass `vp lint` / `vp check` and give
+  up the single toolchain entry point design document §3 keeps — not worth it for
+  a gap that closes itself as soon as a page needs a `<script setup>`.
+- **`apps/web/vue-shims.d.ts` is still necessary.** Vize adds template
+  diagnostics, not module resolution: without the shim, tsgolint still reports
+  `TS2307: Cannot find module '../../app/app.vue'`.
+
+Rules that disagree with what the shadcn-vue CLI generates are turned off for
+`apps/web/app/components/ui/**` — see the override in the root `vite.config.ts`.
+
 ## Customize configuration
 
 App config lives in [`apps/web/nuxt.config.ts`](https://nuxt.com/docs/api/nuxt-config);
