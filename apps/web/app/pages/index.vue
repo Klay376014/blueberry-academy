@@ -14,6 +14,11 @@ const VARIANTS = [
 ]
 
 const variant = computed(() => String(route.query.variant ?? 'A').toUpperCase())
+
+// Read here rather than in the template: template expressions are resolved
+// against the component instance, where `import.meta` does not exist, and the
+// SFC fails to compile.
+const showSwitcher = import.meta.dev
 </script>
 
 <template>
@@ -25,6 +30,6 @@ const variant = computed(() => String(route.query.variant ?? 'A').toUpperCase())
     <PrototypeTeamPerformanceB v-else-if="variant === 'B'" />
     <PrototypeTeamPerformanceC v-else-if="variant === 'C'" />
 
-    <PrototypeSwitcher v-if="import.meta.dev" :variants="VARIANTS" :current="variant" />
+    <PrototypeSwitcher v-if="showSwitcher" :variants="VARIANTS" :current="variant" />
   </main>
 </template>
