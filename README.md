@@ -170,3 +170,27 @@ pnpm check:fix      # the CLI emits double quotes; the formatter wants single
 
 Pokémon, move and item names are identifiers, not copy — they stay English and
 never enter the locale files.
+
+### Dex display tables
+
+A species id is what the parser stores (`hooh`), not what a person reads
+(`Ho-Oh`), and `toID()` cannot be reversed by any rule. Two committed tables
+close that gap, both written by one generator:
+
+```sh
+pnpm --filter web gen:species-names
+```
+
+It walks `Dex.species.all()` once and writes
+`apps/web/app/lib/dex/species-names.json` (id → official English name) and
+`species-icons.json` (id → slot on Showdown's icon sheet). Read them through
+`speciesName()` and `speciesIcon()` in `apps/web/app/utils/`, which are Nuxt
+auto-imports; an id neither table knows degrades to the raw id and to the
+sheet's placeholder icon rather than throwing.
+
+`@pkmn/dex` and `@pkmn/img` are build-time devDependencies and must stay that
+way — the tables are committed because the Worker free plan cannot afford a
+runtime lookup. The icon slots come from `@pkmn/img` rather than from
+`species.num`: Ninetales-Alola shares dex number 38 with Ninetales, and 524 of
+the 1517 species are Megas, Gmax, regional or cosmetic formes that Showdown
+keeps in a separate range of the sheet.
