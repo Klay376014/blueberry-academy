@@ -12,6 +12,13 @@ const otherLocale = computed(() =>
   locales.value.find((candidate) => candidate.code !== locale.value),
 )
 
+// A method rather than an inline handler: inside an arrow function in the
+// template, `v-if="otherLocale"` no longer narrows it, and vue-tsc rightly
+// says it may be undefined.
+function switchLocale() {
+  if (otherLocale.value) setLocale(otherLocale.value.code)
+}
+
 function toggleTheme() {
   colorMode.preference = colorMode.value === 'dark' ? 'light' : 'dark'
 }
@@ -42,7 +49,13 @@ function toggleTheme() {
     </nav>
 
     <div class="flex items-center gap-2">
-      <UiButton v-if="user" variant="outline" size="sm" data-testid="sign-out" @click="signOut()">
+      <UiButton
+        v-if="user"
+        variant="outline"
+        size="sm"
+        data-testid="sign-out"
+        @click="() => signOut()"
+      >
         {{ t('nav.signOut') }}
       </UiButton>
       <UiButton
@@ -51,7 +64,7 @@ function toggleTheme() {
         size="sm"
         :aria-label="t('a11y.switchLanguage')"
         data-testid="locale-switcher"
-        @click="setLocale(otherLocale.code)"
+        @click="switchLocale"
       >
         {{ otherLocale.name }}
       </UiButton>

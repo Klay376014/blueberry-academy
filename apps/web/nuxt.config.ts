@@ -1,8 +1,19 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
 import tailwindcss from '@tailwindcss/vite'
 
+// The key order is not editorial: vize's nuxt/nuxt-config-keys-order enforces
+// it. The rule reports one key at a time and does not publish the order it
+// wants, so it was found by asking repeatedly:
+//
+//   modules, ssr, components, css, colorMode, runtimeConfig, devServer,
+//   compatibilityDate, nitro, vite, i18n
+//
+// Adding a key means running `vp lint` until it stops answering.
 export default defineNuxtConfig({
-  compatibilityDate: '2026-08-18',
+  // @pinia/nuxt: Pinia was registered by hand in the old src/main.ts; the
+  // module keeps that capability wired up now that the entry file is gone.
+  // @nuxt/fonts: self-hosts Inter, see docs/adr/0007-self-hosted-inter.md.
+  modules: ['@pinia/nuxt', '@nuxt/fonts', '@nuxtjs/i18n', '@nuxtjs/color-mode'],
 
   // SPA — see docs/adr/0001-spa-only-rendering.md.
   // The dashboard lives behind a login, so it has no SEO value, and
@@ -11,16 +22,17 @@ export default defineNuxtConfig({
   // through route rules later.
   ssr: false,
 
+  // See docs/adr/0005-shadcn-vue-without-nuxt-module.md — shadcn ships an
+  // index.ts barrel beside each component, and Nuxt's default scan would
+  // register both files under the same name (NUXT_B3011).
+  components: [{ path: '~/components', extensions: ['vue'] }],
+
   css: ['~/assets/tailwind.css'],
 
-  // Pinned to IPv4 loopback. Left to itself the dev server binds [::1] only,
-  // and then http://127.0.0.1:3000 refuses connections while
-  // http://localhost:3000 works -- which breaks the OAuth round trip, because
-  // redirectTo is built from whichever of the two the browser happens to be
-  // on. Bound here, both names reach it: browsers fall back to IPv4 for
-  // localhost, and 127.0.0.1 is literal.
-  devServer: {
-    host: '127.0.0.1',
+  // shadcn-vue toggles dark mode on a `.dark` class, so drop color-mode's
+  // default `-mode` suffix.
+  colorMode: {
+    classSuffix: '',
   },
 
   // Both are public by design: the browser is the only thing that talks to
@@ -34,15 +46,22 @@ export default defineNuxtConfig({
     },
   },
 
-  // @pinia/nuxt: Pinia was registered by hand in the old src/main.ts; the
-  // module keeps that capability wired up now that the entry file is gone.
-  // @nuxt/fonts: self-hosts Inter, see docs/adr/0007-self-hosted-inter.md.
-  modules: ['@pinia/nuxt', '@nuxt/fonts', '@nuxtjs/i18n', '@nuxtjs/color-mode'],
+  // Pinned to IPv4 loopback. Left to itself the dev server binds [::1] only,
+  // and then http://127.0.0.1:3000 refuses connections while
+  // http://localhost:3000 works -- which breaks the OAuth round trip, because
+  // redirectTo is built from whichever of the two the browser happens to be
+  // on. Bound here, both names reach it: browsers fall back to IPv4 for
+  // localhost, and 127.0.0.1 is literal.
+  devServer: {
+    host: '127.0.0.1',
+  },
 
-  // See docs/adr/0005-shadcn-vue-without-nuxt-module.md — shadcn ships an
-  // index.ts barrel beside each component, and Nuxt's default scan would
-  // register both files under the same name (NUXT_B3011).
-  components: [{ path: '~/components', extensions: ['vue'] }],
+  compatibilityDate: '2026-08-18',
+
+  // See docs/adr/0002-cloudflare-module-preset.md
+  nitro: {
+    preset: 'cloudflare_module',
+  },
 
   // Tailwind v4 goes through its Vite plugin rather than @nuxtjs/tailwindcss.
   // See docs/adr/0004-tailwind-v4-through-vite-plugin.md.
@@ -59,16 +78,5 @@ export default defineNuxtConfig({
       { code: 'en', language: 'en', name: 'English', file: 'en.json' },
       { code: 'zh-TW', language: 'zh-TW', name: '繁體中文', file: 'zh-TW.json' },
     ],
-  },
-
-  // shadcn-vue toggles dark mode on a `.dark` class, so drop color-mode's
-  // default `-mode` suffix.
-  colorMode: {
-    classSuffix: '',
-  },
-
-  // See docs/adr/0002-cloudflare-module-preset.md
-  nitro: {
-    preset: 'cloudflare_module',
   },
 })
