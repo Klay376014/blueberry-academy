@@ -1,0 +1,4 @@
+# The full-workspace checks `vp staged` cannot do: it only ever sees the staged
+# files of a single commit, so a cross-package break lands green and fails in CI.
+vp run -r type-check
+vp run -r test:unit
