@@ -5,6 +5,9 @@
  * when somebody remembers to protect it.
  */
 const PUBLIC_ROUTES = new Set([
+  // PROTOTYPE ONLY (issue #17): the dashboard is public on this throwaway
+  // branch so the variants can be driven without a Supabase session.
+  'index',
   'login',
   // Runs before a session exists — this is where one is obtained.
   'auth-callback',
