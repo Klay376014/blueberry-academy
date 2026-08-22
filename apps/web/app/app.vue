@@ -41,6 +41,13 @@ function toggleTheme() {
       </NuxtLink>
       <NuxtLink
         v-if="user"
+        :to="localePath('/import')"
+        class="rounded-md px-2 py-1 text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground [&.router-link-exact-active]:text-foreground"
+      >
+        {{ t('nav.import') }}
+      </NuxtLink>
+      <NuxtLink
+        v-if="user"
         :to="localePath('/settings')"
         class="rounded-md px-2 py-1 text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground [&.router-link-exact-active]:text-foreground"
       >
