@@ -27,14 +27,38 @@
   },
   "import": {
     "title": "Import a replay",
-    "tagline": "Paste a Showdown replay link and the battle lands in your records.",
-    "label": "Replay link",
+    "tagline": "Paste replay links, or sync everything a Showdown account has played.",
+    "paste": {
+      "title": "Paste links",
+      "tagline": "One replay per line. A private replay keeps its password in the address, so paste the whole thing."
+    },
+    "label": "Replay links, one per line",
     "placeholder": "https://replay.pokemonshowdown.com/gen9championsvgc2026regmb-2667169457",
     "submit": "Import",
     "working": "Importing…",
+    "sync": {
+      "title": "Sync an account",
+      "tagline": "Every public replay Showdown will admit to for this name. Battles already imported are skipped before they are even fetched, so pressing this again after a stopped import picks up where it left off.",
+      "label": "Showdown name",
+      "placeholder": "NotLittleStar",
+      "submit": "Sync",
+      "unusable": "That is not a Showdown name — it needs at least one letter or digit.",
+      "truncated": "Showdown ran out of search pages before this account ran out of replays, so this is not the whole history. A single search reaches about 5000 replays; the rest need a narrower search."
+    },
     "profileFailed": "We could not read your Showdown names, so nothing can be imported right now — without them there is no way to tell which side of a battle is yours. Reload the page to try again.",
     "badLink": "That is not a Showdown replay link. Paste the address of the replay itself, like https://replay.pokemonshowdown.com/gen9championsvgc2026regmb-2667169457 — a private replay keeps its password in the address, so paste that too.",
     "unparsed": "The raw log is stored, but this replay could not be read: {message} Nothing is lost — the battle is kept and can be read again once the parser understands that log.",
+    "status": {
+      "imported": "Imported",
+      "unparsed": "Log kept",
+      "unparsedShort": "stored, but the log could not be read",
+      "skipped": "Already in",
+      "failed": "Failed",
+      "badLinkShort": "Not a link"
+    },
+    "report": {
+      "counts": "{imported} imported · {skipped} already in · {failed} failed"
+    },
     "failed": {
       "notFound": "Showdown has no replay at that link. It may have been deleted, or it may be private — a private replay is only served with the password its address carries.",
       "unavailable": "Showdown did not answer. It may be down or rate limiting; wait a moment and import the link again.",
