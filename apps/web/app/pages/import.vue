@@ -33,7 +33,7 @@ try {
  */
 const syncName = ref(aliases.value[0] ?? '')
 
-/** Unique per component instance, so each label points at its own field. */
+/** Unique per instance, so each label points at its own field. */
 const linksInputId = useId()
 const syncInputId = useId()
 
@@ -266,8 +266,7 @@ async function syncByName() {
         {{ t('import.sync.truncated') }}
       </p>
 
-      <!-- The per-replay list is not decoration: the reason to have it is that
-           a user needs to know why the twelve that failed failed. -->
+      <!-- Per replay, because a user needs to know why the twelve that failed failed. -->
       <template v-if="rows.length">
         <p class="mt-6 text-sm font-medium" data-testid="report-counts">
           {{

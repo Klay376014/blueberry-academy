@@ -5,8 +5,7 @@ const { t } = useI18n()
 const { aliases, loaded, load, bindAlias, unbindAlias } = useProfile()
 
 const typed = ref('')
-/** Unique per component instance, so the label keeps pointing at its own input
- * even if this block is ever rendered more than once on a page. */
+/** Unique per instance, so the label keeps pointing at its own input. */
 const aliasInputId = useId()
 /** Which of the "that name was not added" messages to show, if any. */
 const notice = ref<Exclude<BindResult, 'bound'> | null>(null)
@@ -68,9 +67,8 @@ async function unbind(name: string) {
       <h2 class="text-xl font-semibold tracking-tight">{{ t('settings.aliases.title') }}</h2>
       <p class="mt-2 text-muted-foreground">{{ t('settings.aliases.tagline') }}</p>
 
-      <!-- The design document accepts that account ownership cannot be
-           verified (§10). The honesty has to be on the screen, not only in the
-           document: a user must not walk away thinking this was checked. -->
+      <!-- Ownership of a Showdown account cannot be verified (design document
+           §10), and the user must not walk away thinking it was. -->
       <p
         class="mt-4 rounded-md border border-border bg-muted/40 p-3 text-sm text-muted-foreground"
         data-testid="alias-unverified"

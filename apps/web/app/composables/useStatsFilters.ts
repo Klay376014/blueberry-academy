@@ -1,42 +1,26 @@
 import type { Aggregate } from '../utils/battleStats'
 
 /**
- * The dashboard's global filters, shared by both sections.
- *
- * One set rather than one per section: "how am I doing lately" and "because of
- * which team" are two faces of the same question, so splitting the filters
- * would make a user set the same format and the same date range twice
- * (design document §7).
+ * The dashboard's global filters, shared by both sections rather than one set
+ * each — see docs/specs/2026-08-16-replay-analytics-design.md §7.
  */
 export interface StatsFilters {
-  /**
-   * Which Showdown name's battles, or all of them. Compared through `toID()`
-   * like every other identity comparison, so `NotLittleStar` and
-   * `notlittlestar` are one name.
-   */
+  /** A Showdown name, compared through `toID()`, or all of them. */
   identity: string | null
 
   /**
-   * An exact `format_id`, not a regulation. `gen9championsvgc2026regmb` and
-   * `...regmbbo3` are different formats and, by CONTEXT.md, different teams —
-   * averaging ladder Bo1 together with event Bo3 says nothing about either.
+   * An exact `format_id`, not a regulation: by CONTEXT.md a Bo1 ladder format
+   * and its Bo3 counterpart are different formats and different teams.
    */
   formatId: string | null
 
-  /**
-   * Inclusive bounds, as ISO 8601. A date with no time is taken as the whole
-   * of that day in UTC, which is also how `played_at` is stored.
-   */
+  /** Inclusive ISO 8601 bounds. A date with no time covers that whole day. */
   from: string | null
   to: string | null
 
-  /**
-   * Ladder Bo1, best-of series, or both. A `bo2` format counts as best-of: it
-   * is a series whichever number is in the name.
-   */
+  /** A `bo2` format counts as best-of: it is a series whichever number it is. */
   bestOf: 'all' | 'bo1' | 'bo3'
 
-  /** Count each game, or fold each series into one result. */
   aggregate: Aggregate
 
   /** Whether bring groupings admit games where a pick never appeared. */
@@ -51,16 +35,11 @@ export function defaultStatsFilters(): StatsFilters {
     to: null,
     bestOf: 'all',
     aggregate: 'game',
-    // The floor the design asks for. See TeamStatsOptions.
     includeIncompleteBrings: false,
   }
 }
 
-/**
- * A `useState` rather than a module-level ref, for the same reason as
- * useCurrentUser: the value lives on the Nuxt instance and is resettable
- * between tests.
- */
+/** `useState` so the value lives on the Nuxt instance and resets between tests. */
 export function useStatsFilters() {
   return useState<StatsFilters>('stats-filters', defaultStatsFilters)
 }

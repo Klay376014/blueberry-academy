@@ -4,15 +4,14 @@ import { toID } from 'replay-parser'
  * Everything the app does against replay.pokemonshowdown.com: list a player's
  * public replays, and fetch one replay with its log.
  *
- * The browser talks to Showdown directly. That is not a shortcut -- Showdown's
- * replay API answers with `access-control-allow-origin` for any origin, and
- * the browser has neither the 50-subrequest nor the 10ms CPU limit that makes
- * the Workers free plan unable to do an import at all. See the design
- * document §2 and §3.
+ * The browser talks to Showdown directly — its replay API answers with
+ * `access-control-allow-origin` for any origin, and the browser has neither
+ * the 50-subrequest nor the 10ms CPU limit that makes the Workers free plan
+ * unable to do an import at all (design document §2 and §3).
  *
- * Nothing here parses a log or writes to a database; it hands back Showdown's
- * own JSON, under Showdown's own field names, so that the shapes in a test
- * fixture are the shapes in production.
+ * Nothing here parses a log or writes to a database: it hands back Showdown's
+ * own JSON under Showdown's own field names, so the shapes in a fixture are
+ * the shapes in production.
  */
 
 const ORIGIN = 'https://replay.pokemonshowdown.com'
@@ -24,16 +23,14 @@ const ORIGIN = 'https://replay.pokemonshowdown.com'
 const PAGE_SIZE = 51
 
 /**
- * Showdown answers any page above this with `[]`, whatever the query, which
- * puts a single search at about 5001 replays. Paging past it would spin
- * against a full account forever; reaching it means narrowing by format.
+ * Showdown answers any page above this with `[]`, whatever the query — about
+ * 5001 replays per search. Reaching it means narrowing by format.
  */
 const LAST_PAGE = 100
 
 /**
  * Requests in the air at once. Workers allows six outbound connections on
- * either plan, and a user may have thousands of replays -- this is somebody
- * else's free service.
+ * either plan, and this is somebody else's free service.
  */
 const MAX_IN_FLIGHT = 5
 
@@ -44,10 +41,9 @@ const MAX_ATTEMPTS = 4
 const BACKOFF_MS = 500
 
 /**
- * How long one request may take before it is abandoned. A connection that is
- * accepted and then never answers is the one way a slot would be held for
- * good, and with the cap at five that stalls an entire import with nothing to
- * show the user. Generous, because a replay log runs to hundreds of KB.
+ * A connection accepted and then never answered is the one way a slot would
+ * be held for good, which with the cap at five stalls an entire import.
+ * Generous, because a replay log runs to hundreds of KB.
  */
 const REQUEST_TIMEOUT_MS = 20_000
 
@@ -61,9 +57,9 @@ export type ShowdownFailure =
   | 'malformed'
 
 /**
- * A failure the import layer can report per replay, rather than an exception
- * from whatever happened to break first. See the design document §8: a batch
- * import never fails as a batch, so every failure needs a reason worth showing.
+ * A failure the import layer can report per replay rather than an exception
+ * from whatever broke first: a batch import never fails as a batch, so every
+ * failure needs a reason worth showing (design document §8).
  */
 export class ShowdownError extends Error {
   constructor(
@@ -109,18 +105,16 @@ export interface ReplayRef {
 export interface ReplayList {
   replays: ReplayListing[]
   /**
-   * Whether the search ran out of pages before it ran out of replays. The
-   * caller has more of this player's history than this list shows, and only a
-   * narrower query can reach it.
+   * Whether the search ran out of pages before it ran out of replays: there
+   * is more of this player's history than the list shows.
    */
   truncated: boolean
 }
 
 /**
- * Showdown answering 200 with JSON is not the same as Showdown answering with
- * what was asked for. Without these, a body of `null` or `{"error":…}` would
- * leave the failure to surface as a TypeError somewhere downstream, outside
- * the ShowdownFailure vocabulary the import layer reports in.
+ * Showdown answering 200 with JSON is not the same as answering with what was
+ * asked for. Without these, a body of `null` or `{"error":…}` surfaces as a
+ * TypeError downstream, outside the ShowdownFailure vocabulary.
  */
 function asListings(value: unknown): ReplayListing[] | null {
   const rows = Array.isArray(value) ? value : null
@@ -141,9 +135,9 @@ function asRecord(value: unknown): ReplayRecord | null {
 }
 
 /**
- * Requests in flight, and who is waiting for a turn. Module scope on purpose:
- * the cap is on what this browser does to Showdown, so it has to hold across
- * every caller rather than per useShowdown().
+ * Requests in flight, and who is waiting. Module scope on purpose: the cap is
+ * on what this browser does to Showdown, so it holds across every caller
+ * rather than per useShowdown().
  */
 let inFlight = 0
 const waiting: (() => void)[] = []
@@ -174,21 +168,17 @@ async function attempt<T>(
     try {
       const result = await fetch(url, { signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) })
 
-      // Read the body inside the slot too, so a slow download is not counted
-      // as a finished request.
+      // The body is read inside the slot too, so a slow download is not
+      // counted as a finished request.
       return { status: result.status, ok: result.ok, body: await result.text() }
     } catch (cause) {
-      // One catch around both halves: a log of a few hundred KB is far more
-      // likely to die part-way through the body than before the headers, and
-      // either way the import layer needs a reason rather than a TypeError.
-      // The thrown thing is kept as `cause` -- it says more in a console than
-      // its own toString does.
+      // One catch around both halves: a log of a few hundred KB is likelier to
+      // die part-way through the body than before the headers.
       throw new ShowdownError('unavailable', `Could not reach Showdown for ${subject}.`, { cause })
     }
   })
 
-  // An id Showdown has never heard of is a 404 with nothing in the body --
-  // not a JSON error object. Checked before parsing for exactly that reason.
+  // An unknown id is a 404 with nothing in the body, not a JSON error object.
   if (response.status === 404) {
     throw new ShowdownError('not-found', `Showdown has no ${subject}.`)
   }
@@ -231,8 +221,7 @@ async function request<T>(
       const reason = error instanceof ShowdownError ? error.reason : null
 
       // 'not-found' and 'malformed' are answers, not failures: asking again
-      // produces the same one. Only an unreachable or struggling service is
-      // worth a second go.
+      // produces the same one.
       if (reason !== 'unavailable' || tries >= MAX_ATTEMPTS) throw error
 
       await sleep(BACKOFF_MS * 2 ** (tries - 1))
@@ -242,11 +231,9 @@ async function request<T>(
 
 export function useShowdown() {
   /**
-   * Every public replay Showdown will admit to for this player.
-   *
-   * Paging stops on the first page that comes back short of 51 rows -- one
-   * request fewer than waiting for an empty page -- and rows are deduplicated
-   * by id, because adjacent pages always share one.
+   * Every public replay Showdown will admit to for this player. Paging stops
+   * on the first page short of 51 rows, and rows are deduplicated by id
+   * because adjacent pages always share one.
    */
   async function listReplays(
     username: string,
@@ -254,9 +241,9 @@ export function useShowdown() {
   ): Promise<ReplayList> {
     const userId = toID(username)
 
-    // Showdown answers `user=` with the site-wide recent replays rather than
-    // an error, so a name that normalises to nothing would come back as
-    // thousands of strangers' battles attributed to this user.
+    // Showdown answers an empty `user=` with the site-wide recent replays
+    // rather than an error, which would file thousands of strangers' battles
+    // under this user.
     if (!userId) {
       throw new Error(`"${username}" is not a Showdown name: it normalises to nothing.`)
     }
@@ -276,15 +263,13 @@ export function useShowdown() {
         asListings,
       )
 
-      // First seen wins, so the shared row keeps the position it had on the
-      // earlier page and the order stays Showdown's.
+      // First seen wins, so the shared row keeps its earlier position and the
+      // order stays Showdown's.
       for (const row of rows) if (!byId.has(row.id)) byId.set(row.id, row)
 
       if (rows.length < PAGE_SIZE) return { replays: [...byId.values()], truncated: false }
     }
 
-    // Out of pages before out of replays: there is more history than a single
-    // search can reach.
     return { replays: [...byId.values()], truncated: true }
   }
 
@@ -292,9 +277,8 @@ export function useShowdown() {
    * One replay, with its log and its `formatid`.
    *
    * The password goes in here rather than into a ref the caller assembles: a
-   * private replay is served as `<id>-<password>pw.json` and Showdown does
-   * not serve it without the `pw` suffix, so nothing outside this function
-   * gets the chance to leave it off.
+   * private replay is served as `<id>-<password>pw.json` and not without the
+   * suffix, so nothing outside this function can leave it off.
    */
   async function fetchReplay({ id, password }: ReplayRef): Promise<ReplayRecord> {
     const ref = password ? `${id}-${password}pw` : id

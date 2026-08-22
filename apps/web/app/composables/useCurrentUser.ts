@@ -2,10 +2,10 @@ import type { User } from '@supabase/supabase-js'
 
 /**
  * Who is signed in, or null. Written by the Supabase plugin at boot and on
- * every auth state change; read by everything else.
+ * every auth state change.
  *
- * A `useState` rather than a module-level ref so that the value lives on the
- * Nuxt instance, which is what makes it resettable between tests.
+ * `useState` rather than a module-level ref throughout this app: the value
+ * lives on the Nuxt instance and so resets between tests.
  */
 export function useCurrentUser() {
   return useState<User | null>('current-user', () => null)

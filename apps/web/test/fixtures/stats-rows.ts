@@ -1,28 +1,19 @@
 import type { StatsRow } from '../../app/utils/battleStats'
 
 /**
- * One account's battles, shaped to carry every rule the stats layer has to
- * get right — in one fixture, so the numbers asserted of the pure functions,
- * of the composable, and of the seeded local database are the same numbers.
+ * One account's battles, shaped to carry every rule the stats layer has to get
+ * right, so the pure functions, the composable and the seeded database are all
+ * asserted against the same numbers.
  *
- * The same rows are seeded in `supabase/tests/stats.test.sql`; the two must be
- * changed together.
+ * The same rows are seeded in `supabase/tests/stats.test.sql`; change the two
+ * together. A spectated battle is not here — the query never returns one, and
+ * that exclusion is asserted in the pgTAP test.
  *
- * What is in here on purpose:
- *
- * - `ladder-3` is a forfeit: its bring is incomplete, so bring groupings drop
- *   it while the team level keeps it. That is what makes the two levels
- *   disagree on their denominators.
- * - `ladder-5` has no result: the log declared no winner. It counts nowhere.
- * - `ladder-6` is the same person under a different spelling, and `ladder-7`
- *   is somebody else's account, so the identity filter has both to separate.
- * - `series-1` is a complete Bo3 (2–1), `series-2` is a Bo3 with only two of
- *   its games imported (1–1), which folds to a tie rather than a guess.
- *
- * A spectated battle is not here: the query never returns one. That exclusion
- * is asserted against the database, in the pgTAP test.
+ * `ladder-3` is a forfeit with an incomplete bring, `ladder-5` has no result,
+ * `ladder-6` is the same person under a different spelling and `ladder-7` is
+ * somebody else, `series-1` is a complete Bo3 and `series-2` holds two of its
+ * three games.
  */
-
 const LADDER = 'gen9championsvgc2026regmb'
 const EVENT = 'gen9championsvgc2026regmbbo3'
 

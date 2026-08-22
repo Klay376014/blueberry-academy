@@ -1,10 +1,7 @@
 -- The data floor: profiles, battles, and the bucket the raw logs live in.
 --
--- battles is a hybrid model. The dimensions that are known to be sliced on are
--- promoted to columns and indexed; everything else sits in `details` until a
--- view actually needs it, at which point it is promoted and backfilled by
--- re-parsing the stored raw logs.
---
+-- battles is a hybrid model: dimensions known to be sliced on are promoted to
+-- columns and indexed, everything else sits in `details` until a view needs it.
 -- See docs/specs/2026-08-16-replay-analytics-design.md §5 and CONTEXT.md.
 
 -- profiles -------------------------------------------------------------------
@@ -26,31 +23,27 @@ create table public.battles (
   id uuid primary key default gen_random_uuid(),
 
   -- One row per user per replay. The same battle is stored twice when both
-  -- players use this site: a deliberate trade, because it buys an RLS policy
-  -- that is one line long and the duplication rate is near zero in practice.
+  -- players use this site, which buys a one-line RLS policy for a duplication
+  -- rate that is near zero in practice.
   user_id uuid not null references auth.users (id) on delete cascade,
   replay_id text not null,
 
   played_at timestamptz not null,
   format_id text not null,
 
-  -- Derived from format_id by dropping the Bo2/Bo3 suffix. It takes no part in
-  -- team identity and the UI does not read it; it exists so that a future
-  -- "same team across Bo1 and Bo3" view does not require backfilling the
-  -- entire table.
+  -- No part in team identity, and unread by the UI: it exists so a future
+  -- "same team across Bo1 and Bo3" view needs no backfill.
   regulation text generated always as (regexp_replace(format_id, 'bo[23]$', '')) stored,
 
   rated boolean,
 
-  -- Recorded rather than assumed. The parser is gametype-agnostic, so every
-  -- battle is taken in and the dashboard filters instead of the import
-  -- dropping half of somebody's account on the floor.
+  -- Recorded rather than assumed: the parser is gametype-agnostic, so the
+  -- dashboard filters instead of the import dropping half an account.
   game_type text,
 
-  -- This side's own rating once the game was over, and the change Showdown
-  -- reported for it. The replay metadata also carries a `rating`, but it is
-  -- the loser's post-battle value whichever side that is, so it belongs to
-  -- neither side and must not be written here. Null for Bo3 event games.
+  -- This side's own post-battle rating, and the change Showdown reported. The
+  -- replay metadata carries a `rating` too, but it is the loser's value
+  -- whichever side that is. Null for Bo3 event games.
   rating integer,
   rating_delta integer,
 
@@ -70,21 +63,19 @@ create table public.battles (
   team_signature text,
   bring_signature text,
 
-  -- Whether as many Pokémon appeared as |teamsize| says were picked. A player
-  -- who forfeits early leaves the fourth pick never having shown up, which is
-  -- common rather than exceptional, so the stats layer takes only true.
+  -- Whether as many Pokémon appeared as |teamsize| says were picked. An early
+  -- forfeit leaves the fourth pick never having shown up, which is common, so
+  -- the stats layer takes only true.
   --
-  -- No default on purpose: the stats layer filters on true, so a default of
-  -- false would let a writer that forgot this column drop battles out of every
-  -- bring view while looking like it had answered the question.
+  -- No default on purpose: a default of false would let a writer that forgot
+  -- this column drop battles out of every bring view silently.
   bring_complete boolean not null,
 
   turn_count integer,
 
-  -- Left unconstrained where my_side and result are not: a forfeit is only
-  -- recognised by matching free text in the log ('<name> forfeited.'), so the
-  -- set of reasons grows as more of that text is understood. A CHECK would
-  -- turn each new reason into a migration.
+  -- Unconstrained where my_side and result are not: a forfeit is recognised
+  -- only by matching free text, so the set of reasons grows as more of it is
+  -- understood and a CHECK would turn each new reason into a migration.
   end_reason text,
 
   -- Opponent's team, who fainted, Mega/Tera use — everything the views that
@@ -137,13 +128,12 @@ create index battles_details_idx on public.battles using gin (details);
 
 -- Row level security --------------------------------------------------------
 
--- A user reaches their own rows and nothing else. The frontend writes to
--- Supabase directly with the user's own JWT, so a user can in principle put
--- anything into their own battles. That risk is accepted: these are personal
--- statistics only they can see, so faking them is lying to yourself.
-
--- One rule per table rather than four identical ones: the predicate is the
--- same for reading, writing, changing and removing, and `for all` says so.
+-- A user reaches their own rows and nothing else. The frontend writes with the
+-- user's own JWT, so a user can in principle put anything into their own
+-- battles; accepted, because faking personal statistics is lying to yourself.
+--
+-- `for all` rather than four identical policies: the predicate is the same for
+-- reading, writing, changing and removing.
 
 alter table public.profiles enable row level security;
 
@@ -163,10 +153,9 @@ create policy battles_own on public.battles
 
 -- replay-logs/{user_id}/{replay_id}.json.gz, gzipped and untouched.
 --
--- Not a DB text column: it would eat the 500MB database allowance, and every
--- battles query would have to be careful not to drag the big column along.
--- Not "fetch it again when needed" either: replays get deleted, private ones
--- need a password, and a re-parse would mean re-running the whole import.
+-- Not a DB text column: it would eat the 500MB allowance. Not "fetch it again
+-- when needed" either: replays get deleted, private ones need a password, and
+-- a re-parse would mean re-running the whole import.
 
 insert into storage.buckets (id, name, public)
 values ('replay-logs', 'replay-logs', false)

@@ -1,18 +1,13 @@
 -- The stats layer's numbers, against seed data in the real database.
 --
--- The aggregation itself lives in the browser (apps/web/app/utils/battleStats.ts):
--- the win rate curve needs the individual games anyway, so one filtered read
--- feeds both dashboard sections. What is checked here is the half that only a
--- database can answer -- that the read the composable issues returns exactly
--- these rows under RLS, spectated battles and other users' battles included
--- out -- and then the same counts the TypeScript tests assert, computed
--- independently in SQL over the same rows.
+-- The aggregation itself lives in the browser (apps/web/app/utils/battleStats.ts).
+-- What is checked here is the half only a database can answer -- that the read
+-- useStats issues returns exactly these rows under RLS -- and then the same
+-- counts the TypeScript tests assert, computed independently in SQL.
 --
--- The seed is the same fixture as apps/web/test/fixtures/stats-rows.ts, plus
--- the two rows that fixture cannot hold because the query never returns them:
--- a spectated battle and somebody else's. Change the two together.
---
--- See docs/specs/2026-08-16-replay-analytics-design.md §7 and CONTEXT.md.
+-- The seed matches apps/web/test/fixtures/stats-rows.ts, plus the two rows that
+-- fixture cannot hold: a spectated battle and somebody else's. Change them
+-- together. See docs/specs/2026-08-16-replay-analytics-design.md §7.
 
 begin;
 

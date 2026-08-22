@@ -1,10 +1,8 @@
 -- Signing up creates the profile row.
 --
--- The alias list needs somewhere to be written the first time a user binds a
--- Showdown name, and doing it here rather than in the client means it holds
--- for every way a user can come into existence -- a second OAuth provider, a
--- maintenance script, a row inserted by hand -- instead of only for the one
--- path the frontend happens to take today.
+-- In the database rather than the client, so it holds for every way a user can
+-- come into existence -- a second OAuth provider, a maintenance script, a row
+-- inserted by hand -- not only the path the frontend takes today.
 
 create function public.create_profile_for_new_user()
 returns trigger
