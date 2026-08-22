@@ -44,6 +44,10 @@ Single-context: `CONTEXT.md` + `docs/adr/` at the repo root. See `docs/agents/do
 
 適用於 `docs/specs/` 底下任何設計文件的實作工作。
 
+- **註解只寫程式碼與測試讀不出來的事。** 保留四類：反直覺的取捨與陷阱、外部行為的實測
+  結果（Showdown log、PostgREST、工具鏈）、匯出 API 的簡短 JSDoc、設計文件與 ADR 的
+  指標。**不要**複述程式碼在做什麼，也不要把設計文件的論述整段抄進原始碼 —— 論述留在
+  `docs/specs/` 與 commit message，原始碼放一行連結。
 - **先讀 `CONTEXT.md`。** 命名一律使用其中定義的詞彙（game / series / team / bring /
   signature / regulation / spectated / base species），不要自創同義詞。
 - **不要在 `packages/replay-parser` 引入任何 I/O 或框架依賴。** 它的可測試性完全建立在

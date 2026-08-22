@@ -2,7 +2,6 @@ import { toID } from 'replay-parser'
 
 /** What became of an attempt to bind a name. */
 export type BindResult =
-  /** Written to the profile. */
   | 'bound'
   /** Already on the list under some spelling of it. */
   | 'already-bound'
@@ -10,24 +9,21 @@ export type BindResult =
   | 'unusable'
 
 /**
- * The whole of what the app can do with the signed-in user's profile: read the
- * Showdown names bound to it, add one, remove one.
+ * Read the Showdown names bound to the signed-in user, add one, remove one.
  *
  * Names are stored as the user typed them — that spelling is what a replay
- * shows — while every comparison goes through `toID()`, so `NotLittleStar` and
- * `notlittlestar` are one name. Callers never normalise for themselves; that
- * rule lives here and nowhere else.
+ * shows — while every comparison goes through `toID()`. Callers never
+ * normalise for themselves; that rule lives here and nowhere else.
  *
  * Binding is a trust model: Showdown has no OAuth and its user API has no
- * field to put a code in, so ownership of an account cannot be verified. The
- * same name may be bound by several users. See the design document §10.
+ * field to put a code in, so ownership of an account cannot be verified, and
+ * the same name may be bound by several users. See the design document §10.
  */
 export function useProfile() {
   const { $supabase } = useNuxtApp()
   const user = useCurrentUser()
   const stored = useShowdownAliases()
 
-  /** The names, and whether they are the profile's or just a default. */
   const aliases = computed(() => stored.value ?? [])
   const loaded = computed(() => stored.value !== null)
 
@@ -50,17 +46,12 @@ export function useProfile() {
       .update({ showdown_usernames: next })
       .eq('id', requireUserId())
       .select('showdown_usernames')
-      // Asking for the row back is what makes a write that matched nothing
-      // visible: an update with no matching row is not an error, so without
-      // this the screen would show a binding that was never stored.
+      // An update that matched no row is not an error, so without asking for
+      // the row back the screen would show a binding that was never stored.
       .single()
 
-    // Thrown rather than swallowed: the screen must not show a binding the
-    // database refused.
     if (error) throw error
 
-    // What came back, not what was sent: the row is the truth about what is
-    // stored now.
     stored.value = data?.showdown_usernames ?? next
   }
 
@@ -80,8 +71,7 @@ export function useProfile() {
     const trimmed = name.trim()
     const id = toID(trimmed)
 
-    // toID leaves nothing behind for whitespace or punctuation alone, and a
-    // name that normalises to nothing could never match a replay.
+    // A name that normalises to nothing could never match a replay.
     if (!id) return 'unusable'
 
     if (aliases.value.some((alias) => toID(alias) === id)) return 'already-bound'

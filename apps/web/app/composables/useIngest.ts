@@ -7,19 +7,15 @@ import type { ReplayRecord, ReplayRef, ShowdownFailure } from './useShowdown'
  * One replay, all the way in: fetch it from Showdown, store the raw log,
  * parse it, work out which side is "me", and write the row.
  *
- * The order is the design, not an implementation detail. **The raw log is
- * stored before anything is parsed**, which is what makes a parser bug cost a
- * re-parse rather than another pass over somebody else's free service. The
- * stored log is the only source of truth; every column this writes is derived
- * data that `scripts/reparse.ts` can rebuild from it.
- *
- * **Identity is resolved here rather than in the parser.** A `ParsedBattle` is
- * perspective-neutral on purpose -- one parse can serve any user -- so the
- * alias list is applied at the point of writing. See CONTEXT.md, "身分".
+ * The order is the design. The raw log is stored **before** anything is
+ * parsed, so a parser bug costs a re-parse rather than another pass over
+ * somebody else's free service; the stored log is the only source of truth and
+ * every column written here is derived data `scripts/reparse.ts` can rebuild.
+ * Identity is resolved here rather than in the parser, so one
+ * perspective-neutral parse can serve any user (CONTEXT.md, 身分).
  *
  * Nothing in here throws for a replay that could not be imported: a batch
- * import must never fail as a batch (design document §8), so every failure
- * comes back as an outcome with a reason worth showing.
+ * import must never fail as a batch (design document §8).
  */
 
 /** The bucket the raw logs live in, isolated by a `{user_id}/` path prefix. */
@@ -27,16 +23,14 @@ const BUCKET = 'replay-logs'
 
 /**
  * Replays being imported at once. The fetch layer already holds requests to
- * Showdown at five, so matching it here keeps at most that many imports
- * mid-flight -- more workers would only queue up inside the fetch layer while
+ * Showdown at five, and more workers would only queue up inside it while
  * holding a few hundred KB of log each.
  */
 const CONCURRENCY = 5
 
 /**
- * Replay ids per "which of these do I already have" lookup. PostgREST puts
- * the list in the query string, and a heavy account is thousands of ids --
- * one URL out of all of them is a URL nothing will accept.
+ * Replay ids per "which of these do I already have" lookup. PostgREST puts the
+ * list in the query string, and a heavy account is thousands of ids.
  */
 const LOOKUP_CHUNK = 200
 
@@ -129,10 +123,9 @@ export function useIngest() {
   }
 
   /**
-   * The alias list, or a refusal to import without it. An empty list and a
-   * list that was never read look alike from here and mean opposite things:
-   * importing against the second would file every one of the user's own
-   * battles as somebody else's.
+   * An empty alias list and a list that was never read look alike from here
+   * and mean opposite things: importing against the second would file every
+   * one of the user's own battles as somebody else's.
    */
   function requireAliases() {
     if (stored.value === null) {
@@ -141,17 +134,12 @@ export function useIngest() {
     return stored.value
   }
 
-  /**
-   * Which side is "me", if either. Both sides are compared as `toID()`, so
-   * `NotLittleStar` and `notlittlestar` are the same person; a battle that
-   * matches neither is spectated.
-   */
+  /** Which side is "me", if either. A battle matching neither is spectated. */
   function sideOfMine(battle: ParsedBattle, aliases: string[]): SideId | null {
     const mine = new Set(aliases.map(toID).filter(Boolean))
 
-    // p1 first, so a user who has both players bound -- their own two
-    // accounts, a game against themselves -- gets one answer rather than an
-    // arbitrary one.
+    // p1 first, so a user who has both players bound gets one answer rather
+    // than an arbitrary one.
     if (mine.has(battle.p1.userId)) return 'p1'
     if (mine.has(battle.p2.userId)) return 'p2'
 
@@ -196,9 +184,7 @@ export function useIngest() {
       bring_complete: mine?.bringComplete ?? false,
       turn_count: battle.turnCount,
       end_reason: battle.endReason,
-      // Everything the perspectives that are not designed yet will want: the
-      // opponent's registered six, both sides' ratings, who won in the
-      // parser's own terms.
+      // Everything the perspectives that are not designed yet will want.
       details: { winner: battle.winner, sides: { p1: battle.p1, p2: battle.p2 } },
       log_path: logPath,
       parser_version: PARSER_VERSION,
@@ -207,9 +193,9 @@ export function useIngest() {
   }
 
   /**
-   * The row for a replay whose log is stored but could not be parsed. Only
-   * what the replay's own metadata says, because everything else would be a
-   * guess -- and `parse_error`, which is what a re-parse looks for.
+   * The row for a replay whose log is stored but could not be parsed: only
+   * what the replay's own metadata says, plus the `parse_error` a re-parse
+   * looks for.
    */
   function unparsedRowOf(record: ReplayRecord, logPath: string, message: string): BattleRow {
     return {
@@ -228,8 +214,8 @@ export function useIngest() {
       result: null,
       team_signature: null,
       bring_signature: null,
-      // Not defaulted anywhere: the stats layer takes only `true`, so `false`
-      // is the honest answer for a battle nothing is known about.
+      // The stats layer takes only `true`, so `false` is the honest answer for
+      // a battle nothing is known about.
       bring_complete: false,
       turn_count: null,
       end_reason: null,
@@ -247,8 +233,7 @@ export function useIngest() {
     const path = `${userId}/${record.id}.json.gz`
 
     // The JSON rather than the log alone: a re-parse needs the format id and
-    // the upload time as much as it needs the log, and going back to Showdown
-    // for them is exactly what storing this avoids.
+    // the upload time as much as it needs the log.
     const { error } = await $supabase.storage
       .from(BUCKET)
       .upload(path, await gzip(JSON.stringify(record)), {
@@ -277,9 +262,9 @@ export function useIngest() {
   }
 
   /**
-   * Fetch, store, parse, resolve, write. Returns what became of it rather
-   * than throwing, except for the two things that are programming errors:
-   * no signed-in user, and an alias list that was never read.
+   * Fetch, store, parse, resolve, write. Returns what became of it rather than
+   * throwing, except for the two programming errors: no signed-in user, and an
+   * alias list that was never read.
    */
   async function importReplay(ref: ReplayRef): Promise<IngestOutcome> {
     const userId = requireUserId()
@@ -332,13 +317,10 @@ export function useIngest() {
   }
 
   /**
-   * Which of these replays this user already has.
-   *
-   * Asked once for the whole batch rather than once per replay, and asked
-   * before anything is fetched: the request that is never made to Showdown is
-   * the point. Duplicate rows are impossible anyway -- `unique(user_id,
-   * replay_id)` and an upsert see to that -- so this is politeness and speed,
-   * not correctness.
+   * Which of these replays this user already has. Asked once for the whole
+   * batch and before anything is fetched: the request never made to Showdown
+   * is the point. Duplicate rows are impossible anyway — `unique(user_id,
+   * replay_id)` and an upsert see to that — so this is politeness and speed.
    *
    * Throws rather than answering "none of them": treating an unreachable
    * database as an empty one would re-fetch an entire account.
@@ -371,23 +353,20 @@ export function useIngest() {
   }
 
   /**
-   * A batch of replays, none of which can take the batch down with it.
+   * A batch of replays, none of which can take the batch down with it: every
+   * replay is its own attempt and its own line in the report (design document
+   * §8). Resuming needs no cursor — each success is written the moment it
+   * happens, so pressing sync again skips everything that made it.
    *
-   * Every replay is its own attempt and its own line in the report, so the
-   * user is told why the twelve that failed failed (design document §8).
-   * Resuming needs no cursor: each success is written the moment it happens,
-   * so pressing sync again skips everything that made it and picks up the
-   * rest.
-   *
-   * `onResult` fires as each replay finishes rather than at the end, which is
-   * what a progress display reads.
+   * `onResult` fires as each replay finishes, which is what a progress display
+   * reads.
    */
   async function importMany(
     refs: ReplayRef[],
     options: { onResult?: (item: BatchItem) => void } = {},
   ): Promise<ImportReport> {
-    // First spelling of each id wins. A pasted list is typed by a human, and
-    // a listing that was paged through shares one row between adjacent pages.
+    // First spelling of each id wins. A pasted list is typed by a human, and a
+    // listing that was paged through shares one row between adjacent pages.
     const unique = [...new Map(refs.map((ref) => [ref.id, ref])).values()]
     const known = await knownReplayIds(unique.map((ref) => ref.id))
 
@@ -418,11 +397,8 @@ export function useIngest() {
 
   /**
    * Every public replay Showdown will admit to for this Showdown name, minus
-   * the ones already imported.
-   *
-   * Private replays are not in a search: Showdown does not list them, and
-   * without the password there would be nothing to fetch. They come in by
-   * their link instead.
+   * the ones already imported. Private replays are not in a search and come in
+   * by their link instead.
    */
   async function syncAccount(
     username: string,
@@ -432,9 +408,8 @@ export function useIngest() {
     try {
       listed = await listReplays(username)
     } catch (error) {
-      // A name that normalises to nothing is a caller's mistake rather than
-      // an answer from Showdown, and it is not one of the reasons a report
-      // can show.
+      // A name that normalises to nothing is a caller's mistake rather than an
+      // answer from Showdown, and not one of the reasons a report can show.
       if (!(error instanceof ShowdownError)) throw error
 
       return { status: 'failed', reason: error.reason, message: error.message }
@@ -446,8 +421,7 @@ export function useIngest() {
         listed.replays.map(({ id }) => ({ id })),
         options,
       ),
-      // Passed on rather than swallowed: there is more history than one
-      // search can reach, and silence would read as "that was all of it".
+      // Passed on rather than swallowed: silence would read as "that was all".
       truncated: listed.truncated,
     }
   }

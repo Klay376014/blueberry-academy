@@ -3,39 +3,33 @@ import { overallTally, resultUnits, teamStats } from '../utils/battleStats'
 import type { StatsRow } from '../utils/battleStats'
 
 /**
- * The base both dashboard sections stand on: one filtered read of `battles`,
- * and the aggregates derived from it.
+ * One filtered read of `battles`, and the aggregates both dashboard sections
+ * derive from it.
  *
- * **One fetch, two perspectives.** The win rate curve needs the individual
- * games anyway — a sliding window is over games, plotted against calendar
- * dates — so there is nothing a server-side `group by` would save, and doing
- * the arithmetic in the browser keeps every rule in a pure function next door
- * in `utils/battleStats.ts`.
- *
- * **Spectated battles are excluded here and cannot be filtered back in.** A
- * battle where neither player is one of the user's names has no result to
- * count; letting it through would put battles that are nobody's into a
- * personal win rate (CONTEXT.md, Spectated).
+ * The win rate curve needs the individual games anyway, so there is one fetch
+ * and the arithmetic happens in `utils/battleStats.ts`. Spectated battles are
+ * excluded here and cannot be filtered back in.
  *
  * See docs/specs/2026-08-16-replay-analytics-design.md §7.
  */
 
 /**
- * The columns the stats layer slices on. `details` is deliberately not one.
+ * The columns the stats layer slices on — `details` deliberately not among
+ * them.
  *
  * Typed as `string` rather than left as the literal it is: postgrest-js parses
- * a literal column list at the type level to work out the row shape, and over
- * a list this long tsc gives up with "type instantiation is excessively deep".
- * The shape is asserted below instead, as `StatsRow`.
+ * a literal column list at the type level, and over a list this long tsc gives
+ * up with "type instantiation is excessively deep". The shape is asserted as
+ * `StatsRow` below instead.
  */
 const COLUMNS: string =
   'replay_id, played_at, format_id, series_id, my_username, result, rating, rating_delta, team_signature, bring_signature, bring_complete'
 
 /**
  * Rows per request. PostgREST caps a response at its own default of 1000, so
- * a heavy account would silently arrive truncated — and a win rate over the
- * first thousand games of an account, presented as the whole of it, is worse
- * than an error. Paged until a short page says that was the end.
+ * without paging a heavy account arrives silently truncated — and a win rate
+ * over the first thousand games, presented as the whole of it, is worse than
+ * an error.
  */
 const PAGE = 1000
 
@@ -48,12 +42,9 @@ export function useStats() {
   const filters = useStatsFilters()
 
   /**
-   * Every row the server-side filters admit, or `null` while nothing has been
-   * read yet. In `useState` so that both sections read the one fetch.
-   *
-   * `null` and `[]` mean different things: "not read yet" and "this user has
-   * no battles matching", and only the second is something to tell the user
-   * about.
+   * Every row the server-side filters admit, `null` until the first read. The
+   * two states mean "no matching battles" and "nothing read yet", and only the
+   * first is worth telling the user about.
    */
   const rows = useState<StatsRow[] | null>('stats-rows', () => null)
   const loading = useState('stats-loading', () => false)
@@ -67,27 +58,21 @@ export function useStats() {
     return id
   }
 
-  /**
-   * A whole-day bound for a date with no time in it, so that `to` includes the
-   * day the user named rather than stopping at its first instant.
-   */
+  /** A date with no time in it covers the whole of that day. */
   function endOfDay(bound: string): string {
     return bound.includes('T') ? bound : `${bound}T23:59:59.999Z`
   }
 
   /**
-   * The filters that the database can apply. Identity is not among them: names
-   * are stored in the spelling a replay showed, and `toID()` normalisation —
-   * which strips case and every non-alphanumeric character — is not something
-   * PostgREST can be asked for. It is applied to the fetched rows instead, so
-   * the same rule holds there as everywhere else.
+   * The filters the database can apply. Identity is not among them: `toID()`
+   * strips case and every non-alphanumeric character, which PostgREST cannot
+   * be asked for, so it is applied to the fetched rows instead.
    */
   function queryFor(userId: string) {
     const base = $supabase
       .from('battles')
       .select(COLUMNS)
-      // Redundant under RLS, and kept anyway: it is what puts the
-      // (user_id, played_at) index to work.
+      // Redundant under RLS, and what puts the (user_id, played_at) index to work.
       .eq('user_id', userId)
       // Spectated. Not a filter the caller can turn off.
       .not('my_side', 'is', null)
@@ -103,8 +88,7 @@ export function useStats() {
     if (bestOf === 'bo3') {
       query = query.or(BEST_OF_SUFFIXES.map((suffix) => `format_id.like.*${suffix}`).join(','))
     } else if (bestOf === 'bo1') {
-      // Chained rather than combined: successive filters are ANDed, which is
-      // what "neither suffix" means.
+      // Successive filters are ANDed, which is what "neither suffix" means.
       for (const suffix of BEST_OF_SUFFIXES) {
         query = query.not('format_id', 'like', `%${suffix}`)
       }
@@ -115,10 +99,9 @@ export function useStats() {
   }
 
   /**
-   * Reads every matching row, replacing whatever was read before.
-   *
-   * Throws nothing at the caller — the two sections show `error` — except the
-   * one thing that is a programming error: no signed-in user.
+   * Reads every matching row, replacing whatever was read before. Reports
+   * through `error` rather than throwing, except for the one programming
+   * error: no signed-in user.
    */
   async function load(): Promise<void> {
     const userId = requireUserId()
@@ -142,8 +125,8 @@ export function useStats() {
 
       rows.value = collected
     } catch (cause) {
-      // The rows are cleared, not left standing: numbers from the previous
-      // filter set, sitting under the new one, would be read as an answer.
+      // Cleared, not left standing: numbers from the previous filter set,
+      // sitting under the new one, would be read as an answer.
       rows.value = null
       error.value = cause instanceof Error ? cause : new Error(String(cause))
     } finally {
@@ -151,10 +134,7 @@ export function useStats() {
     }
   }
 
-  /**
-   * The rows the current filters admit — the fetched ones with the identity
-   * filter applied, since that one is settled here rather than in the query.
-   */
+  /** The fetched rows with the identity filter applied. */
   const battles = computed<StatsRow[]>(() => {
     const fetched = rows.value ?? []
     const identity = filters.value.identity
