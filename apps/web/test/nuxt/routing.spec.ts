@@ -18,6 +18,11 @@ describe('file-based routes', () => {
     expect(wrapper.find('main h1').text()).toBe('About')
   })
 
+  it('renders the import page at /import', async () => {
+    const wrapper = await mountSuspended(App, { route: '/import' })
+    expect(wrapper.find('main h1').text()).toBe('Import a replay')
+  })
+
   it('renders the settings page at /settings', async () => {
     const wrapper = await mountSuspended(App, { route: '/settings' })
     expect(wrapper.find('main h1').text()).toBe('Settings')
@@ -26,10 +31,10 @@ describe('file-based routes', () => {
   it('links to every route from the nav', async () => {
     const wrapper = await mountSuspended(App, { route: '/' })
     const hrefs = wrapper.findAll('nav a').map((a) => a.attributes('href'))
-    expect(hrefs).toEqual(['/', '/about', '/settings'])
+    expect(hrefs).toEqual(['/', '/about', '/import', '/settings'])
   })
 
-  it('offers no settings link to somebody who is not signed in', async () => {
+  it('offers no import or settings link to somebody who is not signed in', async () => {
     signOut()
 
     const wrapper = await mountSuspended(App, { route: '/login' })

@@ -3,7 +3,8 @@
     "home": "首頁",
     "about": "關於",
     "signOut": "登出",
-    "settings": "設定"
+    "settings": "設定",
+    "import": "匯入"
   },
   "home": {
     "title": "Blueberry Academy",
@@ -23,6 +24,34 @@
     "completing": "正在完成登入…",
     "failed": "這次登入沒有成功。",
     "retry": "再試一次"
+  },
+  "import": {
+    "title": "匯入對戰",
+    "tagline": "貼一個 Showdown replay 連結，這場對戰就會進到你的紀錄裡。",
+    "label": "Replay 連結",
+    "placeholder": "https://replay.pokemonshowdown.com/gen9championsvgc2026regmb-2667169457",
+    "submit": "匯入",
+    "working": "匯入中…",
+    "profileFailed": "讀不到你的 Showdown 名稱清單，所以現在沒辦法匯入 —— 沒有它就無從判斷一場對戰哪一邊是你。重新載入頁面再試一次。",
+    "badLink": "這不是 Showdown replay 連結。請貼 replay 本身的網址，例如 https://replay.pokemonshowdown.com/gen9championsvgc2026regmb-2667169457 —— 私人 replay 的密碼就在網址裡，一起貼進來。",
+    "unparsed": "原始 log 已經存下來了，但這場 replay 讀不動：{message} 沒有東西弄丟 —— 這場對戰保留著，等解析器看得懂那份 log 之後可以重新解析。",
+    "failed": {
+      "notFound": "Showdown 上沒有這個 replay。可能已經被刪掉，也可能它是私人的 —— 私人 replay 只有帶著網址裡那組密碼才拿得到。",
+      "unavailable": "Showdown 沒有回應。可能是它掛了或在限流；等一下再貼一次這個連結。",
+      "malformed": "Showdown 回了一個不是 replay 的東西。沒有存下任何資料。",
+      "storeFailed": "原始 log 沒能存起來，所以這場對戰沒有寫進紀錄。不會匯入到一半 —— 再試一次這個連結。",
+      "writeFailed": "原始 log 已經存好了，但這場對戰沒能寫進你的紀錄。再匯入一次這個連結。"
+    },
+    "battle": {
+      "win": "勝",
+      "loss": "敗",
+      "tie": "平手",
+      "opponent": "對手 {name}",
+      "format": "賽制",
+      "turns": "回合數",
+      "rating": "Rating",
+      "spectated": "兩位玩家都不在你的 Showdown 名稱清單裡，所以這場對戰有存下來，但不計入你的任何統計。到設定加上你當時用的名稱，再匯入一次這個連結。"
+    }
   },
   "settings": {
     "title": "設定",

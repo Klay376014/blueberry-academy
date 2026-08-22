@@ -3,7 +3,8 @@
     "home": "Home",
     "about": "About",
     "signOut": "Sign out",
-    "settings": "Settings"
+    "settings": "Settings",
+    "import": "Import"
   },
   "home": {
     "title": "Blueberry Academy",
@@ -23,6 +24,34 @@
     "completing": "Signing you in…",
     "failed": "That sign-in did not go through.",
     "retry": "Try again"
+  },
+  "import": {
+    "title": "Import a replay",
+    "tagline": "Paste a Showdown replay link and the battle lands in your records.",
+    "label": "Replay link",
+    "placeholder": "https://replay.pokemonshowdown.com/gen9championsvgc2026regmb-2667169457",
+    "submit": "Import",
+    "working": "Importing…",
+    "profileFailed": "We could not read your Showdown names, so nothing can be imported right now — without them there is no way to tell which side of a battle is yours. Reload the page to try again.",
+    "badLink": "That is not a Showdown replay link. Paste the address of the replay itself, like https://replay.pokemonshowdown.com/gen9championsvgc2026regmb-2667169457 — a private replay keeps its password in the address, so paste that too.",
+    "unparsed": "The raw log is stored, but this replay could not be read: {message} Nothing is lost — the battle is kept and can be read again once the parser understands that log.",
+    "failed": {
+      "notFound": "Showdown has no replay at that link. It may have been deleted, or it may be private — a private replay is only served with the password its address carries.",
+      "unavailable": "Showdown did not answer. It may be down or rate limiting; wait a moment and import the link again.",
+      "malformed": "Showdown answered with something that is not a replay. Nothing was stored.",
+      "storeFailed": "The raw log could not be stored, so no battle was recorded. Nothing is half-imported — try the link again.",
+      "writeFailed": "The raw log was stored, but the battle could not be written to your records. Import the link again."
+    },
+    "battle": {
+      "win": "Win",
+      "loss": "Loss",
+      "tie": "Tie",
+      "opponent": "vs {name}",
+      "format": "Format",
+      "turns": "Turns",
+      "rating": "Rating",
+      "spectated": "Neither player is on your list of Showdown names, so this battle is stored but counts towards none of your statistics. Add the name you played under in Settings, then import the link again."
+    }
   },
   "settings": {
     "title": "Settings",
