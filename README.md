@@ -119,7 +119,12 @@ its data in a Docker volume.
 covers the columns and indexes design document §5 asks for; `behaviour.test.sql`
 covers what `regulation` derives, what the unique key refuses, and — as two
 actual users under RLS — that neither can read, write or delete anything of the
-other's, in the database or in the `replay-logs` bucket.
+other's, in the database or in the `replay-logs` bucket. `stats.test.sql` seeds
+the same battles as `apps/web/test/fixtures/stats-rows.ts` and checks the half
+of the stats layer only a database can answer: that the read `useStats` issues
+returns exactly the rows it should — spectated battles and other users' battles
+left out — and that the game, series, team and bring counts computed
+independently in SQL are the ones the TypeScript tests assert.
 
 ## Authentication
 
