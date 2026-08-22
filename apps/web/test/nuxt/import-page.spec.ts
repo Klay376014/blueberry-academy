@@ -2,17 +2,18 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { mountSuspended, mockNuxtImport } from '@nuxt/test-utils/runtime'
 import App from '../../app/app.vue'
 import { signIn } from '../helpers'
-import type { BattleRow } from '../../app/composables/useIngest'
+import type { BatchItem, BattleRow, ImportReport } from '../../app/composables/useIngest'
 
 // The import itself is faked; the page, the link parsing and the alias state
 // are real. What this asserts is what a user is told, which is the part
 // useIngest cannot decide for itself.
-const { importReplay, load } = vi.hoisted(() => ({
-  importReplay: vi.fn(),
+const { importMany, syncAccount, load } = vi.hoisted(() => ({
+  importMany: vi.fn(),
+  syncAccount: vi.fn(),
   load: vi.fn(),
 }))
 
-mockNuxtImport('useIngest', () => () => ({ importReplay }))
+mockNuxtImport('useIngest', () => () => ({ importMany, syncAccount }))
 
 mockNuxtImport('useProfile', () => () => {
   const stored = useShowdownAliases()
@@ -25,12 +26,13 @@ mockNuxtImport('useProfile', () => () => {
   }
 })
 
-const LINK = 'https://replay.pokemonshowdown.com/gen9championsvgc2026regmb-2667169457'
+const REPLAY = 'gen9championsvgc2026regmb-2667169457'
+const LINK = `https://replay.pokemonshowdown.com/${REPLAY}`
 
 function battle(overrides: Partial<BattleRow> = {}): BattleRow {
   return {
     user_id: 'test-user',
-    replay_id: 'gen9championsvgc2026regmb-2667169457',
+    replay_id: REPLAY,
     played_at: '2026-08-19T09:19:18.000Z',
     format_id: 'gen9championsvgc2026regmb',
     rated: true,
@@ -48,18 +50,46 @@ function battle(overrides: Partial<BattleRow> = {}): BattleRow {
     turn_count: 15,
     end_reason: null,
     details: {},
-    log_path: 'test-user/gen9championsvgc2026regmb-2667169457.json.gz',
+    log_path: `test-user/${REPLAY}.json.gz`,
     parser_version: '1',
     parse_error: null,
     ...overrides,
   }
 }
 
-/** Pastes a link into the field and presses the button beside it. */
-async function paste(wrapper: Awaited<ReturnType<typeof mountSuspended>>, link: string) {
-  await wrapper.get('[data-testid="import-input"]').setValue(link)
+/** A report over the items given, counted the way useIngest counts them. */
+function report(items: BatchItem[]): ImportReport {
+  const counts = { imported: 0, unparsed: 0, skipped: 0, failed: 0 }
+  for (const item of items) counts[item.outcome.status] += 1
+
+  return { items, counts }
+}
+
+function imported(id = REPLAY): BatchItem {
+  return { ref: { id }, outcome: { status: 'imported', battle: battle({ replay_id: id }) } }
+}
+
+type Wrapper = Awaited<ReturnType<typeof mountSuspended>>
+
+/** Pastes into the link box and presses the button under it. */
+async function paste(wrapper: Wrapper, links: string) {
+  await wrapper.get('[data-testid="import-input"]').setValue(links)
   await wrapper.get('[data-testid="import-form"]').trigger('submit')
   await nextTick()
+}
+
+/** Types a Showdown name into the sync box and presses sync. */
+async function sync(wrapper: Wrapper, name: string) {
+  await wrapper.get('[data-testid="sync-input"]').setValue(name)
+  await wrapper.get('[data-testid="sync-form"]').trigger('submit')
+  await nextTick()
+}
+
+/** The per-replay lines of the report, as `<status> <label>`. */
+function reportRows(wrapper: Wrapper): string[] {
+  return wrapper
+    .findAll('[data-testid="report-row"]')
+    .map((row: { text: () => string }) => row.text())
 }
 
 describe('the import page', () => {
@@ -67,7 +97,12 @@ describe('the import page', () => {
     signIn()
     useShowdownAliases().value = ['DavoPro1214']
     load.mockReset().mockResolvedValue(undefined)
-    importReplay.mockReset().mockResolvedValue({ status: 'imported', battle: battle() })
+    importMany.mockReset().mockResolvedValue(report([imported()]))
+    syncAccount.mockReset().mockResolvedValue({
+      status: 'listed',
+      report: report([imported()]),
+      truncated: false,
+    })
   })
 
   it('imports the replay a pasted link points at', async () => {
@@ -75,13 +110,24 @@ describe('the import page', () => {
 
     await paste(wrapper, LINK)
 
-    expect(importReplay).toHaveBeenCalledWith({
-      id: 'gen9championsvgc2026regmb-2667169457',
-      password: null,
-    })
+    expect(importMany).toHaveBeenCalledWith([{ id: REPLAY, password: null }])
   })
 
-  it('shows the battle that came in', async () => {
+  it('imports a whole pasted list, one replay per line', async () => {
+    const wrapper = await mountSuspended(App, { route: '/import' })
+
+    await paste(wrapper, `${LINK}\n\n  gen9ou-2667293085  \nsmogtours-gen9ou-799535`)
+
+    // Blank lines and stray spacing are what pasting out of a chat log looks
+    // like; none of them is a replay that failed.
+    expect(importMany.mock.calls[0]![0]).toEqual([
+      { id: REPLAY, password: null },
+      { id: 'gen9ou-2667293085', password: null },
+      { id: 'smogtours-gen9ou-799535', password: null },
+    ])
+  })
+
+  it('shows the single battle that came in', async () => {
     const wrapper = await mountSuspended(App, { route: '/import' })
 
     await paste(wrapper, LINK)
@@ -93,70 +139,158 @@ describe('the import page', () => {
     expect(wrapper.get('[data-testid="battle-result"]').text()).toBe('Loss')
   })
 
-  it('refuses a link that is not a replay without asking Showdown', async () => {
+  it('reports every replay of a batch, with what became of each', async () => {
+    importMany.mockResolvedValue(
+      report([
+        imported('gen9ou-1'),
+        { ref: { id: 'gen9ou-2' }, outcome: { status: 'skipped' } },
+        {
+          ref: { id: 'gen9ou-3' },
+          outcome: { status: 'failed', reason: 'not-found', message: 'no such replay' },
+        },
+      ]),
+    )
+
     const wrapper = await mountSuspended(App, { route: '/import' })
+    await paste(wrapper, 'gen9ou-1\ngen9ou-2\ngen9ou-3')
 
-    await paste(wrapper, 'https://pokemonshowdown.com/users/notlittlestar')
-
-    expect(importReplay).not.toHaveBeenCalled()
-    expect(wrapper.find('[data-testid="import-error"]').exists()).toBe(true)
+    const rows = reportRows(wrapper)
+    expect(rows).toHaveLength(3)
+    expect(rows[1]).toContain('gen9ou-2')
+    // The twelve that failed are the reason this list exists, so each one
+    // says why rather than only that it did.
+    expect(rows[2]).toContain('Showdown')
+    expect(wrapper.get('[data-testid="report-counts"]').text()).toMatch(/1.*1.*1/s)
   })
 
-  it('says when a battle was nobody on the alias list', async () => {
-    importReplay.mockResolvedValue({
-      status: 'imported',
-      battle: battle({
-        my_side: null,
-        my_username: null,
-        opponent_username: null,
-        result: null,
-        team_signature: null,
-        bring_signature: null,
-        bring_complete: false,
-        rating: null,
-        rating_delta: null,
-      }),
+  it('keeps a line that is not a replay link out of the batch, and says so', async () => {
+    const wrapper = await mountSuspended(App, { route: '/import' })
+
+    await paste(wrapper, `${LINK}\nhttps://pokemonshowdown.com/users/notlittlestar`)
+
+    // Refused here rather than by Showdown, and it does not stop the line
+    // above it from being imported.
+    expect(importMany.mock.calls[0]![0]).toEqual([{ id: REPLAY, password: null }])
+    expect(reportRows(wrapper).some((row: string) => row.includes('notlittlestar'))).toBe(true)
+  })
+
+  it('imports nothing when not one line was a replay link', async () => {
+    const wrapper = await mountSuspended(App, { route: '/import' })
+
+    await paste(wrapper, 'what a nice battle')
+
+    expect(importMany).not.toHaveBeenCalled()
+    expect(reportRows(wrapper)).toHaveLength(1)
+  })
+
+  it('syncs the Showdown name that was typed', async () => {
+    const wrapper = await mountSuspended(App, { route: '/import' })
+
+    await sync(wrapper, 'Bibas Rozkurwiator')
+
+    expect(syncAccount).toHaveBeenCalledWith('Bibas Rozkurwiator')
+  })
+
+  it('offers the bound alias as the name to sync, since that is whose battles these are', async () => {
+    useShowdownAliases().value = ['NotLittleStar', 'DavoPro1214']
+
+    const wrapper = await mountSuspended(App, { route: '/import' })
+
+    expect((wrapper.get('[data-testid="sync-input"]').element as HTMLInputElement).value).toBe(
+      'NotLittleStar',
+    )
+  })
+
+  it('says when a search ran out of pages before the account ran out of replays', async () => {
+    syncAccount.mockResolvedValue({
+      status: 'listed',
+      report: report([imported()]),
+      truncated: true,
     })
 
     const wrapper = await mountSuspended(App, { route: '/import' })
-    await paste(wrapper, LINK)
+    await sync(wrapper, 'DavoPro1214')
 
-    // It is stored, it counts towards nothing, and the user is told why
-    // rather than left looking at a battle with no result.
-    expect(wrapper.find('[data-testid="battle-spectated"]').exists()).toBe(true)
-    expect(wrapper.find('[data-testid="battle-result"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="sync-truncated"]').exists()).toBe(true)
   })
 
-  it('says the log was kept when the parse failed', async () => {
-    importReplay.mockResolvedValue({
-      status: 'unparsed',
-      battle: battle({ parse_error: 'nobody has taught it that line yet' }),
-      message: 'nobody has taught it that line yet',
-    })
-
-    const wrapper = await mountSuspended(App, { route: '/import' })
-    await paste(wrapper, LINK)
-
-    const shown = wrapper.get('[data-testid="import-unparsed"]').text()
-    expect(shown).toContain('nobody has taught it that line yet')
-  })
-
-  it('gives the reason an import did not happen', async () => {
-    importReplay.mockResolvedValue({
+  it('gives the reason a sync could not even list the account', async () => {
+    syncAccount.mockResolvedValue({
       status: 'failed',
-      reason: 'not-found',
-      message: 'Showdown has no replay gen9ou-1.',
+      reason: 'unavailable',
+      message: 'Showdown did not answer.',
     })
 
     const wrapper = await mountSuspended(App, { route: '/import' })
-    await paste(wrapper, LINK)
+    await sync(wrapper, 'DavoPro1214')
 
     expect(wrapper.get('[data-testid="import-error"]').text()).toContain('Showdown')
   })
 
-  it('will not send the same link twice while the first one is still going', async () => {
-    let finish = (_outcome: unknown) => {}
-    importReplay.mockReturnValue(
+  it('refuses a name that could never be a Showdown name, without asking', async () => {
+    const wrapper = await mountSuspended(App, { route: '/import' })
+
+    await sync(wrapper, '   ')
+
+    expect(syncAccount).not.toHaveBeenCalled()
+    expect(wrapper.find('[data-testid="import-error"]').exists()).toBe(true)
+  })
+
+  it('says the log was kept when a parse failed', async () => {
+    importMany.mockResolvedValue(
+      report([
+        {
+          ref: { id: REPLAY },
+          outcome: {
+            status: 'unparsed',
+            battle: battle({ parse_error: 'nobody has taught it that line yet' }),
+            message: 'nobody has taught it that line yet',
+          },
+        },
+      ]),
+    )
+
+    const wrapper = await mountSuspended(App, { route: '/import' })
+    await paste(wrapper, LINK)
+
+    expect(wrapper.get('[data-testid="import-unparsed"]').text()).toContain(
+      'nobody has taught it that line yet',
+    )
+  })
+
+  it('says when a battle was nobody on the alias list', async () => {
+    importMany.mockResolvedValue(
+      report([
+        {
+          ref: { id: REPLAY },
+          outcome: {
+            status: 'imported',
+            battle: battle({
+              my_side: null,
+              my_username: null,
+              opponent_username: null,
+              result: null,
+              team_signature: null,
+              bring_signature: null,
+              bring_complete: false,
+              rating: null,
+              rating_delta: null,
+            }),
+          },
+        },
+      ]),
+    )
+
+    const wrapper = await mountSuspended(App, { route: '/import' })
+    await paste(wrapper, LINK)
+
+    expect(wrapper.find('[data-testid="battle-spectated"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="battle-result"]').exists()).toBe(false)
+  })
+
+  it('will not start a second import while the first one is still going', async () => {
+    let finish = (_report: unknown) => {}
+    importMany.mockReturnValue(
       new Promise((resolve) => {
         finish = resolve
       }),
@@ -165,10 +299,13 @@ describe('the import page', () => {
     const wrapper = await mountSuspended(App, { route: '/import' })
     await paste(wrapper, LINK)
     await paste(wrapper, LINK)
+    // The other entrance is shut too: both of them talk to the same Showdown.
+    await sync(wrapper, 'DavoPro1214')
 
-    expect(importReplay).toHaveBeenCalledTimes(1)
+    expect(importMany).toHaveBeenCalledTimes(1)
+    expect(syncAccount).not.toHaveBeenCalled()
 
-    finish({ status: 'imported', battle: battle() })
+    finish(report([imported()]))
   })
 
   it('keeps the form shut when the alias list could not be read', async () => {
@@ -180,5 +317,6 @@ describe('the import page', () => {
     const wrapper = await mountSuspended(App, { route: '/import' })
 
     expect(wrapper.get('[data-testid="import-submit"]').attributes('disabled')).toBeDefined()
+    expect(wrapper.get('[data-testid="sync-submit"]').attributes('disabled')).toBeDefined()
   })
 })
