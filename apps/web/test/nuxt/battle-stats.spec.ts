@@ -1,14 +1,19 @@
 import { describe, expect, it } from 'vitest'
 import { overallTally, resultUnits, tallyOf, teamStats } from '../../app/utils/battleStats'
 import type { StatsRow } from '../../app/utils/battleStats'
-import { SIGNATURES, STATS_ROWS } from '../fixtures/stats-rows'
+import { FORMATS, SIGNATURES, STATS_ROWS } from '../fixtures/stats-rows'
 
-function team(rows: StatsRow[], signature: string, includeIncompleteBrings = false) {
+function team(
+  rows: StatsRow[],
+  formatId: string,
+  signature: string,
+  includeIncompleteBrings = false,
+) {
   const found = teamStats(rows, { aggregate: 'game', includeIncompleteBrings }).find(
-    (entry) => entry.signature === signature,
+    (entry) => entry.signature === signature && entry.formatId === formatId,
   )
 
-  if (!found) throw new Error(`No stats for ${signature}.`)
+  if (!found) throw new Error(`No stats for ${signature} in ${formatId}.`)
 
   return found
 }
@@ -71,31 +76,44 @@ describe('folding a series into one result', () => {
 })
 
 describe('grouping by team and by bring', () => {
+  it('keeps a Bo1 team apart from the same six registered for Bo3', () => {
+    // Same six Pokémon, two formats: by CONTEXT.md those are different teams,
+    // and pooling their averages says nothing about either.
+    const both = teamStats(STATS_ROWS, { aggregate: 'game' }).filter(
+      (entry) => entry.signature === SIGNATURES.TEAM_A,
+    )
+
+    expect(both.map((entry) => entry.formatId).toSorted()).toEqual([FORMATS.LADDER, FORMATS.EVENT])
+    expect(both.map((entry) => entry.tally.games).toSorted()).toEqual([3, 5])
+  })
+
   it('drops an incomplete bring from the bring level', () => {
     // `ladder-3` was forfeited: three of the four picks ever appeared, so its
     // signature is a broken version of a bring that is really four.
-    const brings = team(STATS_ROWS, SIGNATURES.TEAM_A).brings.map((entry) => entry.signature)
+    const brings = team(STATS_ROWS, FORMATS.LADDER, SIGNATURES.TEAM_A).brings.map(
+      (entry) => entry.signature,
+    )
 
     expect(brings).not.toContain('calyrexshadow|incineroar|urshifu')
   })
 
   it('still counts that battle at the team level, so the denominators differ', () => {
-    const teamA = team(STATS_ROWS, SIGNATURES.TEAM_A)
+    const teamA = team(STATS_ROWS, FORMATS.LADDER, SIGNATURES.TEAM_A)
     const acrossBrings = teamA.brings.reduce((sum, entry) => sum + entry.tally.games, 0)
 
     // The registered six are known whatever happened in the game, so the team
-    // keeps all eight of its decided battles...
-    expect(teamA.tally.games).toBe(8)
-    // ...while the brings account for seven. The missing one is the forfeit.
-    expect(acrossBrings).toBe(7)
+    // keeps all five of its decided ladder battles...
+    expect(teamA.tally.games).toBe(5)
+    // ...while the brings account for four. The missing one is the forfeit.
+    expect(acrossBrings).toBe(4)
     expect(teamA.tally.games).toBeGreaterThan(acrossBrings)
   })
 
   it('admits the incomplete bring when asked, as its own grouping', () => {
-    const teamA = team(STATS_ROWS, SIGNATURES.TEAM_A, true)
+    const teamA = team(STATS_ROWS, FORMATS.LADDER, SIGNATURES.TEAM_A, true)
     const acrossBrings = teamA.brings.reduce((sum, entry) => sum + entry.tally.games, 0)
 
-    expect(acrossBrings).toBe(8)
+    expect(acrossBrings).toBe(5)
     expect(teamA.brings.map((entry) => entry.signature)).toContain(
       'calyrexshadow|incineroar|urshifu',
     )
@@ -105,29 +123,28 @@ describe('grouping by team and by bring', () => {
     // A Bo3 brings a different four each game, so there is no series-level
     // bring to count.
     const [teamB] = teamStats(STATS_ROWS, { aggregate: 'series' }).filter(
-      (entry) => entry.signature === SIGNATURES.TEAM_B,
+      (entry) => entry.signature === SIGNATURES.TEAM_B && entry.formatId === FORMATS.EVENT,
     )
 
-    // Two series: the ladder win and the 1-1 that folded to a tie.
-    expect(teamB?.tally).toMatchObject({ games: 2, wins: 1, ties: 1 })
-    // Three games, all with a complete bring.
-    expect(teamB?.brings.reduce((sum, entry) => sum + entry.tally.games, 0)).toBe(3)
+    // One series, which was 1-1 of the games held and so folded to a tie...
+    expect(teamB?.tally).toMatchObject({ games: 1, wins: 0, ties: 1 })
+    // ...while its brings still count the two games it was played over.
+    expect(teamB?.brings.reduce((sum, entry) => sum + entry.tally.games, 0)).toBe(2)
   })
 
   it('ranks by the Wilson bound, not by win rate', () => {
-    const brings = team(STATS_ROWS, SIGNATURES.TEAM_A).brings
+    const brings = team(STATS_ROWS, FORMATS.EVENT, SIGNATURES.TEAM_A).brings
 
-    // Two from two beats two from four, and one from nothing-won sorts last.
+    // Two from two beats nothing from one, even though the sample is tiny.
     expect(brings.map((entry) => entry.signature)).toEqual([
       SIGNATURES.BRING_A2,
-      SIGNATURES.BRING_A1,
       SIGNATURES.BRING_A3,
     ])
   })
 
   it('shows every grouping, low sample included, with its sample size', () => {
     // Hiding a small grouping only leaves a user asking where their team went.
-    const a3 = team(STATS_ROWS, SIGNATURES.TEAM_A).brings.find(
+    const a3 = team(STATS_ROWS, FORMATS.EVENT, SIGNATURES.TEAM_A).brings.find(
       (entry) => entry.signature === SIGNATURES.BRING_A3,
     )
 
@@ -151,6 +168,7 @@ describe('grouping by team and by bring', () => {
     const rows = [...STATS_ROWS, unparsed]
 
     expect(overallTally(rows, 'game').games).toBe(12)
-    expect(teamStats(rows, { aggregate: 'game' })).toHaveLength(2)
+    // Two teams, each registered in two formats.
+    expect(teamStats(rows, { aggregate: 'game' })).toHaveLength(4)
   })
 })

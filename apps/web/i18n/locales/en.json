@@ -94,5 +94,52 @@
       "loadFailed": "We could not read your names, so nothing can be changed here right now. Reload the page to try again.",
       "failed": "That change did not save."
     }
+  },
+  "filters": {
+    "title": "Filters",
+    "identity": "Showdown name",
+    "anyIdentity": "All names",
+    "format": "Format",
+    "anyFormat": "All formats",
+    "from": "From",
+    "to": "To",
+    "bestOf": "Series",
+    "all": "ALL",
+    "bo1": "BO1",
+    "bo3": "BO3",
+    "aggregate": "Count by",
+    "byGame": "GAME",
+    "bySeries": "SERIES",
+    "includeIncomplete": "Include games with no complete bring"
+  },
+  "summary": {
+    "title": "Summary",
+    "games": "Games",
+    "winRate": "Win rate",
+    "strongest": "Strongest team · wilson {score}%"
+  },
+  "teams": {
+    "title": "Team performance",
+    "tagline": "One card per registered team. A team is its format and its registered six, so the same six laddered and played in Bo3 are two teams. Ranked by the low end of the interval, not by raw win rate.",
+    "count": "{count} teams",
+    "sample": "{games} games · wilson {score}%",
+    "games": "Games",
+    "winRate": "Win rate",
+    "wilson": "Wilson",
+    "brings": "Brings · {count}",
+    "noBrings": "No game with this team has a complete bring yet.",
+    "accounting": "Where the {games} games went",
+    "unfiled": "{games} of these ended before every pick had appeared, so there is no complete bring to file them under. They count for the team and in none of the brings below.",
+    "unfiledShort": "{games} games with no complete bring",
+    "segment": "{bring} — {games} games · {rate}%",
+    "back": "Dashboard",
+    "step": "Other teams",
+    "previous": "Previous team",
+    "next": "Next team",
+    "notFound": "No team here. It may have dropped out of the current filters.",
+    "loading": "Reading your battles…",
+    "failed": "Your battles could not be read. Try again in a moment.",
+    "empty": "No battles match these filters yet.",
+    "emptyAction": "Import some replays"
   }
 }

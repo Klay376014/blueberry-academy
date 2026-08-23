@@ -94,5 +94,52 @@
       "loadFailed": "讀不到你的名稱清單，所以這裡暫時不能變更。重新載入頁面再試一次。",
       "failed": "這次變更沒有存進去。"
     }
+  },
+  "filters": {
+    "title": "篩選器",
+    "identity": "Showdown 名稱",
+    "anyIdentity": "全部名稱",
+    "format": "賽制",
+    "anyFormat": "全部賽制",
+    "from": "起",
+    "to": "訖",
+    "bestOf": "賽制型式",
+    "all": "全部",
+    "bo1": "BO1",
+    "bo3": "BO3",
+    "aggregate": "計算單位",
+    "byGame": "每局",
+    "bySeries": "每系列",
+    "includeIncomplete": "含沒有完整選出的場次"
+  },
+  "summary": {
+    "title": "摘要",
+    "games": "場數",
+    "winRate": "勝率",
+    "strongest": "表現最好的隊 · Wilson 下界 {score}%"
+  },
+  "teams": {
+    "title": "隊伍表現",
+    "tagline": "一張卡一支登錄隊伍。隊伍的識別是賽制加上登錄的 6 隻 —— 同樣 6 隻打天梯與打 Bo3 是兩支不同的隊。排序用 Wilson 下界，不是原始勝率。",
+    "count": "{count} 支隊伍",
+    "sample": "{games} 場 · Wilson {score}%",
+    "games": "場數",
+    "winRate": "勝率",
+    "wilson": "Wilson 下界",
+    "brings": "選出組合 · {count}",
+    "noBrings": "這支隊還沒有任何一場留下完整的選出紀錄。",
+    "accounting": "這 {games} 場去哪了",
+    "unfiled": "其中 {games} 場在所有選出都現身之前就結束了，沒有完整的選出可以歸類。它們計入這支隊的戰績，但不計入下面任何一組選出。",
+    "unfiledShort": "{games} 場沒有完整選出",
+    "segment": "{bring} —— {games} 場 · {rate}%",
+    "back": "儀表板",
+    "step": "其他隊伍",
+    "previous": "上一支隊",
+    "next": "下一支隊",
+    "notFound": "這裡沒有隊伍，可能是被目前的篩選條件濾掉了。",
+    "loading": "正在讀取你的對戰…",
+    "failed": "讀不到你的對戰，請稍後再試一次。",
+    "empty": "目前的篩選條件下沒有任何對戰。",
+    "emptyAction": "去匯入 replay"
   }
 }

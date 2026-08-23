@@ -64,9 +64,13 @@ export function useStats() {
   }
 
   /**
-   * The filters the database can apply. Identity is not among them: `toID()`
-   * strips case and every non-alphanumeric character, which PostgREST cannot
-   * be asked for, so it is applied to the fetched rows instead.
+   * The filters the database can apply.
+   *
+   * Two are settled in the browser instead. Identity, because `toID()` strips
+   * case and every non-alphanumeric character and PostgREST cannot be asked
+   * for that. And the format, because the format picker has to offer the
+   * formats this account actually played — asking the database for one format
+   * would leave the picker listing only the format already chosen.
    */
   function queryFor(userId: string) {
     const base = $supabase
@@ -79,9 +83,8 @@ export function useStats() {
 
     let query = base
 
-    const { formatId, from, to, bestOf } = filters.value
+    const { from, to, bestOf } = filters.value
 
-    if (formatId) query = query.eq('format_id', formatId)
     if (from) query = query.gte('played_at', from)
     if (to) query = query.lte('played_at', endOfDay(to))
 
@@ -134,17 +137,44 @@ export function useStats() {
     }
   }
 
-  /** The fetched rows with the identity filter applied. */
+  /** The fetched rows with the two browser-side filters applied. */
   const battles = computed<StatsRow[]>(() => {
-    const fetched = rows.value ?? []
-    const identity = filters.value.identity
+    const { identity, formatId } = filters.value
+    const wanted = identity ? toID(identity) : null
 
-    if (!identity) return fetched
-
-    const wanted = toID(identity)
-
-    return fetched.filter((row) => toID(row.my_username ?? '') === wanted)
+    return (rows.value ?? []).filter(
+      (row) =>
+        (wanted === null || toID(row.my_username ?? '') === wanted) &&
+        (formatId === null || row.format_id === formatId),
+    )
   })
+
+  /**
+   * The formats to offer, in play order — derived from the fetched rows rather
+   * than from a list of every format Showdown has, so the picker only ever
+   * offers a format that would return something.
+   */
+  const formatOptions = computed(() => [...new Set((rows.value ?? []).map((r) => r.format_id))])
+
+  /** Likewise the Showdown names, in the spelling the replays carried. */
+  const identityOptions = computed(() => {
+    const byId = new Map<string, string>()
+
+    for (const row of rows.value ?? []) {
+      const name = row.my_username
+      if (name && !byId.has(toID(name))) byId.set(toID(name), name)
+    }
+
+    return [...byId.values()]
+  })
+
+  /**
+   * What the pages watch to know a re-read is due. The other filters are
+   * settled in the browser, so changing them must not cost a request.
+   */
+  const serverFilterKey = computed(() =>
+    [filters.value.from, filters.value.to, filters.value.bestOf].join('|'),
+  )
 
   /** Games or series, in the order they were played — the curve's x-axis. */
   const units = computed(() => resultUnits(battles.value, filters.value.aggregate))
@@ -158,5 +188,18 @@ export function useStats() {
     }),
   )
 
-  return { filters, battles, units, overall, teams, loading, error, loaded, load }
+  return {
+    filters,
+    battles,
+    units,
+    overall,
+    teams,
+    formatOptions,
+    identityOptions,
+    serverFilterKey,
+    loading,
+    error,
+    loaded,
+    load,
+  }
 }

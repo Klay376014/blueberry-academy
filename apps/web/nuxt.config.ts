@@ -33,6 +33,11 @@ export default defineNuxtConfig({
   // default `-mode` suffix.
   colorMode: {
     classSuffix: '',
+    // Indigo Disk is the app's own look, not a concession to a dark-preferring
+    // OS, so it is the preference rather than `system`. The light palette is
+    // one toggle away and gets the same care; see app/assets/tailwind.css.
+    preference: 'dark',
+    fallback: 'dark',
   },
 
   // Both are public by design: the browser is the only thing that talks to
