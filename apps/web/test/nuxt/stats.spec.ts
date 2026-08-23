@@ -143,22 +143,41 @@ describe('reading the battles the dashboard stands on', () => {
 })
 
 describe('the global filters', () => {
-  it('asks the database for the format and the dates', async () => {
+  it('asks the database for the dates', async () => {
     const { filters, load } = useStats()
-    filters.value = {
-      ...filters.value,
-      formatId: FORMATS.EVENT,
-      from: '2026-08-01',
-      to: '2026-08-31',
-    }
+    filters.value = { ...filters.value, from: '2026-08-01', to: '2026-08-31' }
 
     await load()
     const applied = onlyRequest()
 
-    expect(applied).toContainEqual(['eq', 'format_id', FORMATS.EVENT])
     expect(applied).toContainEqual(['gte', 'played_at', '2026-08-01'])
     // The day the user named, all of it — not its first instant.
     expect(applied).toContainEqual(['lte', 'played_at', '2026-08-31T23:59:59.999Z'])
+  })
+
+  it('settles the format in the browser, so the picker can offer every format', async () => {
+    // Asked of the database, one format would come back and the picker would
+    // then be able to offer only the format already chosen.
+    const { filters, load, battles, formatOptions } = useStats()
+    await load()
+
+    expect(formatOptions.value).toEqual([FORMATS.LADDER, FORMATS.EVENT])
+
+    filters.value = { ...filters.value, formatId: FORMATS.EVENT }
+
+    expect(battles.value.every((row) => row.format_id === FORMATS.EVENT)).toBe(true)
+    expect(formatOptions.value).toEqual([FORMATS.LADDER, FORMATS.EVENT])
+    expect(onlyRequest()).not.toContainEqual(['eq', 'format_id', FORMATS.EVENT])
+    expect(db.requests).toHaveLength(1)
+  })
+
+  it('offers each Showdown name once, in the spelling the replays carried', async () => {
+    const { load, identityOptions } = useStats()
+    await load()
+
+    // notlittlestar is the same person as NotLittleStar, so it is not a
+    // second option; SomeAlt is a different one.
+    expect(identityOptions.value).toEqual(['NotLittleStar', 'SomeAlt'])
   })
 
   it('separates ladder Bo1 from best-of series by the format suffix', async () => {
@@ -209,14 +228,17 @@ describe('the global filters', () => {
     const { filters, load, teams } = useStats()
     await load()
 
+    // The ladder registration of team A, which is where the forfeit is.
     const bringsOf = () =>
-      teams.value.find((entry) => entry.signature === SIGNATURES.TEAM_A)!.brings.length
+      teams.value.find(
+        (entry) => entry.signature === SIGNATURES.TEAM_A && entry.formatId === FORMATS.LADDER,
+      )!.brings.length
 
-    expect(bringsOf()).toBe(3)
+    expect(bringsOf()).toBe(1)
 
     filters.value = { ...filters.value, includeIncompleteBrings: true }
 
-    expect(bringsOf()).toBe(4)
+    expect(bringsOf()).toBe(2)
     expect(db.requests).toHaveLength(1)
   })
 

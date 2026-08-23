@@ -19,6 +19,7 @@
   --color-chart-3: var(--chart-3);
   --color-chart-2: var(--chart-2);
   --color-chart-1: var(--chart-1);
+  --color-unfiled: var(--unfiled);
   --color-ring: var(--ring);
   --color-input: var(--input);
   --color-border: var(--border);
@@ -45,71 +46,114 @@
 
 :root {
   --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
+
+  /* Uniform — the SV school kit: white ground, deep navy data, one red-orange
+     for the exception. See docs/adr/0010-two-palettes.md. */
+  --background: oklch(0.972 0.007 260.7);
+  --foreground: oklch(0.26 0.056 263);
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
+  --card-foreground: oklch(0.26 0.056 263);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.646 0.222 41.116);
-  --chart-2: oklch(0.6 0.118 184.704);
-  --chart-3: oklch(0.398 0.07 227.392);
-  --chart-4: oklch(0.828 0.189 84.429);
-  --chart-5: oklch(0.769 0.188 70.08);
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --popover-foreground: oklch(0.26 0.056 263);
+  --primary: oklch(0.387 0.109 262.7);
+  --primary-foreground: oklch(1 0 0);
+  --secondary: oklch(0.944 0.014 258.3);
+  --secondary-foreground: oklch(0.26 0.056 263);
+  --muted: oklch(0.932 0.015 257.2);
+  --muted-foreground: oklch(0.525 0.049 260.3);
+  --accent: oklch(0.933 0.019 263);
+  --accent-foreground: oklch(0.26 0.056 263);
+  --destructive: oklch(0.564 0.176 31.8);
+
+  /* Games that belong to a team but to no complete bring. Not an error, so
+     not `destructive` — but it has to be the one thing on screen that is
+     neither the ground nor the data. */
+  --unfiled: oklch(0.564 0.176 31.8);
+
+  --border: oklch(0.889 0.02 260.2);
+  --input: oklch(0.889 0.02 260.2);
+  --ring: oklch(0.387 0.109 262.7);
+  --chart-1: oklch(0.387 0.109 262.7);
+  --chart-2: oklch(0.541 0.123 257.2);
+  --chart-3: oklch(0.669 0.094 256);
+  --chart-4: oklch(0.564 0.176 31.8);
+  --chart-5: oklch(0.722 0.05 251.4);
+
+  /* The hexagon grid behind the reference art. Far enough back that the data
+     stays the loudest thing on screen — it should read as paper, not pattern. */
+  --texture: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='56' height='100'%3E%3Cg fill='none' stroke='%2323417e' stroke-opacity='0.055' stroke-width='1'%3E%3Cpath d='M28 66L0 50L0 16L28 0L56 16L56 50L28 66L28 100'/%3E%3Cpath d='M28 0L28 34L0 50M28 34L56 50'/%3E%3C/g%3E%3C/svg%3E");
+
+  --sidebar: oklch(0.944 0.014 258.3);
+  --sidebar-foreground: oklch(0.26 0.056 263);
+  --sidebar-primary: oklch(0.387 0.109 262.7);
+  --sidebar-primary-foreground: oklch(1 0 0);
+  --sidebar-accent: oklch(0.933 0.019 263);
+  --sidebar-accent-foreground: oklch(0.26 0.056 263);
+  --sidebar-border: oklch(0.889 0.02 260.2);
+  --sidebar-ring: oklch(0.387 0.109 262.7);
 }
 
+/* Indigo Disk — the title art: deep navy ground, faceted highlights, bright
+   cyan. The default; see nuxt.config.ts. */
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.488 0.243 264.376);
-  --chart-2: oklch(0.696 0.17 162.48);
-  --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.627 0.265 303.9);
-  --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  --background: oklch(0.199 0.037 248.4);
+  --foreground: oklch(0.953 0.017 242.4);
+  --card: oklch(0.254 0.049 248.5);
+  --card-foreground: oklch(0.953 0.017 242.4);
+  --popover: oklch(0.254 0.049 248.5);
+  --popover-foreground: oklch(0.953 0.017 242.4);
+  --primary: oklch(0.688 0.13 235.9);
+  --primary-foreground: oklch(0.199 0.037 248.4);
+  --secondary: oklch(0.313 0.065 248.1);
+  --secondary-foreground: oklch(0.953 0.017 242.4);
+  --muted: oklch(0.313 0.065 248.1);
+  --muted-foreground: oklch(0.711 0.057 246.1);
+  --accent: oklch(0.313 0.065 248.1);
+  --accent-foreground: oklch(0.953 0.017 242.4);
+  --destructive: oklch(0.655 0.169 38.3);
+  --unfiled: oklch(0.655 0.169 38.3);
+  --border: oklch(0.354 0.07 248);
+  --input: oklch(0.354 0.07 248);
+  --ring: oklch(0.688 0.13 235.9);
+  --chart-1: oklch(0.688 0.13 235.9);
+  --chart-2: oklch(0.814 0.116 218.9);
+  --chart-3: oklch(0.519 0.101 243.7);
+  --chart-4: oklch(0.655 0.169 38.3);
+  --chart-5: oklch(0.711 0.057 246.1);
+
+  /* The faceted crystal of the title art, at viewport scale. */
+  --texture:
+    linear-gradient(
+      148deg,
+      color-mix(in oklab, var(--primary) 7%, transparent) 0 22%,
+      transparent 22% 46%,
+      color-mix(in oklab, var(--primary) 4.5%, transparent) 46% 63%,
+      transparent 63%
+    ),
+    linear-gradient(
+      28deg,
+      color-mix(in oklab, var(--foreground) 3%, transparent) 0 38%,
+      transparent 38% 70%,
+      color-mix(in oklab, var(--primary) 3.5%, transparent) 70%
+    );
+
+  --sidebar: oklch(0.254 0.049 248.5);
+  --sidebar-foreground: oklch(0.953 0.017 242.4);
+  --sidebar-primary: oklch(0.688 0.13 235.9);
+  --sidebar-primary-foreground: oklch(0.199 0.037 248.4);
+  --sidebar-accent: oklch(0.313 0.065 248.1);
+  --sidebar-accent-foreground: oklch(0.953 0.017 242.4);
+  --sidebar-border: oklch(0.354 0.07 248);
+  --sidebar-ring: oklch(0.688 0.13 235.9);
+}
+
+@layer utilities {
+  /* Games with no complete bring. Hatched as well as coloured: the difference
+     has to survive a screenshot in greyscale and a colour-blind reader. */
+  .bg-unfiled-hatch {
+    background-color: color-mix(in oklab, var(--unfiled) 16%, transparent);
+    background-image: repeating-linear-gradient(-45deg, var(--unfiled) 0 2px, transparent 2px 6px);
+  }
 }
 
 @layer base {
@@ -118,6 +162,12 @@
   }
   body {
     @apply bg-background text-foreground;
+
+    /* Fixed, so the ground stays put while the content moves over it. Both
+       palettes carry their own; see the --texture token. */
+    background-image: var(--texture);
+    background-attachment: fixed;
+    min-height: 100dvh;
   }
 
   /* Page shell, carried over from the create-vue main.css this file replaced. */

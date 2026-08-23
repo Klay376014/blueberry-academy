@@ -36,6 +36,22 @@ export default defineConfig({
     options: { typeAware: true, typeCheck: true },
     overrides: [
       {
+        // Bar widths, sprite-sheet offsets and win-rate fills are data, not
+        // styling: there is no finite set of utility classes that covers a
+        // percentage. Scoped-style `v-bind()` would cover the single-element
+        // cases and not the `v-for` ones, so the rule is off for the files
+        // that draw, and on everywhere else.
+        files: [
+          'apps/web/app/components/SpeciesIcon.vue',
+          'apps/web/app/components/stats/AccountingBar.vue',
+          'apps/web/app/components/stats/TeamCard.vue',
+          'apps/web/app/pages/teams/**',
+        ],
+        rules: {
+          'vize/vue/no-inline-style': 'off',
+        },
+      },
+      {
         // shadcn-vue components are copied in by its CLI, not written here
         // (docs/adr/0005-shadcn-vue-without-nuxt-module.md), so style rules
         // that disagree with the CLI's output only make the next

@@ -45,6 +45,13 @@ export interface SignatureStats {
 
 export interface TeamStats extends SignatureStats {
   /**
+   * The format the team is registered in. Part of its identity, not a label:
+   * a Bo1 team and its Bo3 counterpart are different teams whose averages
+   * must not be pooled (CONTEXT.md, 「隊伍的同一性」).
+   */
+  formatId: string
+
+  /**
    * The bring combinations played with this team. Always counted by game: a
    * Bo3 brings a different four each game, so there is no series-level bring.
    */
@@ -161,22 +168,27 @@ function byScore(a: SignatureStats, b: SignatureStats): number {
   )
 }
 
+/** The key a team is grouped under: its whole identity, format included. */
+function teamKeyOf(row: StatsRow): string | null {
+  return row.team_signature === null ? null : `${row.format_id}~${row.team_signature}`
+}
+
 function groupBySignature(
   rows: StatsRow[],
-  signatureOf: (row: StatsRow) => string | null,
+  keyOf: (row: StatsRow) => string | null,
 ): Map<string, StatsRow[]> {
   const groups = new Map<string, StatsRow[]>()
 
   for (const row of rows) {
-    const signature = signatureOf(row)
+    const key = keyOf(row)
 
     // No signature means an unparsed import waiting for scripts/reparse.ts. It
     // still counts in the overall tally; it just has no team to be filed under.
-    if (!signature) continue
+    if (!key) continue
 
-    const group = groups.get(signature)
+    const group = groups.get(key)
     if (group) group.push(row)
-    else groups.set(signature, [row])
+    else groups.set(key, [row])
   }
 
   return groups
@@ -209,26 +221,27 @@ export interface TeamStatsOptions {
 export function teamStats(rows: StatsRow[], options: TeamStatsOptions): TeamStats[] {
   const { aggregate, includeIncompleteBrings = false } = options
 
-  const teams = [...groupBySignature(rows, (row) => row.team_signature)].map(
-    ([signature, teamRows]) => {
-      const bringRows = includeIncompleteBrings
-        ? teamRows
-        : teamRows.filter((row) => row.bring_complete)
+  const teams = [...groupBySignature(rows, teamKeyOf)].map(([, teamRows]) => {
+    const bringRows = includeIncompleteBrings
+      ? teamRows
+      : teamRows.filter((row) => row.bring_complete)
 
-      const brings = [...groupBySignature(bringRows, (row) => row.bring_signature)]
-        .map(([bringSignature, group]) => ({
-          signature: bringSignature,
-          tally: tallyOf(resultUnits(group, 'game').map((unit) => unit.result)),
-        }))
-        .toSorted(byScore)
+    const brings = [...groupBySignature(bringRows, (row) => row.bring_signature)]
+      .map(([bringSignature, group]) => ({
+        signature: bringSignature,
+        tally: tallyOf(resultUnits(group, 'game').map((unit) => unit.result)),
+      }))
+      .toSorted(byScore)
 
-      return {
-        signature,
-        tally: tallyOf(resultUnits(teamRows, aggregate).map((unit) => unit.result)),
-        brings,
-      }
-    },
-  )
+    const first = teamRows[0]!
+
+    return {
+      formatId: first.format_id,
+      signature: first.team_signature!,
+      tally: tallyOf(resultUnits(teamRows, aggregate).map((unit) => unit.result)),
+      brings,
+    }
+  })
 
   return teams.toSorted(byScore)
 }

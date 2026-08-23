@@ -13,7 +13,7 @@ begin;
 
 create extension if not exists pgtap;
 
-select plan(13);
+select plan(14);
 
 insert into auth.users (id, email) values
   ('11111111-1111-1111-1111-111111111111', 'one@example.test'),
@@ -167,20 +167,39 @@ select is(
   'the series held only in part is a tie, not a guessed winner'
 );
 
+-- Team identity is format + signature ----------------------------------------
+
+-- The same six registered for Bo1 and for Bo3 are two teams, not one, so the
+-- counts below are always taken within a format.
+select is(
+  (with teams as (
+     select format_id, team_signature, count(*)::int as games
+     from public.battles
+     where my_side is not null and result is not null
+       and team_signature = 'calyrexshadow|incineroar|ironhands|ragingbolt|rillaboom|urshifu'
+     group by 1, 2
+   )
+   select count(*)::int from teams),
+  2,
+  'the same six in two formats are two teams'
+);
+
 -- Team level and bring level disagree, on purpose ----------------------------
 
 select is(
   (select count(*)::int from public.battles
    where my_side is not null and result is not null
+     and format_id = 'gen9championsvgc2026regmb'
      and team_signature = 'calyrexshadow|incineroar|ironhands|ragingbolt|rillaboom|urshifu'),
-  8,
+  5,
   'the team keeps the forfeited game: the registered six are known regardless'
 );
 select is(
   (select count(*)::int from public.battles
    where my_side is not null and result is not null and bring_complete
+     and format_id = 'gen9championsvgc2026regmb'
      and team_signature = 'calyrexshadow|incineroar|ironhands|ragingbolt|rillaboom|urshifu'),
-  7,
+  4,
   'the bring level drops it, so the two levels have different denominators'
 );
 select is(
