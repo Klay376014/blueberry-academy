@@ -220,6 +220,34 @@ describe('importing a batch', () => {
 
     expect(seen.sort()).toEqual(THREE)
   })
+
+  it('says how many replays there are before it starts on them', async () => {
+    const totals: number[] = []
+
+    await useIngest().importMany(
+      THREE.map((id) => ({ id })),
+      {
+        onTotal: (total) => totals.push(total),
+        // A progress bar needs its denominator before the first replay
+        // lands, not after the last one.
+        onResult: () => totals.push(-1),
+      },
+    )
+
+    expect(totals[0]).toBe(3)
+  })
+
+  it('counts a replay named twice once, since that is how many will be processed', async () => {
+    let total = 0
+
+    await useIngest().importMany([{ id: 'gen9ou-1' }, { id: 'gen9ou-1' }], {
+      onTotal: (given) => {
+        total = given
+      },
+    })
+
+    expect(total).toBe(1)
+  })
 })
 
 describe('syncing a Showdown account', () => {
@@ -254,6 +282,19 @@ describe('syncing a Showdown account', () => {
     const outcome = await useIngest().syncAccount('DavoPro1214')
 
     expect(outcome).toMatchObject({ status: 'failed', reason: 'not-found' })
+  })
+
+  it('hands the count on once the listing is in, so a sync can show progress too', async () => {
+    fetchMock = showdownServing(
+      threeReplays(),
+      THREE.map((id) => ({ id })),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+    const totals: number[] = []
+
+    await useIngest().syncAccount('DavoPro1214', { onTotal: (total) => totals.push(total) })
+
+    expect(totals).toEqual([3])
   })
 
   it('takes the replays in the order Showdown listed them', async () => {

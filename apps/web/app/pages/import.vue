@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { toID } from 'replay-parser'
-import type { BatchOutcome, ImportReport } from '~/composables/useIngest'
+import type { BatchItem, BatchOutcome, ImportReport } from '~/composables/useIngest'
 import type { ReplayRef } from '~/composables/useShowdown'
 
 const { t, locale } = useI18n()
@@ -12,7 +12,14 @@ const links = ref('')
 const busy = ref(false)
 const profileFailed = ref(false)
 
-const report = ref<ImportReport | null>(null)
+/**
+ * Every replay this attempt has heard back about, in the order it heard —
+ * appended as each one lands rather than all at the end, because a sync of a
+ * thousand battles is a long time to show nothing (design document §8, Q26).
+ */
+const items = ref<BatchItem[]>([])
+/** How many replays this attempt will work through; null until it is known. */
+const total = ref<number | null>(null)
 /** Lines that were never a replay link — refused here, still worth listing. */
 const badLines = ref<string[]>([])
 /** A failure of the whole attempt: nothing was listed, so nothing was tried. */
@@ -64,9 +71,17 @@ function detailOf(outcome: BatchOutcome) {
   return ''
 }
 
+/** Counted here rather than taken from the report, so the tally moves too. */
+const counts = computed(() => {
+  const tally = { imported: 0, unparsed: 0, skipped: 0, failed: 0 }
+  for (const item of items.value) tally[item.outcome.status] += 1
+
+  return tally
+})
+
 /** Every line of the attempt: what was imported, and what never got that far. */
 const rows = computed<ReportRow[]>(() => [
-  ...(report.value?.items ?? []).map((item) => ({
+  ...items.value.map((item) => ({
     key: item.ref.id,
     label: item.ref.id,
     status: item.outcome.status,
@@ -85,10 +100,9 @@ const rows = computed<ReportRow[]>(() => [
  * gets the list; one link gets the battle it just imported.
  */
 const single = computed(() => {
-  const items = report.value?.items ?? []
-  if (items.length !== 1 || badLines.value.length) return null
+  if (busy.value || items.value.length !== 1 || badLines.value.length) return null
 
-  const outcome = items[0]!.outcome
+  const outcome = items.value[0]!.outcome
 
   return outcome.status === 'imported' || outcome.status === 'unparsed' ? outcome : null
 })
@@ -105,8 +119,57 @@ const playedOn = computed(() =>
   battle.value ? new Date(battle.value.played_at).toLocaleDateString(locale.value) : '',
 )
 
+/** How full the bar is. An empty account is finished the moment it is listed. */
+const percentDone = computed(() =>
+  total.value ? Math.round((items.value.length / total.value) * 100) : 100,
+)
+
+/**
+ * Kept pinned to the newest line while the batch is running, which is what
+ * makes it a live feed rather than a list that quietly grows off-screen — but
+ * only while the user is already at the bottom. Scrolling up to read why one
+ * failed is exactly what this list is for, and yanking them back down every
+ * time a replay lands would make that impossible.
+ */
+const list = useTemplateRef<HTMLElement>('list')
+const NEAR_BOTTOM = 40
+
+watch(
+  () => items.value.length,
+  async () => {
+    const element = list.value
+    if (!busy.value || !element) return
+
+    const pinned = element.scrollHeight - element.scrollTop - element.clientHeight < NEAR_BOTTOM
+
+    await nextTick()
+    if (pinned) element.scrollTop = element.scrollHeight
+  },
+)
+
+/**
+ * The two callbacks every attempt hands to useIngest. The final report is
+ * absorbed rather than assigned: a replay already listed live must not appear
+ * a second time, and the order the user watched things arrive in should not
+ * be shuffled at the finish.
+ */
+const watching = {
+  onTotal: (count: number) => {
+    total.value = count
+  },
+  onResult: (item: BatchItem) => {
+    items.value = [...items.value, item]
+  },
+}
+
+function absorb(finished: ImportReport) {
+  const seen = new Set(items.value.map((item) => item.ref.id))
+  items.value = [...items.value, ...finished.items.filter((item) => !seen.has(item.ref.id))]
+}
+
 function reset() {
-  report.value = null
+  items.value = []
+  total.value = null
   badLines.value = []
   failure.value = null
   truncated.value = false
@@ -152,7 +215,7 @@ async function importPasted() {
   if (!refs.length) return
 
   await run(async () => {
-    report.value = await importMany(refs)
+    absorb(await importMany(refs, watching))
   })
 }
 
@@ -169,14 +232,14 @@ async function syncByName() {
   }
 
   await run(async () => {
-    const outcome = await syncAccount(syncName.value)
+    const outcome = await syncAccount(syncName.value, watching)
 
     if (outcome.status === 'failed') {
       failure.value = { reason: outcome.reason, message: outcome.message }
       return
     }
 
-    report.value = outcome.report
+    absorb(outcome.report)
     truncated.value = outcome.truncated
   })
 }
@@ -266,19 +329,58 @@ async function syncByName() {
         {{ t('import.sync.truncated') }}
       </p>
 
+      <!-- While the batch is in the air: how far along, out of how many. A
+           sync has no denominator until Showdown has answered the listing, and
+           a bar at 0 / 0 would read as nothing happening. -->
+      <div
+        v-if="busy"
+        class="mt-6"
+        role="progressbar"
+        :aria-label="t('import.progress.label')"
+        :aria-valuenow="total === null ? undefined : items.length"
+        :aria-valuemin="total === null ? undefined : 0"
+        :aria-valuemax="total === null ? undefined : total"
+        :aria-valuetext="total === null ? t('import.progress.listing') : undefined"
+        data-testid="import-progress"
+      >
+        <div class="flex items-baseline justify-between gap-4 text-sm">
+          <span class="text-muted-foreground">
+            {{
+              total === null
+                ? t('import.progress.listing')
+                : t('import.progress.counting', { done: items.length, total })
+            }}
+          </span>
+        </div>
+        <div class="mt-2 h-2 overflow-hidden rounded-full bg-muted">
+          <div v-if="total === null" class="h-full w-1/4 animate-pulse rounded-full bg-primary" />
+          <div
+            v-else
+            class="h-full bg-primary transition-[width] duration-200 motion-reduce:transition-none"
+            :style="{ width: `${percentDone}%` }"
+          />
+        </div>
+      </div>
+
       <!-- Per replay, because a user needs to know why the twelve that failed failed. -->
       <template v-if="rows.length">
         <p class="mt-6 text-sm font-medium" data-testid="report-counts">
           {{
             t('import.report.counts', {
-              imported: report?.counts.imported ?? 0,
-              skipped: report?.counts.skipped ?? 0,
-              failed: (report?.counts.failed ?? 0) + badLines.length,
+              imported: counts.imported,
+              skipped: counts.skipped,
+              failed: counts.failed + badLines.length,
             })
           }}
         </p>
 
-        <ul class="mt-2 divide-y divide-border border-y border-border">
+        <!-- Capped and scrolled: a thousand rows would push everything else
+             off the page, and the list has to stay readable after the fact. -->
+        <ul
+          ref="list"
+          class="mt-2 max-h-96 divide-y divide-border overflow-y-auto border-y border-border"
+          data-testid="report-list"
+        >
           <li
             v-for="row of rows"
             :key="row.key"

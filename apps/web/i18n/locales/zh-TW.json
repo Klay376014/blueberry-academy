@@ -46,6 +46,11 @@
       "truncated": "Showdown 的搜尋頁數先用完了，這個帳號的 replay 還沒完 —— 這不是完整的歷史。一次搜尋大約摸得到 5000 場，剩下的要用更窄的條件才抓得到。"
     },
     "profileFailed": "讀不到你的 Showdown 名稱清單，所以現在沒辦法匯入 —— 沒有它就無從判斷一場對戰哪一邊是你。重新載入頁面再試一次。",
+    "progress": {
+      "label": "匯入進度",
+      "listing": "正在問 Showdown 這個帳號打過哪些場…",
+      "counting": "已處理 {done} / {total}"
+    },
     "badLink": "這不是 Showdown replay 連結。請貼 replay 本身的網址，例如 https://replay.pokemonshowdown.com/gen9championsvgc2026regmb-2667169457 —— 私人 replay 的密碼就在網址裡，一起貼進來。",
     "unparsed": "原始 log 已經存下來了，但這場 replay 讀不動：{message} 沒有東西弄丟 —— 這場對戰保留著，等解析器看得懂那份 log 之後可以重新解析。",
     "status": {
