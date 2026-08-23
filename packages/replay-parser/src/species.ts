@@ -11,7 +11,7 @@
  * the region it was registered with.
  */
 
-import { BATTLE_ONLY_FORMES } from './battle-only-formes'
+import { BATTLE_ONLY_FORMES } from './battle-only-formes.ts'
 
 /**
  * Showdown's identifier normalisation: lowercase, non-alphanumerics removed.

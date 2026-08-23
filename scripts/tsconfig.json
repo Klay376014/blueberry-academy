@@ -1,0 +1,14 @@
+// Local maintenance scripts: bare `node`, Node's own type stripping, no build
+// step and no loader. Hence the explicit .ts extensions everywhere.
+{
+  "extends": "@tsconfig/node24/tsconfig.json",
+  "include": ["*.ts", "test/**/*.ts"],
+  "compilerOptions": {
+    "module": "preserve",
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "types": ["node"],
+    "noEmit": true,
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.tsbuildinfo"
+  }
+}

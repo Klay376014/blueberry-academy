@@ -8,9 +8,15 @@ Analyses your Pokémon Showdown replays. See `docs/specs/` for the design and
 ```
 apps/web/                  the app — Nuxt, file-based routes, SPA (`ssr: false`)
 packages/replay-parser/    pure replay-log parser, zero runtime dependencies
+packages/battle-row/       the parsed battle → `battles` row mapping, shared
+scripts/                   local maintenance scripts, never deployed
 supabase/                  schema migrations, RLS and Storage policies, pgTAP tests
 vite.config.ts             `vp` toolchain config for the whole workspace
 ```
+
+`packages/battle-row/` exists because that mapping has two callers that must
+never disagree: the browser writes rows at import time, and `pnpm reparse`
+rewrites them from the stored raw log.
 
 `apps/web` builds through Nuxt: `apps/web/nuxt.config.ts` owns the app build and
 `apps/web/vitest.config.ts` owns its tests. The root `vite.config.ts` is toolchain
@@ -125,6 +131,44 @@ of the stats layer only a database can answer: that the read `useStats` issues
 returns exactly the rows it should — spectated battles and other users' battles
 left out — and that the game, series, team and bring counts computed
 independently in SQL are the ones the TypeScript tests assert.
+
+## Re-parsing
+
+The raw log in Storage is the only source of truth; every derived column in
+`battles` is rebuildable from it. `scripts/reparse.ts` is that rebuild, and it
+is what makes a parser change safe — nothing is fetched from Showdown again.
+
+```sh
+SUPABASE_URL=… SUPABASE_SERVICE_ROLE_KEY=… pnpm reparse [flags]
+
+  --stale        only rows whose parser_version is not the current one
+  --user <id>    only one user's rows
+  --dry-run      report what would change, write nothing
+```
+
+Both values for the local stack are printed by `pnpm db:start`
+(`supabase status -o env` prints them again). The **service_role key bypasses
+RLS**, so it lives in your shell and nowhere else: never in `apps/web/`, never
+in a committed file. `scripts/` is a workspace package of its own so that its
+dependencies — the service_role client among them — cannot reach the app's
+bundle, and `scripts/check-conventions.sh` refuses a commit that imports it from
+`apps/web/`. An online admin endpoint and a browser-side re-parse were both
+rejected for the same reason (design document §6, decisions Q16/Q19).
+
+A row is only written when a column actually moved, so re-running an unchanged
+parser reports every battle as `unchanged` and writes nothing:
+
+```
+parser 1: 0 rebuilt, 412 unchanged, 0 still unreadable, 0 without a stored log, 0 failed
+```
+
+Two things the comparison has to know, both measured against the local stack:
+`played_at` comes back from PostgREST as `…T09:19:18+00:00` where the parser
+produced `…T09:19:18.000Z`, and `jsonb` returns `details` with its keys
+re-sorted. Compared as strings, every row on the table would look changed.
+
+Identity is resolved from the alias list as it stands _now_, so adding the name
+you played under and re-parsing turns spectated battles back into your own.
 
 ## Authentication
 

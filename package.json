@@ -16,7 +16,8 @@
     "db:start": "supabase start",
     "db:reset": "supabase db reset",
     "db:test": "supabase test db",
-    "prepare": "vp config"
+    "prepare": "vp config",
+    "reparse": "node scripts/reparse.ts"
   },
   "devDependencies": {
     "@tsconfig/node24": "catalog:",

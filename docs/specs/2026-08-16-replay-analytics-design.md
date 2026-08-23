@@ -105,15 +105,19 @@ packages/replay-parser/          純 TS、零 runtime 依賴、可完全獨立�
   src/species.ts                 型態還原（Mega/Primal → base species）
   test/fixtures/                 真實 replay 存檔
 
+packages/battle-row/             ParsedBattle → battles 列的對應（純 TS）
+  src/index.ts                   battleRowOf / unparsedRowOf、BattleRow
+
 apps/web/                        Nuxt (ssr: false)
   app/pages/index.vue            儀表板
   app/pages/import.vue           匯入
   app/composables/useShowdown.ts 抓取（分頁、並發上限、退避重試）
-  app/composables/useIngest.ts   抓 → 存 raw → 解析 → upsert
+  app/composables/useIngest.ts   抓 → 存 raw → 解析 → upsert（用 battle-row 對應）
   app/composables/useStats.ts    查詢與統計
   server/api/                    MVP 幾乎為空，保留給升級付費版後
 
-scripts/reparse.ts               本機維運腳本（service_role，不上線）
+scripts/                         本機維運腳本，自成 workspace 套件（不上線）
+  reparse.ts                     從 Storage 的 raw log 重建全部衍生資料
 
 Supabase
   profiles                       使用者 ↔ 多個 Showdown 別名
@@ -266,6 +270,14 @@ KO 歸因等視角 4 真的要做時，用 re-parse 腳本補上。這讓 Phase 
 `battles.parser_version` 記錄產生該列的解析器版本。改版後執行 `scripts/reparse.ts`
 （本機 Node、service_role 直連 Supabase）讀 Storage 的 raw log 重建全部衍生資料。
 
+匯入與 re-parse 共用 `packages/battle-row` 的同一份對應（#14 實作時新增，見 Q23）——
+兩份副本會漂移，而症狀是統計數字變了卻沒人說得出為什麼。腳本逐欄比對後才寫入，所以
+解析器沒改版時重跑等於全部 `unchanged`、一列都不寫，這條驗收因此是看得見的。
+
+比對必須知道兩件實測到的事：PostgREST 回來的 `played_at` 是 `…T09:19:18+00:00`，
+解析器產生的是 `…T09:19:18.000Z`；`jsonb` 回來的 `details` 鍵序被重排過。當成字串比，
+整張表都會看起來變了。
+
 不做「使用者開站時自動偵測版本落後並背景重解析」—— 在使用者數為個位數的階段是純粹的
 過度設計。也不做「只有新資料用新版」—— 那會讓資料集混著不同版本的解析結果、統計不可信。
 
@@ -350,7 +362,7 @@ spectated 場次的排除。
 
 ## 11. 決策紀錄
 
-四輪問答共 29 個決策，加上實作過程中修訂的兩個。此處僅記錄**最終選擇與否決的替代
+四輪問答共 29 個決策，加上實作過程中修訂的三個。此處僅記錄**最終選擇與否決的替代
 方案**，理由見前文對應章節。
 
 | #       | 決策         | 選擇                                                                                 | 否決的替代方案                                          |
@@ -373,7 +385,7 @@ spectated 場次的排除。
 | Q18     | 渲染模式     | `ssr: false`（SPA）                                                                  | 維持 SSR                                                |
 | Q20     | 版面         | 單頁 + 全域篩選器                                                                    | 拆成多頁                                                |
 | Q21     | 時間軸       | 日曆日期 + 滑動視窗；rating 斷線不內插                                               | 場次序號；內插                                          |
-| Q23     | Monorepo     | `apps/web/` + `packages/replay-parser/`                                              | app 留在根目錄                                          |
+| Q23     | Monorepo     | `apps/web/` + `packages/replay-parser/` + `packages/battle-row/` + `scripts/`        | app 留在根目錄；列對應各留一份副本                      |
 | Q24     | raw log      | Supabase Storage + gzip                                                              | DB text 欄位；不存                                      |
 | Q25     | RLS          | 單一 `user_id = auth.uid()`，接受可寫假資料                                          | DB constraint 合理性檢查；經 Worker 寫入                |
 | Q26     | 匯入 UI      | 進度條 + 即時逐筆清單                                                                | 單一進度條                                              |

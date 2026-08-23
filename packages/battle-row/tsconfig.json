@@ -1,0 +1,16 @@
+// Same shape as the parser's: plain TypeScript, no DOM, no framework. This one
+// knows the database's column names, which is exactly why it is not in the
+// parser.
+{
+  "extends": "@tsconfig/node24/tsconfig.json",
+  "include": ["src/**/*.ts", "test/**/*.ts"],
+  "compilerOptions": {
+    "module": "preserve",
+    "moduleResolution": "bundler",
+    // Explicit .ts extensions, so bare `node` can load this package too.
+    "allowImportingTsExtensions": true,
+    "types": [],
+    "noEmit": true,
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.tsbuildinfo"
+  }
+}
