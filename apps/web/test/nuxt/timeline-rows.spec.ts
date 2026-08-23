@@ -169,6 +169,15 @@ describe('the rows one turn becomes', () => {
     expect(lead[0]?.message).toEqual({ key: 'cameIn' })
   })
 
+  it('keeps an ability on the main line, where it decides turns', () => {
+    // Intimidate, Snow Warning, Protosynthesis: what an ability did is as much
+    // of the turn as the moves are, and it is announced once.
+    expect(rows(['|-ability|p1a: Scrafty|Intimidate'])).toMatchObject([
+      { species: 'Scrafty', message: { key: 'ability', params: { ability: 'Intimidate' } } },
+    ])
+    expect(sidelinedCount(turnsOf(['|-ability|p1a: Scrafty|Intimidate'])[1]!)).toBe(0)
+  })
+
   it('holds back the supporting events until they are asked for', () => {
     const lines = [
       '|move|p1a: Scrafty|Knock Off|p2a: Whimsicott',

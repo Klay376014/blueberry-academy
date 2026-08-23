@@ -44,7 +44,12 @@ export interface TimelineRow {
 
 /**
  * The events that carry the turn on their own. Everything else is real and
- * subordinate: an ability announcement, a Protect that held, a stat stage.
+ * subordinate: a Protect that held, a stat stage, a hit that was resisted.
+ *
+ * An ability is on this list because an ability decides turns — Intimidate on
+ * the switch in, Snow Warning setting the weather, Protosynthesis on a Booster
+ * Energy — and the log announces it once, so holding it back means it is not on
+ * screen at the moment it mattered.
  */
 const MAIN_LINE = new Set<TimelineEvent['kind']>([
   'move',
@@ -58,6 +63,7 @@ const MAIN_LINE = new Set<TimelineEvent['kind']>([
   'cant',
   'miss',
   'status',
+  'ability',
 ])
 
 function blank(): TimelineRow {
