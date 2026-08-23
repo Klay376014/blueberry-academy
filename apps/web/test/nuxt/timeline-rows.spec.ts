@@ -178,6 +178,22 @@ describe('the rows one turn becomes', () => {
     expect(sidelinedCount(turnsOf(['|-ability|p1a: Scrafty|Intimidate'])[1]!)).toBe(0)
   })
 
+  it('keeps the weather an ability set, and not the turns it kept blowing', () => {
+    // Measured: the line that sets it carries `[from] ability: Snow Warning`,
+    // and the eight after it are `[upkeep]` — the same weather, once a turn.
+    const set = ['|-weather|Snowscape|[from] ability: Snow Warning|[of] p1a: Ninetales']
+    const upkeep = ['|-weather|Snowscape|[upkeep]']
+
+    expect(rows(set)).toMatchObject([
+      { message: { key: 'weather', params: { weather: 'Snowscape' } } },
+    ])
+    expect(sidelinedCount(turnsOf(set)[1]!)).toBe(0)
+
+    expect(rows(upkeep)).toEqual([])
+    expect(rows(upkeep, true)).toHaveLength(1)
+    expect(sidelinedCount(turnsOf(upkeep)[1]!)).toBe(1)
+  })
+
   it('holds back the supporting events until they are asked for', () => {
     const lines = [
       '|move|p1a: Scrafty|Knock Off|p2a: Whimsicott',

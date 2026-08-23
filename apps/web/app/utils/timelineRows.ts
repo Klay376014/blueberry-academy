@@ -66,6 +66,20 @@ const MAIN_LINE = new Set<TimelineEvent['kind']>([
   'ability',
 ])
 
+/**
+ * Whether an event carries the turn on its own.
+ *
+ * Weather is on the main line when the log said what set it — an ability, or a
+ * move's own weather. It is not when nothing set it: measured, Showdown repeats
+ * `|-weather|Snowscape|[upkeep]` once per turn for as long as it lasts, and
+ * eight rows of the same weather is a turn nobody can scan.
+ */
+function isMainLine(event: TimelineEvent): boolean {
+  if (event.kind === 'weather') return event.from !== null
+
+  return MAIN_LINE.has(event.kind)
+}
+
 function blank(): TimelineRow {
   return {
     mark: 'none',
@@ -321,15 +335,12 @@ function isPlumbingFor(events: TimelineEvent[], index: number): boolean {
 
 export function rowsOf(turn: TimelineTurn, { detailed }: RowOptions): TimelineRow[] {
   return turn.events
-    .filter(
-      (event, index) =>
-        (detailed || MAIN_LINE.has(event.kind)) && !isPlumbingFor(turn.events, index),
-    )
+    .filter((event, index) => (detailed || isMainLine(event)) && !isPlumbingFor(turn.events, index))
     .map(rowOf)
     .filter((row): row is TimelineRow => row !== null)
 }
 
 /** How many rows the "show the rest of this turn" switch would add. */
 export function sidelinedCount(turn: TimelineTurn): number {
-  return turn.events.filter((event) => !MAIN_LINE.has(event.kind) && rowOf(event) !== null).length
+  return turn.events.filter((event) => !isMainLine(event) && rowOf(event) !== null).length
 }
