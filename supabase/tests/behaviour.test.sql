@@ -7,7 +7,7 @@ begin;
 
 create extension if not exists pgtap;
 
-select plan(17);
+select plan(18);
 
 -- Two users who have never met.
 insert into auth.users (id, email) values
@@ -157,6 +157,13 @@ select is(
   (select count(*)::int from storage.objects where bucket_id = 'replay-logs'),
   1,
   'a user sees only the raw logs under their own id'
+);
+select is(
+  (select count(*)::int from storage.objects
+   where bucket_id = 'replay-logs'
+     and name = '22222222-2222-2222-2222-222222222222/theirs.json.gz'),
+  0,
+  'asking for another user''s raw log by its exact path finds nothing'
 );
 
 reset role;
