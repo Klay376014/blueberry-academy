@@ -153,5 +153,71 @@
     "descriptive": "這裡說的是發生了什麼，不是為什麼。",
     "whatIsThis": "這張圖怎麼讀",
     "gap": "橫軸是日曆，所以兩個月沒打就佔掉兩個月的寬度，勝率曲線會被拉平橫越那段空白，而不是把它藏起來。Rating 曲線則不會拉過去：它停在最後一場有 Rating 的對戰，到下一場有 Rating 的才續上 —— Bo3 賽事不在天梯上打，中間沒有數字。勝率曲線的每個點取的是到那天為止的場次，所以曲線最前面幾個點涵蓋的場數比視窗標示的少。"
+  },
+  "battle": {
+    "result": {
+      "win": "勝",
+      "loss": "敗",
+      "tie": "平手"
+    },
+    "resultShort": {
+      "win": "勝",
+      "loss": "敗",
+      "tie": "平"
+    },
+    "recent": {
+      "title": "最近對戰",
+      "turns": "{count} 回合",
+      "empty": "目前的篩選條件下沒有任何對戰。"
+    },
+    "drawer": {
+      "about": "這一局的每個回合，攤平成一份清單。",
+      "close": "關閉這場對戰",
+      "replay": "Showdown",
+      "versus": "vs",
+      "you": "我方",
+      "opponent": "對方",
+      "unknownOpponent": "未知對手",
+      "lead": "先發",
+      "turn": "第 {number} 回合",
+      "game": "第 {number} 局",
+      "knockedOut": "倒下",
+      "moreDetails": "這回合還有 {count} 個",
+      "fewerDetails": "收起這回合其餘的",
+      "loading": "正在讀取 log…",
+      "logFailed": "這場的原始 log 讀不動，所以沒有時間軸可以顯示。再開一次試試。",
+      "rowFailed": "讀不到這場對戰，請稍後再試一次。",
+      "missing": "這裡沒有對戰。可能從來沒匯入過，也可能這個連結是別人的。",
+      "unparsed": "原始 log 已經存下來了，但讀不動：{message} 等解析器看得懂那份 log，時間軸就會出現。"
+    },
+    "event": {
+      "cameIn": "上場",
+      "wasAnIllusion": "原來是幻覺",
+      "fainted": "倒下",
+      "terastallized": "太晶化 {type}",
+      "changedForme": "型態改變",
+      "megaEvolved": "超級進化",
+      "couldNotMove": "無法行動 · {reason}",
+      "missed": "沒有命中",
+      "statusCured": "{status} 解除",
+      "statRose": "{stat} +{stages}",
+      "statFell": "{stat} −{stages}",
+      "effectStarted": "{effect}",
+      "effectHeld": "被 {effect} 擋下",
+      "sideEffectStarted": "{effect} 展開",
+      "sideEffectEnded": "{effect} 結束",
+      "ability": "{ability}",
+      "lostItem": "失去了 {item}",
+      "weather": "天氣 · {weather}",
+      "failed": "沒有效果",
+      "swapped": "夥伴互換",
+      "mustRecharge": "需要充能",
+      "hit": {
+        "crit": "會心一擊",
+        "supereffective": "效果絕佳",
+        "resisted": "效果不好",
+        "immune": "沒有效果"
+      }
+    }
   }
 }

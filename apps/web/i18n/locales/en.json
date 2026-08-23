@@ -153,5 +153,71 @@
     "descriptive": "This says what happened, not why.",
     "whatIsThis": "How to read this",
     "gap": "The x axis is the calendar, so two months without a game take up two months of width and the win rate curve stretches flat across the break rather than hiding it. The rating line does not stretch: it stops at the last battle that carried a rating and starts again at the next one that did, because a best-of series is not played on the ladder and there is no number in between. Each point of the win rate curve covers the games leading up to that day, so the first points of a curve cover fewer games than the window says."
+  },
+  "battle": {
+    "result": {
+      "win": "Win",
+      "loss": "Loss",
+      "tie": "Tie"
+    },
+    "resultShort": {
+      "win": "W",
+      "loss": "L",
+      "tie": "T"
+    },
+    "recent": {
+      "title": "Recent battles",
+      "turns": "{count} turns",
+      "empty": "No battles match these filters yet."
+    },
+    "drawer": {
+      "about": "Every turn of this game, as a list.",
+      "close": "Close this battle",
+      "replay": "Showdown",
+      "versus": "vs",
+      "you": "You",
+      "opponent": "Opp",
+      "unknownOpponent": "Unknown opponent",
+      "lead": "Lead",
+      "turn": "Turn {number}",
+      "game": "Game {number}",
+      "knockedOut": "KO",
+      "moreDetails": "{count} more in this turn",
+      "fewerDetails": "Hide the rest of this turn",
+      "loading": "Reading the log…",
+      "logFailed": "This battle's raw log could not be read, so there is no timeline to show. Try opening it again.",
+      "rowFailed": "This battle could not be read. Try again in a moment.",
+      "missing": "No battle here. It may never have been imported, or the link may be somebody else's.",
+      "unparsed": "The raw log is stored, but it could not be read: {message} The timeline will appear once the parser understands that log."
+    },
+    "event": {
+      "cameIn": "came in",
+      "wasAnIllusion": "was an Illusion",
+      "fainted": "fainted",
+      "terastallized": "terastallized {type}",
+      "changedForme": "changed forme",
+      "megaEvolved": "Mega Evolved",
+      "couldNotMove": "could not move · {reason}",
+      "missed": "missed",
+      "statusCured": "{status} cured",
+      "statRose": "{stat} +{stages}",
+      "statFell": "{stat} −{stages}",
+      "effectStarted": "{effect}",
+      "effectHeld": "{effect} held",
+      "sideEffectStarted": "{effect} up",
+      "sideEffectEnded": "{effect} ended",
+      "ability": "{ability}",
+      "lostItem": "lost its {item}",
+      "weather": "weather · {weather}",
+      "failed": "it failed",
+      "swapped": "Ally Switch",
+      "mustRecharge": "must recharge",
+      "hit": {
+        "crit": "critical hit",
+        "supereffective": "super effective",
+        "resisted": "resisted",
+        "immune": "no effect"
+      }
+    }
   }
 }

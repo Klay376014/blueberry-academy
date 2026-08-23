@@ -1,5 +1,17 @@
 import type { ReplayRef } from '../composables/useShowdown'
 
+const ORIGIN = 'https://replay.pokemonshowdown.com'
+
+/**
+ * Where a replay lives on Showdown. The address of the replay itself, without
+ * a password: a link out of this app is for a battle the reader already has,
+ * and putting the password of a private replay into a shareable page would
+ * hand it out with it.
+ */
+export function replayUrl(replayId: string): string {
+  return `${ORIGIN}/${replayId}`
+}
+
 /**
  * A format id, possibly with a tournament prefix, and the battle number.
  * `smogtours-gen9ou-799535` is one of these: the inner hyphens are part of the

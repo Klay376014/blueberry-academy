@@ -35,6 +35,7 @@ function builder() {
   const chain = {
     select: (...args: unknown[]) => (filters.push(['select', ...args]), chain),
     eq: (...args: unknown[]) => (filters.push(['eq', ...args]), chain),
+    in: (...args: unknown[]) => (filters.push(['in', ...args]), chain),
     not: (...args: unknown[]) => (filters.push(['not', ...args]), chain),
     gte: (...args: unknown[]) => (filters.push(['gte', ...args]), chain),
     lte: (...args: unknown[]) => (filters.push(['lte', ...args]), chain),
@@ -56,6 +57,26 @@ function builder() {
 
       return Promise.resolve({ data: rows.slice(from, to + 1), error: null })
     },
+    /**
+     * The recent battles list awaits the builder rather than capping it. This
+     * page is not what asserts that list, so answering with the rows it asked
+     * about is enough for the dashboard to render.
+     */
+    then: (onFulfilled: (value: unknown) => unknown) => {
+      db.requests.push(filters)
+      const ids = filters.find(([method]) => method === 'in')?.[2] as string[] | undefined
+
+      return Promise.resolve({
+        data: (ids ?? []).map((replay_id) => ({
+          replay_id,
+          opponent_username: 'Somebody',
+          turn_count: 11,
+          my_side: 'p1',
+          details: {},
+        })),
+        error: null,
+      }).then(onFulfilled)
+    },
   }
 
   return chain
@@ -63,7 +84,7 @@ function builder() {
 
 const { routeParams } = vi.hoisted(() => ({ routeParams: { value: { id: '' } } }))
 
-mockNuxtImport('useRoute', () => () => ({ params: routeParams.value }) as never)
+mockNuxtImport('useRoute', () => () => ({ params: routeParams.value, query: {} }) as never)
 
 /** A team's worth of rows: `wins` won, the rest lost, all brings complete. */
 function rowsFor(options: {

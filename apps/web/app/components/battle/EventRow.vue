@@ -1,0 +1,105 @@
+<script setup lang="ts">
+import { ArrowRightLeft, Gem, HeartPulse, Skull, Sparkles, Zap } from '@lucide/vue'
+import { toID } from 'replay-parser'
+import type { SideId } from 'replay-parser'
+import type { TimelineRow } from '../../utils/timelineRows'
+import { speciesName } from '../../utils/speciesName'
+
+/**
+ * One thing that happened, on one line.
+ *
+ * The Pokémon is its icon and nothing else: an icon reads the same in every
+ * locale, and the English name it stands for is on it as a label rather than
+ * beside it. The move keeps its English name, which has no icon to become.
+ *
+ * Whose it is shows in the rail down the left rather than in words, so the two
+ * sides are told apart without a column of names.
+ */
+const props = defineProps<{ row: TimelineRow; mySide: SideId | null }>()
+
+const MARKS = {
+  move: Zap,
+  switch: ArrowRightLeft,
+  health: HeartPulse,
+  faint: Skull,
+  tera: Gem,
+  forme: Sparkles,
+  status: HeartPulse,
+  none: null,
+}
+
+const mark = computed(() => MARKS[props.row.mark])
+const mine = computed(() => props.row.side !== null && props.row.side === props.mySide)
+
+const { t } = useI18n()
+
+const message = computed(() => {
+  const said = props.row.message
+  if (!said) return null
+
+  return t(`battle.event.${said.key}`, said.params ?? {})
+})
+</script>
+
+<template>
+  <div
+    class="hover:bg-muted/50 grid grid-cols-[14px_28px_1fr] items-center gap-2 rounded-sm border-l-2 py-0.5 pr-1.5 pl-2"
+    :class="
+      row.side === null
+        ? 'border-l-transparent'
+        : mine
+          ? 'border-l-primary'
+          : 'border-l-muted-foreground/60'
+    "
+    data-testid="timeline-row"
+  >
+    <component :is="mark" v-if="mark" class="text-muted-foreground size-3.5" aria-hidden="true" />
+    <span v-else />
+
+    <SpeciesIcon
+      v-if="row.species"
+      :id="toID(row.species)"
+      :label="speciesName(toID(row.species))"
+      :size="26"
+    />
+    <span v-else />
+
+    <span class="flex min-w-0 flex-wrap items-center gap-1.5 text-sm">
+      <template v-if="row.move">
+        <span class="font-medium">{{ row.move }}</span>
+        <template v-if="row.targets.length">
+          <span class="text-muted-foreground" aria-hidden="true">→</span>
+          <SpeciesIcon
+            v-for="(target, index) of row.targets"
+            :key="`${target}-${index}`"
+            :id="toID(target)"
+            :label="speciesName(toID(target))"
+            :size="20"
+          />
+        </template>
+      </template>
+
+      <BattleHealthChange v-if="row.health" :health="row.health" />
+
+      <span
+        v-if="row.status && !row.message"
+        class="text-destructive border-destructive/50 rounded border px-1 font-mono text-[10px] uppercase"
+      >
+        {{ row.status }}
+      </span>
+
+      <span
+        v-if="message"
+        :class="
+          row.tone === 'bad'
+            ? 'text-destructive'
+            : row.tone === 'accent'
+              ? 'text-chart-3'
+              : 'text-muted-foreground'
+        "
+      >
+        {{ message }}
+      </span>
+    </span>
+  </div>
+</template>

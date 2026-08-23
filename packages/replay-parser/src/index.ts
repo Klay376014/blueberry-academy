@@ -15,6 +15,8 @@ export type {
   Appearance,
   BattleTimeline,
   Combatant,
+  HealthChange,
+  HitResult,
   TimelineEvent,
   TimelineTurn,
 } from './timeline.ts'
