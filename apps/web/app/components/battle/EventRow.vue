@@ -97,11 +97,13 @@ const message = computed(() => {
       <span
         v-if="message"
         :class="
-          row.tone === 'bad'
-            ? 'text-destructive'
-            : row.tone === 'accent'
-              ? 'text-chart-3'
-              : 'text-muted-foreground'
+          row.quiet
+            ? 'sr-only'
+            : row.tone === 'bad'
+              ? 'text-destructive'
+              : row.tone === 'accent'
+                ? 'text-chart-3'
+                : 'text-muted-foreground'
         "
       >
         {{ message }}

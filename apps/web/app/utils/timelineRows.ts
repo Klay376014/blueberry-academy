@@ -27,6 +27,12 @@ export interface TimelineRow {
   targets: string[]
   /** A key under `battle.event` in the locale files, with its parameters. */
   message: { key: string; params?: Record<string, string> } | null
+  /**
+   * Whether the message only repeats what the icon already shows, and so is
+   * for a screen reader rather than for the screen. A forme change is the
+   * icon changing; the words would read the same every time.
+   */
+  quiet: boolean
   health: HealthChange | null
   /** A condition to show as a chip, e.g. `brn`. */
   status: string | null
@@ -59,6 +65,7 @@ function blank(): TimelineRow {
     move: null,
     targets: [],
     message: null,
+    quiet: false,
     health: null,
     status: null,
     tone: null,
@@ -126,9 +133,11 @@ export function rowOf(event: TimelineEvent): TimelineRow | null {
         ...blank(),
         mark: 'forme',
         side: event.pokemon.side,
-        // The forme it became, which is the icon that changes.
+        // The forme it became, which is the icon that changes — and that change
+        // is the whole event, so the words stay for the screen reader only.
         species: event.species,
         message: { key: 'changedForme' },
+        quiet: true,
       }
 
     case 'mega':

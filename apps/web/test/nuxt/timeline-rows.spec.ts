@@ -38,6 +38,7 @@ describe('the rows one turn becomes', () => {
         move: 'Knock Off',
         targets: ['Whimsicott'],
         message: null,
+        quiet: false,
         health: null,
         status: null,
         tone: null,
@@ -87,12 +88,21 @@ describe('the rows one turn becomes', () => {
     })
   })
 
-  it('shows the forme a Pokémon changed into as its icon, not as a sentence', () => {
+  it('lets the icon be the whole of a forme change, and still says it out loud', () => {
+    // Every forme change would read the same three words, and the icon has
+    // already changed into the forme. Kept for a screen reader, which has no
+    // icon to compare.
     expect(rows(['|detailschange|p1a: Scrafty|Scrafty-Mega, L50, F'])[0]).toMatchObject({
       mark: 'forme',
       species: 'Scrafty-Mega',
       message: { key: 'changedForme' },
+      quiet: true,
     })
+  })
+
+  it('says out loud the things an icon cannot show', () => {
+    expect(rows(['|faint|p2a: Whimsicott'])[0]?.quiet).toBe(false)
+    expect(rows(['|-terastallize|p1a: Scrafty|Dark'])[0]?.quiet).toBe(false)
   })
 
   it('does not say a Mega Evolution changed forme as well', () => {
