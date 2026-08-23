@@ -87,7 +87,7 @@ const strongest = computed(() => teams.value[0])
 
         <div v-if="strongest" class="rounded-lg border border-border bg-card p-3 sm:col-span-2">
           <span class="font-mono text-[10px] tracking-wider text-muted-foreground uppercase">
-            {{ t('summary.strongest', { score: Math.round(strongest.tally.score * 100) }) }}
+            {{ t('summary.strongest') }}
           </span>
           <div class="mt-1 flex items-center justify-between gap-3">
             <SpeciesParty :signature="strongest.signature" :size="22" />
@@ -101,11 +101,8 @@ const strongest = computed(() => teams.value[0])
       <section class="flex flex-col gap-3" :aria-label="t('teams.title')">
         <div class="flex items-baseline justify-between gap-3">
           <h2 class="text-xl font-semibold tracking-tight">{{ t('teams.title') }}</h2>
-          <p class="font-mono text-xs text-muted-foreground tabular-nums">
-            {{ t('teams.count', { count: teams.length }) }}
-          </p>
+          <p class="font-mono text-xs text-muted-foreground tabular-nums">{{ teams.length }}</p>
         </div>
-        <p class="text-sm text-muted-foreground">{{ t('teams.tagline') }}</p>
 
         <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <StatsTeamCard v-for="team of teams" :key="team.formatId + team.signature" :team />

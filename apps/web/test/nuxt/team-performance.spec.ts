@@ -138,7 +138,7 @@ describe('the dashboard', () => {
     const text = page.findAll('[data-testid="team-card"]').map((card) => card.text())
 
     expect(text.some((entry) => entry.includes('1 games'))).toBe(true)
-    for (const entry of text) expect(entry).toMatch(/\d+ games · wilson \d+%/)
+    for (const entry of text) expect(entry).toMatch(/\d+ games/)
   })
 
   it('files the same six in two formats as two teams', async () => {

@@ -116,21 +116,18 @@
     "title": "摘要",
     "games": "場數",
     "winRate": "勝率",
-    "strongest": "表現最好的隊 · Wilson 下界 {score}%"
+    "strongest": "表現最好的隊"
   },
   "teams": {
     "title": "隊伍表現",
-    "tagline": "一張卡一支登錄隊伍。隊伍的識別是賽制加上登錄的 6 隻 —— 同樣 6 隻打天梯與打 Bo3 是兩支不同的隊。排序用 Wilson 下界，不是原始勝率。",
-    "count": "{count} 支隊伍",
-    "sample": "{games} 場 · Wilson {score}%",
+    "sample": "{games} 場",
     "games": "場數",
     "winRate": "勝率",
-    "wilson": "Wilson 下界",
     "brings": "選出組合 · {count}",
     "noBrings": "這支隊還沒有任何一場留下完整的選出紀錄。",
     "accounting": "這 {games} 場去哪了",
-    "unfiled": "其中 {games} 場在所有選出都現身之前就結束了，沒有完整的選出可以歸類。它們計入這支隊的戰績，但不計入下面任何一組選出。",
-    "unfiledShort": "{games} 場沒有完整選出",
+    "unfiled": "這些場次在所有選出都現身之前就結束了，沒有完整的選出可以歸類。它們計入這支隊的戰績，不計入任何一組選出。",
+    "unfiledShort": "{games} 場未歸類",
     "segment": "{bring} —— {games} 場 · {rate}%",
     "back": "儀表板",
     "step": "其他隊伍",
@@ -140,6 +137,8 @@
     "loading": "正在讀取你的對戰…",
     "failed": "讀不到你的對戰，請稍後再試一次。",
     "empty": "目前的篩選條件下沒有任何對戰。",
-    "emptyAction": "去匯入 replay"
+    "emptyAction": "去匯入 replay",
+    "ranking": "Wilson 下界 {score}% —— 排序依據",
+    "whatIsThis": "這代表什麼"
   }
 }

@@ -116,7 +116,7 @@ const next = computed(() => stepTo(1))
             <p class="w-full font-mono text-xs text-muted-foreground">{{ team.formatId }}</p>
           </header>
 
-          <dl class="grid grid-cols-3 gap-3">
+          <dl class="grid grid-cols-2 gap-3">
             <div class="rounded-md border border-border p-2">
               <dt class="font-mono text-[10px] tracking-wider text-muted-foreground uppercase">
                 {{ t('teams.games') }}
@@ -131,14 +131,6 @@ const next = computed(() => stepTo(1))
               </dt>
               <dd class="font-mono text-2xl tabular-nums">
                 {{ Math.round(team.tally.winRate * 100) }}%
-              </dd>
-            </div>
-            <div class="rounded-md border border-border p-2">
-              <dt class="font-mono text-[10px] tracking-wider text-muted-foreground uppercase">
-                {{ t('teams.wilson') }}
-              </dt>
-              <dd class="font-mono text-2xl tabular-nums" data-testid="team-wilson">
-                {{ Math.round(team.tally.score * 100) }}%
               </dd>
             </div>
           </dl>
@@ -168,14 +160,12 @@ const next = computed(() => stepTo(1))
               </div>
               <div class="flex items-center gap-3">
                 <span class="font-mono text-[11px] text-muted-foreground tabular-nums">
-                  {{
-                    t('teams.sample', {
-                      games: bring.tally.games,
-                      score: Math.round(bring.tally.score * 100),
-                    })
-                  }}
+                  {{ t('teams.sample', { games: bring.tally.games }) }}
                 </span>
-                <div class="ml-auto h-1.5 w-32 overflow-hidden rounded-full bg-muted">
+                <div
+                  class="ml-auto h-1.5 w-32 overflow-hidden rounded-full bg-muted"
+                  :title="t('teams.ranking', { score: Math.round(bring.tally.score * 100) })"
+                >
                   <div
                     class="h-full rounded-full"
                     :style="{

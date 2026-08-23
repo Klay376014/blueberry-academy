@@ -116,21 +116,18 @@
     "title": "Summary",
     "games": "Games",
     "winRate": "Win rate",
-    "strongest": "Strongest team · wilson {score}%"
+    "strongest": "Strongest team"
   },
   "teams": {
     "title": "Team performance",
-    "tagline": "One card per registered team. A team is its format and its registered six, so the same six laddered and played in Bo3 are two teams. Ranked by the low end of the interval, not by raw win rate.",
-    "count": "{count} teams",
-    "sample": "{games} games · wilson {score}%",
+    "sample": "{games} games",
     "games": "Games",
     "winRate": "Win rate",
-    "wilson": "Wilson",
     "brings": "Brings · {count}",
     "noBrings": "No game with this team has a complete bring yet.",
     "accounting": "Where the {games} games went",
-    "unfiled": "{games} of these ended before every pick had appeared, so there is no complete bring to file them under. They count for the team and in none of the brings below.",
-    "unfiledShort": "{games} games with no complete bring",
+    "unfiled": "These ended before every pick had appeared, so no complete bring covers them. They count for the team and in none of the brings.",
+    "unfiledShort": "{games} unfiled",
     "segment": "{bring} — {games} games · {rate}%",
     "back": "Dashboard",
     "step": "Other teams",
@@ -140,6 +137,8 @@
     "loading": "Reading your battles…",
     "failed": "Your battles could not be read. Try again in a moment.",
     "empty": "No battles match these filters yet.",
-    "emptyAction": "Import some replays"
+    "emptyAction": "Import some replays",
+    "ranking": "Wilson lower bound {score}% — the sort key",
+    "whatIsThis": "What this means"
   }
 }

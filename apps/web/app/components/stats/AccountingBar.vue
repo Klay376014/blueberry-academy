@@ -37,10 +37,6 @@ const segments = computed(() =>
 
 <template>
   <section class="flex flex-col gap-2" data-testid="accounting">
-    <h3 class="font-mono text-[11px] tracking-wider text-muted-foreground uppercase">
-      {{ t('teams.accounting', { games: team.tally.games }) }}
-    </h3>
-
     <div class="flex h-3 gap-0.5 overflow-hidden rounded">
       <div
         v-for="segment of segments"
@@ -58,8 +54,11 @@ const segments = computed(() =>
       />
     </div>
 
-    <p v-if="unfiled > 0" class="text-xs text-muted-foreground" data-testid="unfiled-note">
-      {{ t('teams.unfiled', { games: unfiled }) }}
-    </p>
+    <div v-if="unfiled > 0" class="flex items-start gap-2" data-testid="unfiled-note">
+      <span class="font-mono text-xs text-muted-foreground tabular-nums">
+        {{ t('teams.unfiledShort', { games: unfiled }) }}
+      </span>
+      <InfoHint :label="t('teams.whatIsThis')">{{ t('teams.unfiled') }}</InfoHint>
+    </div>
   </section>
 </template>

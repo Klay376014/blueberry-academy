@@ -19,6 +19,10 @@ const props = defineProps<{ team: TeamStats; dense?: boolean; current?: boolean 
 const { t } = useI18n()
 const localePath = useLocalePath()
 
+const ranking = computed(() =>
+  t('teams.ranking', { score: Math.round(props.team.tally.score * 100) }),
+)
+
 const to = computed(() =>
   localePath(
     `/teams/${encodeURIComponent(teamRouteId({ formatId: props.team.formatId, signature: props.team.signature }))}`,
@@ -46,21 +50,17 @@ const to = computed(() =>
         {{ team.tally.wins }}–{{ team.tally.losses }}
       </span>
       <span class="font-mono text-xs text-muted-foreground tabular-nums">
-        {{ Math.round(team.tally.score * 100) }}%
+        {{ t('teams.sample', { games: team.tally.games }) }}
       </span>
     </div>
 
-    <div class="h-1.5 overflow-hidden rounded-full bg-muted">
+    <!-- The bar is the ranking. Its number is a tooltip, not a column: the
+         reader needs the order, not the statistic that produced it. -->
+    <div class="h-1.5 overflow-hidden rounded-full bg-muted" :title="ranking">
       <div
         class="h-full rounded-full bg-primary"
         :style="{ width: `${team.tally.score * 100}%` }"
       />
     </div>
-
-    <p class="font-mono text-[11px] text-muted-foreground tabular-nums">
-      {{
-        t('teams.sample', { games: team.tally.games, score: Math.round(team.tally.score * 100) })
-      }}
-    </p>
   </NuxtLink>
 </template>
