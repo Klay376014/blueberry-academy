@@ -130,6 +130,38 @@ describe('the rows one turn becomes', () => {
     expect(rows.map((row) => row.message?.key)).toEqual(['changedForme'])
   })
 
+  it('reads a switch as the trade it is: who left, who came in', () => {
+    // Two icons and an arrow say it without a word, so the sentence is left to
+    // the screen reader.
+    expect(rows(['|switch|p1a: Toxapex|Toxapex, L50, M|100/100'])[0]).toMatchObject({
+      mark: 'switch',
+      species: 'Scrafty',
+      targets: ['Toxapex'],
+      message: { key: 'cameInFor' },
+      quiet: true,
+    })
+  })
+
+  it('says "came in" in words when there was nobody to come in for', () => {
+    // The lead, and anyone taking an empty position: there is no trade to draw.
+    expect(rows(['|switch|p1b: Garchomp|Garchomp, L50, F|100/100'])[0]).toMatchObject({
+      species: 'Garchomp',
+      targets: [],
+      message: { key: 'cameIn' },
+      quiet: false,
+    })
+  })
+
+  it('leaves an Illusion reveal as the reveal, not as a substitution', () => {
+    // Nobody left the field: the same body is standing there under its own name.
+    expect(rows(['|replace|p2a: Zoroark|Zoroark-Hisui, L50, M'])[0]).toMatchObject({
+      species: 'Zoroark-Hisui',
+      targets: [],
+      message: { key: 'wasAnIllusion' },
+      quiet: false,
+    })
+  })
+
   it('keeps the lead switches, which are what turn 0 is', () => {
     const lead = rowsOf(turnsOf([])[0]!, { detailed: false })
 

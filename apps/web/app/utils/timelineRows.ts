@@ -23,7 +23,10 @@ export interface TimelineRow {
   species: string | null
   /** A move's English name. Never translated: it is an identifier. */
   move: string | null
-  /** Species of whatever the move was aimed at, for their icons. */
+  /**
+   * Species of whatever this row points at, as icons after an arrow: a move's
+   * targets, or the Pokémon that came in for the one that left.
+   */
   targets: string[]
   /** A key under `battle.event` in the locale files, with its parameters. */
   message: { key: string; params?: Record<string, string> } | null
@@ -88,15 +91,26 @@ export function rowOf(event: TimelineEvent): TimelineRow | null {
           .map((target) => target.species),
       }
 
-    case 'switch':
+    case 'switch': {
+      // A trade reads as one: whoever left, then whoever came in for them. An
+      // Illusion reveal is not a trade — the same body is standing there under
+      // its own name — so it keeps the arrival as its subject.
+      const trade = event.how !== 'replace' && event.replaced !== null
+
       return {
         ...blank(),
         mark: 'switch',
         side: event.pokemon.side,
-        species: event.pokemon.species,
-        message: { key: event.how === 'replace' ? 'wasAnIllusion' : 'cameIn' },
+        species: trade ? event.replaced!.species : event.pokemon.species,
+        targets: trade ? [event.pokemon.species] : [],
+        message: {
+          key: event.how === 'replace' ? 'wasAnIllusion' : trade ? 'cameInFor' : 'cameIn',
+        },
+        // The two icons and the arrow between them are the sentence.
+        quiet: trade,
         status: event.status,
       }
+    }
 
     case 'damage':
     case 'heal':

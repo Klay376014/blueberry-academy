@@ -192,6 +192,7 @@
     },
     "event": {
       "cameIn": "上場",
+      "cameInFor": "{pokemon} 換成 {into}",
       "wasAnIllusion": "原來是幻覺",
       "fainted": "倒下",
       "terastallized": "太晶化 {type}",

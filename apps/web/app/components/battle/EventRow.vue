@@ -33,11 +33,23 @@ const mine = computed(() => props.row.side !== null && props.row.side === props.
 
 const { t } = useI18n()
 
+/**
+ * The row in words. The names are passed in as parameters because the icons
+ * carry them visually and a screen reader has no icon to read: `pokemon` is the
+ * row's subject and `into` whatever it points at.
+ */
 const message = computed(() => {
   const said = props.row.message
   if (!said) return null
 
-  return t(`battle.event.${said.key}`, said.params ?? {})
+  const named = (species: string | undefined) =>
+    species === undefined ? '' : speciesName(toID(species))
+
+  return t(`battle.event.${said.key}`, {
+    ...said.params,
+    pokemon: named(props.row.species ?? undefined),
+    into: named(props.row.targets[0]),
+  })
 })
 </script>
 
@@ -68,18 +80,19 @@ const message = computed(() => {
     <span v-else />
 
     <span class="flex min-w-0 flex-wrap items-center gap-1.5 text-sm">
-      <template v-if="row.move">
-        <span class="font-medium">{{ row.move }}</span>
-        <template v-if="row.targets.length">
-          <span class="text-muted-foreground" aria-hidden="true">→</span>
-          <SpeciesIcon
-            v-for="(target, index) of row.targets"
-            :key="`${target}-${index}`"
-            :id="toID(target)"
-            :label="speciesName(toID(target))"
-            :size="20"
-          />
-        </template>
+      <span v-if="row.move" class="font-medium">{{ row.move }}</span>
+
+      <!-- Whatever the row points at: a move's targets, or the Pokémon that came
+           in for the one that left. -->
+      <template v-if="row.targets.length">
+        <span class="text-muted-foreground" aria-hidden="true">→</span>
+        <SpeciesIcon
+          v-for="(target, index) of row.targets"
+          :key="`${target}-${index}`"
+          :id="toID(target)"
+          :label="speciesName(toID(target))"
+          :size="row.mark === 'switch' ? 26 : 20"
+        />
       </template>
 
       <BattleHealthChange v-if="row.health" :health="row.health" />

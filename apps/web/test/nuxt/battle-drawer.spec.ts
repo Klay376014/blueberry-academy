@@ -474,6 +474,23 @@ describe('the drawer', () => {
     expect(drawer().querySelectorAll('[data-testid="series-game"]')).toHaveLength(0)
   })
 
+  it('draws a switch as who left and who came in', async () => {
+    await openDrawer()
+
+    // Turn 3 of the fixture: Scrafty-Mega goes out, Toxapex comes in.
+    const rows = [...drawer().querySelectorAll('[data-testid="timeline-row"]')]
+    const trade = rows.find((row) =>
+      [...row.querySelectorAll('[role="img"]')]
+        .map((icon) => icon.getAttribute('aria-label'))
+        .join(' → ')
+        .includes('Scrafty-Mega → Toxapex'),
+    )
+
+    expect(trade).toBeDefined()
+    // The words are for a screen reader; the icons are the sentence.
+    expect(trade?.querySelector('.sr-only')?.textContent).toContain('Toxapex')
+  })
+
   it('shows the condition a Pokémon comes back on the field with', async () => {
     // The `|switch|` HP field is the only line that says so, and "came in" on
     // its own would drop it.

@@ -186,6 +186,28 @@ describe('parseTimeline', () => {
     })
   })
 
+  it('names the Pokémon that was standing there, so a switch reads as a trade', () => {
+    // The log says who arrives and not who left; who left is whoever the
+    // position held, which is a fact this parser is already tracking.
+    const timeline = parseTimeline(log({ lines: ['|switch|p1a: Toxapex|Toxapex, L50, M|100/100'] }))
+
+    expect(timeline.turns[1]?.events[0]).toMatchObject({
+      kind: 'switch',
+      pokemon: { species: 'Toxapex' },
+      replaced: { species: 'Scrafty', position: 'p1a' },
+    })
+  })
+
+  it('has nobody to replace when a Pokémon is the first at its position', () => {
+    const timeline = parseTimeline(
+      log({ lines: ['|switch|p1b: Garchomp|Garchomp, L50, F|100/100'] }),
+    )
+
+    expect(timeline.turns[1]?.events[0]).toMatchObject({ kind: 'switch', replaced: null })
+    // The lead, too: nobody was on the field before it.
+    expect(timeline.turns[0]?.events[0]).toMatchObject({ replaced: null })
+  })
+
   it('reports no status for a Pokémon that arrives with nothing on it', () => {
     const timeline = parseTimeline(
       log({ lines: ['|switch|p1b: Garchomp|Garchomp, L50, F|85/100'] }),

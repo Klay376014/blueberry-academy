@@ -41,6 +41,10 @@ export type TimelineEvent =
    * `hp` and `status` are what the arriving Pokémon brought with it, which is
    * the only place the log says so: a Pokémon that went out poisoned comes
    * back with `97/100 tox` in the HP field and no `|-status|` line of its own.
+   *
+   * `replaced` is whoever was standing there — the log names only the arrival,
+   * and who left is the position's previous occupant. Null for the lead, and
+   * for anyone else who is the first at their position.
    */
   | {
       kind: 'switch'
@@ -48,6 +52,7 @@ export type TimelineEvent =
       pokemon: Combatant
       hp: number | null
       status: string | null
+      replaced: Combatant | null
     }
   | { kind: 'move'; actor: Combatant; move: string; targets: Combatant[] }
   /** A Pokémon that lost its action to paralysis, flinching, a full belly. */
@@ -199,6 +204,7 @@ export function buildTimeline(lines: ProtocolLine[]): BattleTimeline {
       case 'drag':
       case 'replace': {
         const position = positionOf(args[0] ?? '')
+        const leaving = field.get(position) ?? null
         if (type === 'replace') {
           const truth = speciesOfDetails(args[1] ?? '')
           for (const worn of sinceArrival.get(position) ?? []) worn.revealedSpecies = truth
@@ -210,7 +216,14 @@ export function buildTimeline(lines: ProtocolLine[]): BattleTimeline {
         const hp = healthOf(args[2] ?? '')
         if (hp !== null) health.set(pokemon.position, hp)
         sinceArrival.set(pokemon.position, [pokemon])
-        push({ kind: 'switch', how: type, pokemon, hp, status: statusOf(args[2] ?? '') })
+        push({
+          kind: 'switch',
+          how: type,
+          pokemon,
+          hp,
+          status: statusOf(args[2] ?? ''),
+          replaced: leaving,
+        })
         break
       }
 

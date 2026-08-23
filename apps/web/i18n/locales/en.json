@@ -192,6 +192,7 @@
     },
     "event": {
       "cameIn": "came in",
+      "cameInFor": "{into} came in for {pokemon}",
       "wasAnIllusion": "was an Illusion",
       "fainted": "fainted",
       "terastallized": "terastallized {type}",
