@@ -170,6 +170,74 @@ describe('parseTimeline', () => {
     expect(timeline.turns[1]?.events.at(-1)).toMatchObject({ hpBefore: 100, hpAfter: 71 })
   })
 
+  it('carries the HP and status a switching Pokémon arrives with', () => {
+    // Measured: a `|switch|` HP field reads `97/100 tox` or `100/100 slp`.
+    // Without it, a Pokémon that switched out burnt comes back looking well —
+    // the log says otherwise, and this is the only line that says it.
+    const timeline = parseTimeline(
+      log({ lines: ['|switch|p1b: Toxapex|Toxapex, L50, M|97/100 tox'] }),
+    )
+
+    expect(timeline.turns[1]?.events[0]).toMatchObject({
+      kind: 'switch',
+      hp: 97,
+      status: 'tox',
+      pokemon: { species: 'Toxapex' },
+    })
+  })
+
+  it('names the Pokémon that was standing there, so a switch reads as a trade', () => {
+    // The log says who arrives and not who left; who left is whoever the
+    // position held, which is a fact this parser is already tracking.
+    const timeline = parseTimeline(log({ lines: ['|switch|p1a: Toxapex|Toxapex, L50, M|100/100'] }))
+
+    expect(timeline.turns[1]?.events[0]).toMatchObject({
+      kind: 'switch',
+      pokemon: { species: 'Toxapex' },
+      replaced: { species: 'Scrafty', position: 'p1a' },
+    })
+  })
+
+  it('has nobody to replace when a Pokémon is the first at its position', () => {
+    const timeline = parseTimeline(
+      log({ lines: ['|switch|p1b: Garchomp|Garchomp, L50, F|100/100'] }),
+    )
+
+    expect(timeline.turns[1]?.events[0]).toMatchObject({ kind: 'switch', replaced: null })
+    // The lead, too: nobody was on the field before it.
+    expect(timeline.turns[0]?.events[0]).toMatchObject({ replaced: null })
+  })
+
+  it('reports no status for a Pokémon that arrives with nothing on it', () => {
+    const timeline = parseTimeline(
+      log({ lines: ['|switch|p1b: Garchomp|Garchomp, L50, F|85/100'] }),
+    )
+
+    expect(timeline.turns[1]?.events[0]).toMatchObject({ kind: 'switch', hp: 85, status: null })
+  })
+
+  it('does not read `fnt` as a status a Pokémon is carrying', () => {
+    // `0 fnt` is the HP field saying it fainted, not a condition to show.
+    const timeline = parseTimeline(log({ lines: ['|drag|p1b: Raichu|Raichu, L50, F|0 fnt'] }))
+
+    expect(timeline.turns[1]?.events[0]).toMatchObject({ kind: 'switch', hp: 0, status: null })
+  })
+
+  it('records a status being cured, so nothing keeps showing a burn that is gone', () => {
+    // The inverse of `|-status|`, which the fixtures do carry. Without it the
+    // condition a Pokémon no longer has outlives it.
+    const timeline = parseTimeline(
+      log({
+        lines: ['|-status|p1a: Scrafty|brn', '|-curestatus|p1a: Scrafty|brn|[msg]'],
+      }),
+    )
+
+    expect(timeline.turns[1]?.events).toMatchObject([
+      { kind: 'status', status: 'brn' },
+      { kind: 'cureStatus', status: 'brn', pokemon: { species: 'Scrafty' } },
+    ])
+  })
+
   it('records a faint as its own event, without saying who caused it', () => {
     const timeline = parseTimeline(log({ lines: ['|faint|p2a: Whimsicott'] }))
 

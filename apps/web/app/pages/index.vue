@@ -70,6 +70,8 @@ const strongest = computed(() => teams.value[0])
     <template v-else>
       <StatsTrendSection :battles />
 
+      <BattleRecentList />
+
       <section class="flex flex-col gap-3" :aria-label="t('teams.title')">
         <div class="flex items-baseline justify-between gap-3">
           <h2 class="text-xl font-semibold tracking-tight">{{ t('teams.title') }}</h2>
@@ -93,5 +95,8 @@ const strongest = computed(() => teams.value[0])
         </div>
       </section>
     </template>
+
+    <!-- Bound to `?battle=`, so it is open on arrival when the address says so. -->
+    <BattleDrawer />
   </main>
 </template>

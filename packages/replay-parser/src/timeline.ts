@@ -37,7 +37,23 @@ const HIT_RESULTS = new Map<string, HitResult>([
 ])
 
 export type TimelineEvent =
-  | { kind: 'switch'; how: Appearance; pokemon: Combatant }
+  /**
+   * `hp` and `status` are what the arriving Pokémon brought with it, which is
+   * the only place the log says so: a Pokémon that went out poisoned comes
+   * back with `97/100 tox` in the HP field and no `|-status|` line of its own.
+   *
+   * `replaced` is whoever was standing there — the log names only the arrival,
+   * and who left is the position's previous occupant. Null for the lead, and
+   * for anyone else who is the first at their position.
+   */
+  | {
+      kind: 'switch'
+      how: Appearance
+      pokemon: Combatant
+      hp: number | null
+      status: string | null
+      replaced: Combatant | null
+    }
   | { kind: 'move'; actor: Combatant; move: string; targets: Combatant[] }
   /** A Pokémon that lost its action to paralysis, flinching, a full belly. */
   | { kind: 'cant'; pokemon: Combatant; reason: string }
@@ -48,6 +64,8 @@ export type TimelineEvent =
   | { kind: 'mega'; pokemon: Combatant; stone: string }
   | { kind: 'terastallize'; pokemon: Combatant; teraType: string }
   | { kind: 'status'; pokemon: Combatant; status: string }
+  /** A status cured or worn off — the inverse of `status`, for anything holding the current one. */
+  | { kind: 'cureStatus'; pokemon: Combatant; status: string }
   /** A stat change, in stages. Negative for a drop. */
   | { kind: 'boost'; pokemon: Combatant; stat: string; stages: number }
   | { kind: 'weather'; weather: string; from: string | null }
@@ -186,6 +204,7 @@ export function buildTimeline(lines: ProtocolLine[]): BattleTimeline {
       case 'drag':
       case 'replace': {
         const position = positionOf(args[0] ?? '')
+        const leaving = field.get(position) ?? null
         if (type === 'replace') {
           const truth = speciesOfDetails(args[1] ?? '')
           for (const worn of sinceArrival.get(position) ?? []) worn.revealedSpecies = truth
@@ -197,7 +216,14 @@ export function buildTimeline(lines: ProtocolLine[]): BattleTimeline {
         const hp = healthOf(args[2] ?? '')
         if (hp !== null) health.set(pokemon.position, hp)
         sinceArrival.set(pokemon.position, [pokemon])
-        push({ kind: 'switch', how: type, pokemon })
+        push({
+          kind: 'switch',
+          how: type,
+          pokemon,
+          hp,
+          status: statusOf(args[2] ?? ''),
+          replaced: leaving,
+        })
         break
       }
 
@@ -244,9 +270,15 @@ export function buildTimeline(lines: ProtocolLine[]): BattleTimeline {
         break
       }
 
-      case '-status': {
+      case '-status':
+      case '-curestatus': {
         const pokemon = occupant(field, args[0] ?? '')
-        if (pokemon) push({ kind: 'status', pokemon, status: args[1] ?? '' })
+        if (!pokemon) break
+        push({
+          kind: type === '-status' ? 'status' : 'cureStatus',
+          pokemon,
+          status: args[1] ?? '',
+        })
         break
       }
 
@@ -490,6 +522,19 @@ function swap(state: FieldState, from: string, to: string): Combatant[] {
 function healthOf(field: string): number | null {
   const digits = /^\d+/.exec(field.trim())
   return digits ? Number(digits[0]) : null
+}
+
+/**
+ * The conditions an HP field can carry. A whitelist rather than "whatever
+ * follows the digits": `0 fnt` is the field reporting a faint, and one
+ * measured field read `50/100g` with a suffix nothing documents.
+ */
+const STATUSES = new Set(['brn', 'par', 'slp', 'frz', 'psn', 'tox'])
+
+/** The condition an HP field names, e.g. `tox` out of `97/100 tox`. */
+function statusOf(field: string): string | null {
+  const condition = field.trim().split(/\s+/)[1] ?? ''
+  return STATUSES.has(condition) ? condition : null
 }
 
 /**

@@ -21,6 +21,7 @@
     "@tailwindcss/vite": "4.3.3",
     "@unovis/ts": "^1.6.7",
     "@unovis/vue": "^1.6.7",
+    "@vueuse/core": "^14.4.0",
     "battle-row": "workspace:*",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",

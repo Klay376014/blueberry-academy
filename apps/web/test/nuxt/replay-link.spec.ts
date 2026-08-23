@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { parseReplayLink } from '../../app/utils/replayLink'
+import { parseReplayLink, replayUrl } from '../../app/utils/replayLink'
 
 describe('reading a pasted replay link', () => {
   it('takes the address straight out of the browser bar', () => {
@@ -61,5 +61,15 @@ describe('reading a pasted replay link', () => {
     expect(parseReplayLink('gen9ou')).toBeNull()
     expect(parseReplayLink('https://pokemonshowdown.com/users/notlittlestar')).toBeNull()
     expect(parseReplayLink('what a nice battle')).toBeNull()
+  })
+})
+
+describe('linking back to Showdown', () => {
+  it('addresses the replay itself, without the password of a private one', () => {
+    // The drawer's one outbound link. A password in a shareable page would be
+    // handed out with it, and the reader already has the battle.
+    expect(replayUrl('gen9championsvgc2026regmb-2667169457')).toBe(
+      'https://replay.pokemonshowdown.com/gen9championsvgc2026regmb-2667169457',
+    )
   })
 })

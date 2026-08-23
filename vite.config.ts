@@ -43,6 +43,7 @@ export default defineConfig({
         // that draw, and on everywhere else.
         files: [
           'apps/web/app/components/SpeciesIcon.vue',
+          'apps/web/app/components/battle/HealthChange.vue',
           'apps/web/app/components/stats/AccountingBar.vue',
           'apps/web/app/components/stats/TeamCard.vue',
           'apps/web/app/pages/import.vue',
@@ -50,6 +51,16 @@ export default defineConfig({
         ],
         rules: {
           'vize/vue/no-inline-style': 'off',
+        },
+      },
+      {
+        // The one outbound link in the app. Its href is built by `replayUrl()`,
+        // which puts a stored replay id after a literal https origin, so there
+        // is no room in it for a scheme of its own. The rule reports every
+        // dynamic `:href` and has no way to see that.
+        files: ['apps/web/app/components/battle/BattleDrawer.vue'],
+        rules: {
+          'vize/vue/no-unsafe-url': 'off',
         },
       },
       {

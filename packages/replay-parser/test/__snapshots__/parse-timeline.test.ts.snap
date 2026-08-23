@@ -7,6 +7,7 @@ exports[`parseTimeline > parses a real Bo3 game end to end 1`] = `
       "events": [
         {
           "how": "switch",
+          "hp": 100,
           "kind": "switch",
           "pokemon": {
             "nickname": "Raichu",
@@ -15,9 +16,12 @@ exports[`parseTimeline > parses a real Bo3 game end to end 1`] = `
             "side": "p1",
             "species": "Raichu",
           },
+          "replaced": null,
+          "status": null,
         },
         {
           "how": "switch",
+          "hp": 100,
           "kind": "switch",
           "pokemon": {
             "nickname": "Arcanine",
@@ -26,9 +30,12 @@ exports[`parseTimeline > parses a real Bo3 game end to end 1`] = `
             "side": "p1",
             "species": "Arcanine-Hisui",
           },
+          "replaced": null,
+          "status": null,
         },
         {
           "how": "switch",
+          "hp": 100,
           "kind": "switch",
           "pokemon": {
             "nickname": "Glimmora",
@@ -37,9 +44,12 @@ exports[`parseTimeline > parses a real Bo3 game end to end 1`] = `
             "side": "p2",
             "species": "Glimmora",
           },
+          "replaced": null,
+          "status": null,
         },
         {
           "how": "switch",
+          "hp": 100,
           "kind": "switch",
           "pokemon": {
             "nickname": "Gholdengo",
@@ -48,6 +58,8 @@ exports[`parseTimeline > parses a real Bo3 game end to end 1`] = `
             "side": "p2",
             "species": "Gholdengo",
           },
+          "replaced": null,
+          "status": null,
         },
       ],
       "number": 0,
@@ -377,6 +389,7 @@ exports[`parseTimeline > parses a real Bo3 game end to end 1`] = `
         },
         {
           "how": "switch",
+          "hp": 100,
           "kind": "switch",
           "pokemon": {
             "nickname": "Mamoswine",
@@ -385,6 +398,14 @@ exports[`parseTimeline > parses a real Bo3 game end to end 1`] = `
             "side": "p2",
             "species": "Mamoswine",
           },
+          "replaced": {
+            "nickname": "Gholdengo",
+            "position": "p2b",
+            "revealedSpecies": null,
+            "side": "p2",
+            "species": "Gholdengo",
+          },
+          "status": null,
         },
       ],
       "number": 2,
@@ -549,6 +570,7 @@ exports[`parseTimeline > parses a real Bo3 game end to end 1`] = `
         },
         {
           "how": "switch",
+          "hp": 100,
           "kind": "switch",
           "pokemon": {
             "nickname": "Basculegion",
@@ -557,6 +579,14 @@ exports[`parseTimeline > parses a real Bo3 game end to end 1`] = `
             "side": "p1",
             "species": "Basculegion",
           },
+          "replaced": {
+            "nickname": "Arcanine",
+            "position": "p1b",
+            "revealedSpecies": null,
+            "side": "p1",
+            "species": "Arcanine-Hisui",
+          },
+          "status": null,
         },
       ],
       "number": 3,
@@ -737,6 +767,7 @@ exports[`parseTimeline > parses a real Bo3 game end to end 1`] = `
         },
         {
           "how": "switch",
+          "hp": 100,
           "kind": "switch",
           "pokemon": {
             "nickname": "Charizard",
@@ -745,6 +776,14 @@ exports[`parseTimeline > parses a real Bo3 game end to end 1`] = `
             "side": "p2",
             "species": "Charizard",
           },
+          "replaced": {
+            "nickname": "Mamoswine",
+            "position": "p2b",
+            "revealedSpecies": null,
+            "side": "p2",
+            "species": "Mamoswine",
+          },
+          "status": null,
         },
       ],
       "number": 4,
