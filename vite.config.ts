@@ -36,7 +36,7 @@ export default defineConfig({
     options: { typeAware: true, typeCheck: true },
     overrides: [
       {
-        // Bar widths, sprite-sheet offsets and win-rate fills are data, not
+        // Bar widths, progress, sprite-sheet offsets and win-rate fills are data, not
         // styling: there is no finite set of utility classes that covers a
         // percentage. Scoped-style `v-bind()` would cover the single-element
         // cases and not the `v-for` ones, so the rule is off for the files
@@ -45,6 +45,7 @@ export default defineConfig({
           'apps/web/app/components/SpeciesIcon.vue',
           'apps/web/app/components/stats/AccountingBar.vue',
           'apps/web/app/components/stats/TeamCard.vue',
+          'apps/web/app/pages/import.vue',
           'apps/web/app/pages/teams/**',
         ],
         rules: {

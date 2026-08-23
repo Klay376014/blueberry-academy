@@ -94,6 +94,18 @@ export interface ImportReport {
   counts: Record<BatchOutcome['status'], number>
 }
 
+/** What a caller watching a batch go by wants to hear about. */
+export interface ImportOptions {
+  /**
+   * How many replays this batch will actually work through, once the
+   * duplicates in the list are gone. Fires once, before the first fetch — a
+   * progress bar needs its denominator up front.
+   */
+  onTotal?: (total: number) => void
+  /** One replay, the moment it is done. */
+  onResult?: (item: BatchItem) => void
+}
+
 export type SyncOutcome =
   | { status: 'listed'; report: ImportReport; truncated: boolean }
   /** The listing itself failed, so there is nothing to report per replay. */
@@ -358,17 +370,15 @@ export function useIngest() {
    * §8). Resuming needs no cursor — each success is written the moment it
    * happens, so pressing sync again skips everything that made it.
    *
-   * `onResult` fires as each replay finishes, which is what a progress display
-   * reads.
+   * `onTotal` then `onResult` per replay is what a progress display reads.
    */
-  async function importMany(
-    refs: ReplayRef[],
-    options: { onResult?: (item: BatchItem) => void } = {},
-  ): Promise<ImportReport> {
+  async function importMany(refs: ReplayRef[], options: ImportOptions = {}): Promise<ImportReport> {
     // First spelling of each id wins. A pasted list is typed by a human, and a
     // listing that was paged through shares one row between adjacent pages.
     const unique = [...new Map(refs.map((ref) => [ref.id, ref])).values()]
     const known = await knownReplayIds(unique.map((ref) => ref.id))
+
+    options.onTotal?.(unique.length)
 
     const items: BatchItem[] = []
     let next = 0
@@ -400,10 +410,7 @@ export function useIngest() {
    * the ones already imported. Private replays are not in a search and come in
    * by their link instead.
    */
-  async function syncAccount(
-    username: string,
-    options: { onResult?: (item: BatchItem) => void } = {},
-  ): Promise<SyncOutcome> {
+  async function syncAccount(username: string, options: ImportOptions = {}): Promise<SyncOutcome> {
     let listed: Awaited<ReturnType<typeof listReplays>>
     try {
       listed = await listReplays(username)

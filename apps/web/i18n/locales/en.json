@@ -46,6 +46,11 @@
       "truncated": "Showdown ran out of search pages before this account ran out of replays, so this is not the whole history. A single search reaches about 5000 replays; the rest need a narrower search."
     },
     "profileFailed": "We could not read your Showdown names, so nothing can be imported right now — without them there is no way to tell which side of a battle is yours. Reload the page to try again.",
+    "progress": {
+      "label": "Import progress",
+      "listing": "Asking Showdown what this account has played…",
+      "counting": "{done} of {total} done"
+    },
     "badLink": "That is not a Showdown replay link. Paste the address of the replay itself, like https://replay.pokemonshowdown.com/gen9championsvgc2026regmb-2667169457 — a private replay keeps its password in the address, so paste that too.",
     "unparsed": "The raw log is stored, but this replay could not be read: {message} Nothing is lost — the battle is kept and can be read again once the parser understands that log.",
     "status": {

@@ -2,7 +2,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { mountSuspended, mockNuxtImport } from '@nuxt/test-utils/runtime'
 import App from '../../app/app.vue'
 import { signIn } from '../helpers'
-import type { BatchItem, BattleRow, ImportReport } from '../../app/composables/useIngest'
+import type {
+  BatchItem,
+  BattleRow,
+  ImportOptions,
+  ImportReport,
+} from '../../app/composables/useIngest'
 
 // The import itself is faked; the page, the link parsing and the alias state
 // are real. What this asserts is what a user is told, which is the part
@@ -110,7 +115,7 @@ describe('the import page', () => {
 
     await paste(wrapper, LINK)
 
-    expect(importMany).toHaveBeenCalledWith([{ id: REPLAY, password: null }])
+    expect(importMany.mock.calls[0]![0]).toEqual([{ id: REPLAY, password: null }])
   })
 
   it('imports a whole pasted list, one replay per line', async () => {
@@ -188,7 +193,7 @@ describe('the import page', () => {
 
     await sync(wrapper, 'Bibas Rozkurwiator')
 
-    expect(syncAccount).toHaveBeenCalledWith('Bibas Rozkurwiator')
+    expect(syncAccount.mock.calls[0]![0]).toBe('Bibas Rozkurwiator')
   })
 
   it('offers the bound alias as the name to sync, since that is whose battles these are', async () => {
@@ -306,6 +311,118 @@ describe('the import page', () => {
     expect(syncAccount).not.toHaveBeenCalled()
 
     finish(report([imported()]))
+  })
+
+  it('shows how far along it is while the batch is still running', async () => {
+    // The mock is the import: it announces the total, hands over one replay,
+    // and is held open so the page can be read mid-flight.
+    let finish = (_report: unknown) => {}
+    importMany.mockImplementation((refs: { id: string }[], options: ImportOptions) => {
+      options.onTotal?.(refs.length)
+      options.onResult?.(imported('gen9ou-1'))
+
+      return new Promise((resolve) => {
+        finish = resolve
+      })
+    })
+
+    const wrapper = await mountSuspended(App, { route: '/import' })
+    await paste(wrapper, 'gen9ou-1\ngen9ou-2\ngen9ou-3')
+    await nextTick()
+
+    const bar = wrapper.get('[data-testid="import-progress"]')
+    expect(bar.attributes('aria-valuenow')).toBe('1')
+    expect(bar.attributes('aria-valuemax')).toBe('3')
+    expect(bar.text()).toContain('1')
+    expect(bar.text()).toContain('3')
+
+    finish(report([imported('gen9ou-1')]))
+  })
+
+  it('lists each replay the moment it lands, rather than only at the end', async () => {
+    let finish = (_report: unknown) => {}
+    importMany.mockImplementation((refs: { id: string }[], options: ImportOptions) => {
+      options.onTotal?.(refs.length)
+      options.onResult?.({
+        ref: { id: 'gen9ou-2' },
+        outcome: { status: 'failed', reason: 'not-found', message: 'no such replay' },
+      })
+
+      return new Promise((resolve) => {
+        finish = resolve
+      })
+    })
+
+    const wrapper = await mountSuspended(App, { route: '/import' })
+    await paste(wrapper, 'gen9ou-1\ngen9ou-2')
+    await nextTick()
+
+    // Mid-import, and already saying why that one did not make it -- which is
+    // the whole reason this list is per replay.
+    const rows = reportRows(wrapper)
+    expect(rows).toHaveLength(1)
+    expect(rows[0]).toContain('gen9ou-2')
+    expect(rows[0]).toContain('Showdown')
+
+    finish(report([imported('gen9ou-1')]))
+  })
+
+  it('keeps the list up after the import has finished', async () => {
+    importMany.mockImplementation((_refs: unknown, options: ImportOptions) => {
+      options.onResult?.(imported('gen9ou-1'))
+
+      return Promise.resolve(report([imported('gen9ou-1')]))
+    })
+
+    const wrapper = await mountSuspended(App, { route: '/import' })
+    await paste(wrapper, 'gen9ou-1')
+    await nextTick()
+
+    // Reported live and reported at the end are the same replay, so it is
+    // listed once rather than twice, and the bar is gone with the work.
+    expect(reportRows(wrapper)).toHaveLength(1)
+    expect(wrapper.find('[data-testid="import-progress"]').exists()).toBe(false)
+  })
+
+  it('counts as it goes, so the tally is readable before the end', async () => {
+    let finish = (_report: unknown) => {}
+    importMany.mockImplementation((_refs: unknown, options: ImportOptions) => {
+      options.onTotal?.(2)
+      options.onResult?.(imported('gen9ou-1'))
+
+      return new Promise((resolve) => {
+        finish = resolve
+      })
+    })
+
+    const wrapper = await mountSuspended(App, { route: '/import' })
+    await paste(wrapper, 'gen9ou-1\ngen9ou-2')
+    await nextTick()
+
+    expect(wrapper.get('[data-testid="report-counts"]').text()).toMatch(/1.*0.*0/s)
+
+    finish(report([imported('gen9ou-1')]))
+  })
+
+  it('says it is still asking Showdown while a sync has no total yet', async () => {
+    let finish = (_outcome: unknown) => {}
+    syncAccount.mockReturnValue(
+      new Promise((resolve) => {
+        finish = resolve
+      }),
+    )
+
+    const wrapper = await mountSuspended(App, { route: '/import' })
+    await sync(wrapper, 'DavoPro1214')
+    await nextTick()
+
+    // The listing has to come back before there is a denominator, and a bar
+    // at 0 / 0 would read as "nothing is happening".
+    const bar = wrapper.get('[data-testid="import-progress"]')
+    expect(bar.attributes('aria-valuenow')).toBeUndefined()
+    expect(bar.text()).toContain('Showdown')
+
+    finish({ status: 'listed', report: report([imported()]), truncated: false })
   })
 
   it('keeps the form shut when the alias list could not be read', async () => {
