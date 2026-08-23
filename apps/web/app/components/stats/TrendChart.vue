@@ -27,6 +27,13 @@ const props = defineProps<{
   label: string
   color: string
   formatValue: (value: number) => string
+  /**
+   * A horizontal line to read the series against — 50% on a win rate, where
+   * "above or below even" is the first thing anybody wants off the chart and
+   * counting up from the axis is a poor way to get it.
+   */
+  reference?: number
+  height?: number
   /** Only the last chart in a stack carries the dates; the rest would repeat them. */
   showDates?: boolean
   /** Shown in place of the line when nothing in `points` has a reading. */
@@ -85,10 +92,20 @@ function formatDate(value: number): string {
         :data="points"
         :x-domain
         :y-domain
-        :height="132"
+        :height="height ?? 132"
         :margin="{ left: 4 }"
       >
         <VisLine :x :y :color :curve-type="CurveType.Linear" />
+        <VisLine
+          v-if="reference !== undefined"
+          :x
+          :y="() => reference"
+          :line-width="1"
+          :line-dash-array="[3, 3]"
+          :curve-type="CurveType.Linear"
+          exclude-from-domain-calculation
+          color="var(--muted-foreground)"
+        />
         <VisAxis type="y" :num-ticks="3" :tick-format="formatValue" />
         <VisAxis
           v-if="showDates"

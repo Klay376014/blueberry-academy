@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import type { Aggregate } from '../../utils/battleStats'
-import type { StatsFilters } from '../../composables/useStatsFilters'
 
 /**
  * The dashboard's global filters, shared by every section that reads
@@ -25,7 +24,6 @@ const fieldId = useId()
  */
 const ANY = 'any'
 
-const BEST_OF: StatsFilters['bestOf'][] = ['all', 'bo1', 'bo3']
 const AGGREGATES: Aggregate[] = ['game', 'series']
 
 function valueOf(event: Event): string {
@@ -38,8 +36,7 @@ function pickIdentity(event: Event) {
 }
 
 function pickFormat(event: Event) {
-  const value = valueOf(event)
-  filters.value.formatId = value === ANY ? null : value
+  filters.value.formatId = valueOf(event)
 }
 
 function pickFrom(event: Event) {
@@ -82,12 +79,11 @@ function toggleIncomplete(event: Event) {
       </label>
       <select
         :id="`${fieldId}-format`"
-        :value="filters.formatId ?? ANY"
+        :value="filters.formatId ?? ''"
         class="h-9 rounded-md border border-input bg-background px-2 font-mono text-xs"
         data-testid="filter-format"
         @change="pickFormat"
       >
-        <option :value="ANY">{{ t('filters.anyFormat') }}</option>
         <option v-for="id of formats" :key="id" :value="id">{{ id }}</option>
       </select>
     </div>
@@ -119,28 +115,6 @@ function toggleIncomplete(event: Event) {
         @change="pickTo"
       />
     </div>
-
-    <fieldset class="flex flex-col gap-1">
-      <legend class="text-xs text-muted-foreground">{{ t('filters.bestOf') }}</legend>
-      <div class="flex overflow-hidden rounded-md border border-input">
-        <button
-          v-for="option of BEST_OF"
-          :key="option"
-          type="button"
-          class="h-9 cursor-pointer px-3 font-mono text-xs transition-colors"
-          :class="
-            filters.bestOf === option
-              ? 'bg-secondary text-secondary-foreground'
-              : 'text-muted-foreground hover:bg-accent'
-          "
-          :aria-pressed="filters.bestOf === option"
-          :data-testid="`filter-${option}`"
-          @click="() => (filters.bestOf = option)"
-        >
-          {{ t(`filters.${option}`) }}
-        </button>
-      </div>
-    </fieldset>
 
     <fieldset class="flex flex-col gap-1">
       <legend class="text-xs text-muted-foreground">{{ t('filters.aggregate') }}</legend>

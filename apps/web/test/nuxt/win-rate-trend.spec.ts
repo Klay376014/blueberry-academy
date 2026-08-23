@@ -71,6 +71,21 @@ describe('the sliding window', () => {
   it('draws nothing from nothing', () => {
     expect(slidingWinRate([], 20)).toEqual([])
   })
+
+  it('leaves a day holding the rate it ended on', () => {
+    const sameDay: ResultUnit[] = ['win', 'win', 'loss'].map((result, index) => ({
+      key: `unit-${index}`,
+      playedAt: `2026-01-01T0${index + 4}:00:00Z`,
+      formatId: 'gen9championsvgc2026regmb',
+      result: result as BattleResult,
+      teamSignature: null,
+    }))
+
+    // One point, not three, and it is the 2-1 the day finished on.
+    expect(slidingWinRate(sameDay, 20)).toEqual([
+      { date: Date.parse('2026-01-01T06:00:00Z'), rate: 2 / 3, games: 3 },
+    ])
+  })
 })
 
 describe('the current streak', () => {
@@ -136,19 +151,49 @@ describe('the rating curve', () => {
     expect(ratingSeries([row({ result: null, rating: 1500 })])).toHaveLength(1)
   })
 
-  it('reads the whole fixture in played order', () => {
+  it('gives a day one point however many games were played in it', () => {
+    // Nine games in a day put nine points inside thirty pixels of a calendar
+    // axis, and a rating that moved across them drew as a vertical spike.
+    const points = ratingSeries([
+      row({ replay_id: 'a', played_at: '2026-08-01T04:00:00Z', rating: 1307 }),
+      row({ replay_id: 'b', played_at: '2026-08-01T09:00:00Z', rating: 1158 }),
+      row({ replay_id: 'c', played_at: '2026-08-01T17:00:00Z', rating: 1396 }),
+    ])
+
+    // The day closed at 1396, and nothing claims it was ever a straight line
+    // through the two before it.
+    expect(points).toEqual([{ date: Date.parse('2026-08-01T17:00:00Z'), rating: 1396 }])
+  })
+
+  it('closes a day on its last rated battle, not its last battle', () => {
+    const points = ratingSeries([
+      row({ replay_id: 'a', played_at: '2026-08-01T04:00:00Z', rating: 1307 }),
+      row({ replay_id: 'b', played_at: '2026-08-01T17:00:00Z' }),
+    ])
+
+    expect(points.map((point) => point.rating)).toEqual([1307])
+  })
+
+  it('breaks over a day whose battles all went unrated', () => {
+    const points = ratingSeries([
+      row({ replay_id: 'a', played_at: '2026-08-01T04:00:00Z', rating: 1307 }),
+      row({ replay_id: 'b', played_at: '2026-08-02T04:00:00Z' }),
+      row({ replay_id: 'c', played_at: '2026-08-03T04:00:00Z', rating: 1350 }),
+    ])
+
+    expect(points.map((point) => point.rating)).toEqual([1307, undefined, 1350])
+  })
+
+  it('reads the fixture as one point per day, in played order', () => {
     const points = ratingSeries(STATS_ROWS)
 
-    expect(points).toHaveLength(STATS_ROWS.length)
+    // Nine days: seven ladder days, then the two the Bo3s were held on.
+    expect(points).toHaveLength(9)
     expect(points.map((point) => point.date)).toEqual(
       [...points].toSorted((a, b) => a.date - b.date).map((point) => point.date),
     )
-  })
-
-  it('breaks over the fixture, whose Bo3 games carry no rating', () => {
-    const gaps = ratingSeries(STATS_ROWS).filter((point) => point.rating === undefined)
-
-    expect(gaps).toHaveLength(STATS_ROWS.filter((r) => r.series_id !== null).length)
+    // Those two days carried no rating at all, so the line breaks over them.
+    expect(points.slice(-2).map((point) => point.rating)).toEqual([undefined, undefined])
   })
 })
 

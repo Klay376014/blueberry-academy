@@ -89,6 +89,19 @@ function rowsFor(options: {
   }))
 }
 
+/** Moves the required format filter, and lets the page settle after it. */
+async function pickFormat(
+  page: {
+    get: (selector: string) => { element: Element; trigger: (event: string) => Promise<void> }
+  },
+  formatId: string,
+) {
+  const select = page.get('[data-testid="filter-format"]')
+
+  ;(select.element as HTMLSelectElement).value = formatId
+  await select.trigger('change')
+}
+
 beforeEach(() => {
   const nuxtApp = useNuxtApp()
   if (!nuxtApp.$supabase) nuxtApp.provide('supabase', { from: () => builder() })
@@ -142,25 +155,33 @@ describe('the dashboard', () => {
   })
 
   it('files the same six in two formats as two teams', async () => {
-    // A Bo1 team and its Bo3 counterpart are different teams (CONTEXT.md).
+    // A Bo1 team and its Bo3 counterpart are different teams (CONTEXT.md), so
+    // they are never on screen together: the format is a required filter and
+    // each registration belongs to one of them.
     const page = await mountSuspended(Dashboard)
 
-    expect(page.findAll('[data-testid="team-card"]')).toHaveLength(4)
+    const ladder = page.findAll('[data-testid="team-card"]')
+    expect(ladder).toHaveLength(2)
+
+    await pickFormat(page, FORMATS.EVENT)
+
+    const event = page.findAll('[data-testid="team-card"]')
+    expect(event).toHaveLength(2)
+    for (const card of event) expect(card.text()).toContain('BO3')
   })
 
-  it('changes the list when the series filter moves', async () => {
+  it('opens on the format with the most games behind it', async () => {
+    // Seven ladder games against five of the Bo3 event. Opening on whichever
+    // format sorted first alphabetically would show an account its Hackmons
+    // Cup rather than its ladder.
     const page = await mountSuspended(Dashboard)
-    expect(page.findAll('[data-testid="team-card"]')).toHaveLength(4)
 
-    await page.find('[data-testid="filter-bo3"]').trigger('click')
-    await page.vm.$nextTick()
-    await new Promise((resolve) => setTimeout(resolve, 0))
-    await page.vm.$nextTick()
-
-    const badges = page.findAll('[data-testid="team-card"]').map((card) => card.text())
-
-    expect(badges).toHaveLength(2)
-    for (const entry of badges) expect(entry).toContain('BO3')
+    expect((page.find('[data-testid="filter-format"]').element as HTMLSelectElement).value).toBe(
+      FORMATS.LADDER,
+    )
+    // And no way to ask for every format at once: a win rate pooled across
+    // regulations answers nobody's question.
+    expect(page.findAll('[data-testid="filter-format"] option')).toHaveLength(2)
   })
 
   it('names Pokémon in English, from the generated table rather than a locale', async () => {

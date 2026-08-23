@@ -11,15 +11,18 @@ export interface StatsFilters {
   /**
    * An exact `format_id`, not a regulation: by CONTEXT.md a Bo1 ladder format
    * and its Bo3 counterpart are different formats and different teams.
+   *
+   * Required, not "all formats": a win rate pooled across regulations answers
+   * no question anybody has, and two formats' ladder ratings are two different
+   * numbers that must not be drawn as one line. `null` only means "not chosen
+   * yet" — the dashboard picks the most-played format as soon as the battles
+   * are in.
    */
   formatId: string | null
 
   /** Inclusive ISO 8601 bounds. A date with no time covers that whole day. */
   from: string | null
   to: string | null
-
-  /** A `bo2` format counts as best-of: it is a series whichever number it is. */
-  bestOf: 'all' | 'bo1' | 'bo3'
 
   aggregate: Aggregate
 
@@ -33,7 +36,6 @@ export function defaultStatsFilters(): StatsFilters {
     formatId: null,
     from: null,
     to: null,
-    bestOf: 'all',
     aggregate: 'game',
     includeIncompleteBrings: false,
   }

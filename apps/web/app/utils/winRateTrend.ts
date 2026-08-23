@@ -9,6 +9,11 @@ import type { ResultUnit, StatsRow } from './battleStats'
  * a two-month break shows up as a gap, and a slump that follows one is a real
  * signal a game index would flatten away.
  *
+ * Both carry **one point per calendar day**. The axis is a calendar, so that
+ * is the resolution it can show: measured on a real account, nine games in one
+ * day put nine points inside thirty pixels, and a rating that moved 240 points
+ * across them drew as a vertical spike rather than as a day of laddering.
+ *
  * See docs/specs/2026-08-16-replay-analytics-design.md §7 and decision Q21.
  */
 
@@ -50,8 +55,14 @@ export interface Streak {
   length: number
 }
 
-function byDate<T extends { date: Timestamp }>(a: T, b: T): number {
-  return a.date - b.date
+/**
+ * The calendar day a timestamp falls on, in the reader's own timezone —
+ * the same day the axis labels name.
+ */
+function dayOf(playedAt: string): string {
+  const when = new Date(playedAt)
+
+  return `${when.getFullYear()}-${when.getMonth()}-${when.getDate()}`
 }
 
 /** Oldest first, whatever order the caller had them in. */
@@ -70,13 +81,23 @@ function inPlayedOrder(units: ResultUnit[]): ResultUnit[] {
 export function slidingWinRate(units: ResultUnit[], window: number): TrendPoint[] {
   const size = Math.max(1, Math.floor(window))
   const played = inPlayedOrder(units)
+  const byDay = new Map<string, TrendPoint>()
 
-  return played.map((unit, index) => {
+  played.forEach((unit, index) => {
     const slice = played.slice(Math.max(0, index - size + 1), index + 1)
     const tally = tallyOf(slice.map((each) => each.result))
 
-    return { date: Date.parse(unit.playedAt), rate: tally.winRate, games: tally.games }
+    // Last write wins, so a day is left holding the rate it ended on. A Map
+    // keeps the position of the first write, which is the day's own place in
+    // the order.
+    byDay.set(dayOf(unit.playedAt), {
+      date: Date.parse(unit.playedAt),
+      rate: tally.winRate,
+      games: tally.games,
+    })
   })
+
+  return [...byDay.values()]
 }
 
 /**
@@ -101,15 +122,31 @@ export function currentStreak(units: ResultUnit[]): Streak {
 }
 
 /**
- * Ladder rating over time, one point per game.
+ * Ladder rating over time: where each day closed.
  *
- * Per game rather than per unit whatever the aggregation: a rating is
+ * The day's last *rated* battle, because only some ladder games get a replay
+ * uploaded — the ladder keeps moving between the ones that did, so no reading
+ * between two stored battles is ours to draw. A closing price is a number that
+ * was really true at a moment; a daily average never was.
+ *
+ * Read per game rather than per unit whatever the aggregation: a rating is
  * something the ladder did to a single battle, and a series has none. Games
  * with no declared winner are kept — the tallies leave them out because there
  * is no result to count, but the rating they carry still happened.
  */
 export function ratingSeries(rows: StatsRow[]): RatingPoint[] {
-  return rows
-    .map((row) => ({ date: Date.parse(row.played_at), rating: row.rating ?? undefined }))
-    .toSorted(byDate)
+  const byDay = new Map<string, RatingPoint>()
+  const played = rows.toSorted((a, b) => a.played_at.localeCompare(b.played_at))
+
+  for (const row of played) {
+    const day = dayOf(row.played_at)
+
+    // A day of nothing but unrated battles keeps its `undefined` and breaks
+    // the line; one rated battle in it is what the day closed at.
+    if (row.rating === null && byDay.has(day)) continue
+
+    byDay.set(day, { date: Date.parse(row.played_at), rating: row.rating ?? undefined })
+  }
+
+  return [...byDay.values()]
 }

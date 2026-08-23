@@ -86,10 +86,6 @@ function rated(replayId: string, playedAt: string, rating: number | null): Stats
   }
 }
 
-function unrated(replayId: string, playedAt: string): StatsRow {
-  return { ...rated(replayId, playedAt, null), format_id: 'gen9championsvgc2026regmbbo3' }
-}
-
 beforeEach(() => {
   const nuxtApp = useNuxtApp()
   if (!nuxtApp.$supabase) nuxtApp.provide('supabase', { from: () => builder() })
@@ -104,9 +100,10 @@ describe('the recent form section', () => {
   it('shows the totals and the run the last game leaves you on', async () => {
     const page = await mountSuspended(Dashboard)
 
-    // Seven wins of eleven decided games; the last of them, series-2-g2, lost.
-    expect(page.get('[data-testid="summary-games"]').text()).toBe('11')
-    expect(page.get('[data-testid="summary-rate"]').text()).toBe('64%')
+    // The ladder format, which the page opens on: six decided games of the
+    // seven, four of them won, and the last of them — ladder-7 — lost.
+    expect(page.get('[data-testid="summary-games"]').text()).toBe('6')
+    expect(page.get('[data-testid="summary-rate"]').text()).toBe('67%')
     expect(page.get('[data-testid="summary-streak"]').text()).toBe('1')
   })
 
@@ -122,16 +119,17 @@ describe('the recent form section', () => {
     expect(page.get('[data-testid="trend-window-20"]').attributes('aria-pressed')).toBe('false')
   })
 
-  it('breaks the rating line over the games that carried no rating', async () => {
-    // Ladder, then a Bo3 event, then back to the ladder — the shape of a real
-    // account, and the one that makes the gap an interior one.
+  it('breaks the rating line over the days that carried no rating', async () => {
+    // Two rated days, two days of battles the log gave no rating for, then
+    // rated again — all in one format, because the format is now required and
+    // the gap has to be an interior one.
     db.rows = [
       rated('ladder-a', '2026-08-01T10:00:00Z', 1500),
       rated('ladder-b', '2026-08-02T10:00:00Z', 1520),
-      unrated('event-a', '2026-08-03T10:00:00Z'),
-      unrated('event-b', '2026-08-04T10:00:00Z'),
-      rated('ladder-c', '2026-08-05T10:00:00Z', 1490),
-      rated('ladder-d', '2026-08-06T10:00:00Z', 1512),
+      rated('ladder-c', '2026-08-03T10:00:00Z', null),
+      rated('ladder-d', '2026-08-04T10:00:00Z', null),
+      rated('ladder-e', '2026-08-05T10:00:00Z', 1490),
+      rated('ladder-f', '2026-08-06T10:00:00Z', 1512),
     ]
 
     const page = await mountSuspended(Dashboard)
@@ -155,7 +153,7 @@ describe('the recent form section', () => {
   it('follows the global filters', async () => {
     const page = await mountSuspended(Dashboard)
 
-    useStatsFilters().value = { ...defaultStatsFilters(), identity: 'SomeAlt' }
+    useStatsFilters().value = { ...useStatsFilters().value, identity: 'SomeAlt' }
     await nextTick()
 
     // ladder-7 is the only battle that name played, and it was a loss.
@@ -166,13 +164,17 @@ describe('the recent form section', () => {
   it('counts a run by game even when the page is counting series', async () => {
     const page = await mountSuspended(Dashboard)
 
-    useStatsFilters().value = { ...defaultStatsFilters(), aggregate: 'series' }
+    useStatsFilters().value = {
+      ...useStatsFilters().value,
+      formatId: 'gen9championsvgc2026regmbbo3',
+      aggregate: 'series',
+    }
     await nextTick()
 
-    // Eight units by series, and the last of them is a 1-1 that folds to a
-    // tie — but the last game played was still a loss, and the streak is
-    // about games.
-    expect(page.get('[data-testid="summary-games"]').text()).toBe('8')
+    // Two units by series, and the last of them is a 1-1 that folds to a tie
+    // — but the last game played was still a loss, and the streak is about
+    // games.
+    expect(page.get('[data-testid="summary-games"]').text()).toBe('2')
     expect(page.get('[data-testid="summary-streak"]').text()).toBe('1')
   })
 })

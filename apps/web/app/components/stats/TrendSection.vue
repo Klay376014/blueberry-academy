@@ -141,6 +141,8 @@ function formatRating(value: number): string {
         :label="t('trend.winRate', { count: windowSize })"
         color="var(--chart-1)"
         :format-value="formatRate"
+        :reference="0.5"
+        :height="180"
         data-testid="trend-win-rate"
       />
 
