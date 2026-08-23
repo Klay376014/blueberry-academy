@@ -190,6 +190,10 @@
       "missing": "這裡沒有對戰。可能從來沒匯入過，也可能這個連結是別人的。",
       "unparsed": "原始 log 已經存下來了，但讀不動：{message} 等解析器看得懂那份 log，時間軸就會出現。"
     },
+    "outcome": {
+      "ended": "結束",
+      "forfeit": "投降結束"
+    },
     "event": {
       "cameIn": "上場",
       "cameInFor": "{pokemon} 換成 {into}",

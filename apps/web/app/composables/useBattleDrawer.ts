@@ -16,7 +16,7 @@ import type { BattleResult } from '../utils/battleStats'
  */
 
 const COLUMNS =
-  'replay_id, played_at, format_id, series_id, result, rating, rating_delta, my_side, my_username, opponent_username, turn_count, bring_signature, details, parse_error'
+  'replay_id, played_at, format_id, series_id, result, rating, rating_delta, end_reason, my_side, my_username, opponent_username, turn_count, bring_signature, details, parse_error'
 
 /** What the drawer's header and timeline are drawn from. */
 export interface DrawerBattle {
@@ -25,7 +25,11 @@ export interface DrawerBattle {
   formatId: string
   seriesId: string | null
   result: BattleResult | null
+  /** My rating once the game was over, or null for a game off the ladder. */
+  rating: number | null
   ratingDelta: number | null
+  /** What the log said beyond who won, e.g. a forfeit. */
+  endReason: string | null
   mySide: SideId | null
   myUsername: string | null
   opponentUsername: string | null
@@ -212,7 +216,9 @@ interface StoredRow {
   format_id: string
   series_id: string | null
   result: BattleResult | null
+  rating: number | null
   rating_delta: number | null
+  end_reason: string | null
   my_side: SideId | null
   my_username: string | null
   opponent_username: string | null
@@ -231,7 +237,9 @@ function drawerBattleOf(row: StoredRow): DrawerBattle {
     formatId: row.format_id,
     seriesId: row.series_id,
     result: row.result,
+    rating: row.rating,
     ratingDelta: row.rating_delta,
+    endReason: row.end_reason,
     mySide: row.my_side,
     myUsername: row.my_username,
     opponentUsername: row.opponent_username,

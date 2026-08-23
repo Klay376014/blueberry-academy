@@ -180,6 +180,8 @@ const RESULT_TONE = {
             :snapshot="snapshotOf(index)"
             :my-side="battle?.mySide ?? null"
           />
+
+          <BattleOutcome v-if="battle" :battle />
         </div>
       </div>
     </SheetContent>

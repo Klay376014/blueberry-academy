@@ -528,6 +528,42 @@ describe('the drawer', () => {
     expect(toggle().getAttribute('aria-expanded')).toBe('false')
   })
 
+  it('closes the timeline with how the battle ended and what it cost', async () => {
+    // Without it the last turn simply stops, and a game that ended in a
+    // forfeit looks like a log that was cut off.
+    db.extras.set('ladder-6', {
+      ...extrasFor('ladder-6'),
+      end_reason: 'forfeit',
+      rating: 1429,
+      rating_delta: -15,
+      result: 'loss',
+    })
+
+    await openDrawer()
+
+    const outcome = drawer().querySelector('[data-testid="battle-outcome"]')
+    expect(outcome).not.toBeNull()
+    expect(outcome?.textContent).toContain('1444')
+    expect(outcome?.textContent).toContain('1429')
+    expect(outcome?.textContent).toContain('15')
+  })
+
+  it('says nothing about a rating a best-of series never had', async () => {
+    // A Bo3 game is not played on the ladder, so there is no number to show —
+    // and a zero would be a claim (design document, rating gaps).
+    db.extras.set('series-1-g2', {
+      ...extrasFor('series-1-g2'),
+      rating: null,
+      rating_delta: null,
+    })
+
+    await openDrawer('series-1-g2')
+
+    const outcome = drawer().querySelector('[data-testid="battle-outcome"]')
+    expect(outcome).not.toBeNull()
+    expect(outcome?.querySelector('[data-testid="rating-change"]')).toBeNull()
+  })
+
   it('says the log could not be read rather than spinning for good', async () => {
     storage.fail = true
     await openDrawer()

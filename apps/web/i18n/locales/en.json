@@ -190,6 +190,10 @@
       "missing": "No battle here. It may never have been imported, or the link may be somebody else's.",
       "unparsed": "The raw log is stored, but it could not be read: {message} The timeline will appear once the parser understands that log."
     },
+    "outcome": {
+      "ended": "Ended",
+      "forfeit": "by forfeit"
+    },
     "event": {
       "cameIn": "came in",
       "cameInFor": "{into} came in for {pokemon}",
