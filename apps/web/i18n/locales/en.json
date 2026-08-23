@@ -113,10 +113,13 @@
     "includeIncomplete": "Include games with no complete bring"
   },
   "summary": {
-    "title": "Summary",
     "games": "Games",
     "winRate": "Win rate",
-    "strongest": "Strongest team"
+    "strongest": "Strongest team",
+    "streak": "Current streak",
+    "streakWins": "wins in a row, by game",
+    "streakLosses": "losses in a row, by game",
+    "streakNone": "the last game was a tie"
   },
   "teams": {
     "title": "Team performance",
@@ -140,5 +143,16 @@
     "emptyAction": "Import some replays",
     "ranking": "Wilson lower bound {score}% — the sort key",
     "whatIsThis": "What this means"
+  },
+  "trend": {
+    "title": "Recent form",
+    "window": "Window",
+    "windowOf": "A window of {count} games",
+    "winRate": "Win rate · window of {count}",
+    "rating": "Ladder rating",
+    "noRating": "None of these battles carried a ladder rating. A best-of series is not played on the ladder, so there is no number to plot.",
+    "descriptive": "This says what happened, not why.",
+    "whatIsThis": "How to read this",
+    "gap": "The x axis is the calendar, so two months without a game take up two months of width and the win rate curve stretches flat across the break rather than hiding it. The rating line does not stretch: it stops at the last battle that carried a rating and starts again at the next one that did, because a best-of series is not played on the ladder and there is no number in between. Each point of the win rate curve covers the games leading up to that day, so the first points of a curve cover fewer games than the window says."
   }
 }

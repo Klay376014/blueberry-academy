@@ -9,6 +9,10 @@ import type { StatsRow } from '../../app/utils/battleStats'
  * together. A spectated battle is not here — the query never returns one, and
  * that exclusion is asserted in the pgTAP test.
  *
+ * The ladder games carry a rating and the Bo3 games do not, which is how a real
+ * account looks: the trend chart's rating curve has to break over that gap
+ * rather than draw through it.
+ *
  * `ladder-3` is a forfeit with an incomplete bring, `ladder-5` has no result,
  * `ladder-6` is the same person under a different spelling and `ladder-7` is
  * somebody else, `series-1` is a complete Bo3 and `series-2` holds two of its
@@ -42,28 +46,36 @@ function row(overrides: Partial<StatsRow> & Pick<StatsRow, 'replay_id' | 'played
 }
 
 export const STATS_ROWS: StatsRow[] = [
-  row({ replay_id: 'ladder-1', played_at: '2026-08-01T10:00:00Z' }),
-  row({ replay_id: 'ladder-2', played_at: '2026-08-02T10:00:00Z', result: 'loss' }),
+  row({ replay_id: 'ladder-1', rating: 1500, played_at: '2026-08-01T10:00:00Z' }),
+  row({ replay_id: 'ladder-2', rating: 1518, played_at: '2026-08-02T10:00:00Z', result: 'loss' }),
   // The forfeit: four were picked, three ever appeared.
   row({
     replay_id: 'ladder-3',
+    rating: 1502,
     played_at: '2026-08-03T10:00:00Z',
     bring_signature: 'calyrexshadow|incineroar|urshifu',
     bring_complete: false,
   }),
   row({
     replay_id: 'ladder-4',
+    rating: 1520,
     played_at: '2026-08-04T10:00:00Z',
     team_signature: TEAM_B,
     bring_signature: BRING_B1,
   }),
   // No winner declared, so no outcome to count.
-  row({ replay_id: 'ladder-5', played_at: '2026-08-05T10:00:00Z', result: null }),
+  row({ replay_id: 'ladder-5', rating: 1538, played_at: '2026-08-05T10:00:00Z', result: null }),
   // Me, spelled the other way.
-  row({ replay_id: 'ladder-6', played_at: '2026-08-06T10:00:00Z', my_username: 'notlittlestar' }),
+  row({
+    replay_id: 'ladder-6',
+    rating: 1524,
+    played_at: '2026-08-06T10:00:00Z',
+    my_username: 'notlittlestar',
+  }),
   // Not me.
   row({
     replay_id: 'ladder-7',
+    rating: 1541,
     played_at: '2026-08-07T10:00:00Z',
     my_username: 'SomeAlt',
     result: 'loss',

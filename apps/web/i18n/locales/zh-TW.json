@@ -113,10 +113,13 @@
     "includeIncomplete": "含沒有完整選出的場次"
   },
   "summary": {
-    "title": "摘要",
     "games": "場數",
     "winRate": "勝率",
-    "strongest": "表現最好的隊"
+    "strongest": "表現最好的隊",
+    "streak": "目前連續",
+    "streakWins": "連勝，以每局計",
+    "streakLosses": "連敗，以每局計",
+    "streakNone": "最後一局是平手"
   },
   "teams": {
     "title": "隊伍表現",
@@ -140,5 +143,16 @@
     "emptyAction": "去匯入 replay",
     "ranking": "Wilson 下界 {score}% —— 排序依據",
     "whatIsThis": "這代表什麼"
+  },
+  "trend": {
+    "title": "勝率走向",
+    "window": "視窗",
+    "windowOf": "{count} 場的視窗",
+    "winRate": "勝率 · {count} 場視窗",
+    "rating": "天梯 Rating",
+    "noRating": "這些對戰都沒有天梯 Rating。Bo3 賽事不在天梯上打，沒有數字可畫。",
+    "descriptive": "這裡說的是發生了什麼，不是為什麼。",
+    "whatIsThis": "這張圖怎麼讀",
+    "gap": "橫軸是日曆，所以兩個月沒打就佔掉兩個月的寬度，勝率曲線會被拉平橫越那段空白，而不是把它藏起來。Rating 曲線則不會拉過去：它停在最後一場有 Rating 的對戰，到下一場有 Rating 的才續上 —— Bo3 賽事不在天梯上打，中間沒有數字。勝率曲線的每個點取的是到那天為止的場次，所以曲線最前面幾個點涵蓋的場數比視窗標示的少。"
   }
 }
