@@ -1,5 +1,5 @@
-import type { ProtocolLine } from './protocol'
-import { baseSpeciesId, speciesOfDetails, toID } from './species'
+import type { ProtocolLine } from './protocol.ts'
+import { baseSpeciesId, speciesOfDetails, toID } from './species.ts'
 
 /** The two sides of a battle. Perspective-neutral: neither of them is "me". */
 export type SideId = 'p1' | 'p2'

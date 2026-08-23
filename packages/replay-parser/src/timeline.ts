@@ -1,6 +1,6 @@
-import type { ProtocolLine } from './protocol'
-import type { SideId } from './replay'
-import { speciesOfDetails } from './species'
+import type { ProtocolLine } from './protocol.ts'
+import type { SideId } from './replay.ts'
+import { speciesOfDetails } from './species.ts'
 
 /**
  * A Pokémon as it appeared on the field at the moment of an event.

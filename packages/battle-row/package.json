@@ -1,0 +1,23 @@
+{
+  "name": "battle-row",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test:unit": "vp test",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "replay-parser": "workspace:*"
+  },
+  "devDependencies": {
+    "@tsconfig/node24": "catalog:",
+    "typescript": "~6.0.0",
+    "vite": "catalog:",
+    "vite-plus": "catalog:",
+    "vitest": "catalog:"
+  }
+}

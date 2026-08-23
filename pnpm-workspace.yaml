@@ -1,6 +1,10 @@
 packages:
   - 'apps/*'
   - 'packages/*'
+  # Local maintenance scripts. A workspace package so its dependencies -- the
+  # service_role client among them -- are declared where they are used and
+  # cannot reach the app's bundle.
+  - 'scripts'
 
 allowBuilds:
   esbuild: true

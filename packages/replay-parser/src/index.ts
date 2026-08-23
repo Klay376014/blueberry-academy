@@ -1,20 +1,26 @@
-import { tokenizeLog } from './protocol'
-import { replayLog } from './replay'
-import { summarize } from './summarize'
-import { buildTimeline } from './timeline'
+import { tokenizeLog } from './protocol.ts'
+import { replayLog } from './replay.ts'
+import { summarize } from './summarize.ts'
+import { buildTimeline } from './timeline.ts'
 
-export { PARSER_VERSION } from './version'
+export { PARSER_VERSION } from './version.ts'
 // Identity normalisation, exported because the app compares Showdown names
 // too: an alias list is only "the same me" if both sides normalise the same
 // way. See CONTEXT.md, "身分".
-export { toID } from './species'
-export type { ProtocolLine } from './protocol'
-export type { SideId } from './replay'
-export type { EndReason, ParsedBattle, ParsedSide, ReplayMeta } from './summarize'
-export type { Appearance, BattleTimeline, Combatant, TimelineEvent, TimelineTurn } from './timeline'
+export { toID } from './species.ts'
+export type { ProtocolLine } from './protocol.ts'
+export type { SideId } from './replay.ts'
+export type { EndReason, ParsedBattle, ParsedSide, ReplayMeta } from './summarize.ts'
+export type {
+  Appearance,
+  BattleTimeline,
+  Combatant,
+  TimelineEvent,
+  TimelineTurn,
+} from './timeline.ts'
 
-import type { ParsedBattle, ReplayMeta } from './summarize'
-import type { BattleTimeline } from './timeline'
+import type { ParsedBattle, ReplayMeta } from './summarize.ts'
+import type { BattleTimeline } from './timeline.ts'
 
 /**
  * Parses a Showdown replay log into a perspective-neutral `ParsedBattle`.

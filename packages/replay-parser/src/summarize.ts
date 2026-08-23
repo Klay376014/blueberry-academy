@@ -1,5 +1,5 @@
-import type { BattleState, RatingUpdate, SideId, SideState } from './replay'
-import { toID } from './species'
+import type { BattleState, RatingUpdate, SideId, SideState } from './replay.ts'
+import { toID } from './species.ts'
 
 /** What the caller already knows about a replay before it is parsed. */
 export interface ReplayMeta {

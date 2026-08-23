@@ -6,6 +6,9 @@
   "compilerOptions": {
     "module": "preserve",
     "moduleResolution": "bundler",
+    // Explicit .ts extensions so bare `node` can load the parser: scripts/reparse.ts
+    // runs under Node's own type stripping, which does no extension guessing.
+    "allowImportingTsExtensions": true,
     "resolveJsonModule": true,
     "types": [],
     "noEmit": true,

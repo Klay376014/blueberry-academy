@@ -24,6 +24,16 @@ git diff --cached --name-only --diff-filter=ACM | while IFS= read -r f; do
   esac
 
   case "$f" in
+  apps/web/*)
+    # The maintenance scripts are not deployed, and the app must not be the
+    # thing that drags them into a bundle.
+    if git show ":$f" | grep -nE "from '[^']*maintenance-scripts|from '[^']*\.\./scripts/" >/dev/null; then
+      echo "✖ $f: apps/web/ must not import from scripts/ — those are local maintenance scripts and are never deployed." >>"$violations"
+    fi
+    ;;
+  esac
+
+  case "$f" in
   packages/replay-parser/package.json)
     # Pure functions only: no I/O, no framework. devDependencies are fine.
     if git show ":$f" | jq -e '.dependencies // empty' >/dev/null 2>&1; then
