@@ -221,8 +221,9 @@ describe('one team in detail', () => {
   it('explains the games the brings do not account for', async () => {
     const page = await mountSuspended(TeamDetail)
 
-    // Five games for the team, four across its brings.
-    expect(page.find('[data-testid="team-games"]').text()).toBe('5')
+    // Four games for the team under the chosen name, three across its brings
+    // — ladder-7 is SomeAlt's, and the name is a required filter too.
+    expect(page.find('[data-testid="team-games"]').text()).toBe('4')
     expect(page.find('[data-testid="unfiled-slice"]').exists()).toBe(true)
     expect(page.find('[data-testid="unfiled-note"]').text()).toContain('1')
   })

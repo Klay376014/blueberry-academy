@@ -98,7 +98,6 @@
   "filters": {
     "title": "Filters",
     "identity": "Showdown name",
-    "anyIdentity": "All names",
     "format": "Format",
     "from": "From",
     "to": "To",

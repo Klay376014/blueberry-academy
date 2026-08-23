@@ -98,7 +98,6 @@
   "filters": {
     "title": "篩選器",
     "identity": "Showdown 名稱",
-    "anyIdentity": "全部名稱",
     "format": "賽制",
     "from": "起",
     "to": "訖",

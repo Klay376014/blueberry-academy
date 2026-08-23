@@ -12,6 +12,7 @@ const {
   teams,
   battles,
   formatOptions,
+  adoptFormat,
   identityOptions,
   serverFilterKey,
   loading,
@@ -27,6 +28,13 @@ if (user.value && !loaded.value) await load()
 
 // Only the filters the database applies; the rest are recomputed in place.
 watch(serverFilterKey, () => load())
+
+// The formats on offer are the ones the chosen name played, so moving the name
+// can leave the chosen format with nothing under it.
+watch(
+  () => useStatsFilters().value.identity,
+  () => adoptFormat(),
+)
 
 const strongest = computed(() => teams.value[0])
 </script>

@@ -115,6 +115,8 @@ export function useStats() {
       }
 
       rows.value = collected
+      // Name first: the formats on offer are the ones that name played.
+      adoptIdentity()
       adoptFormat()
     } catch (cause) {
       // Cleared, not left standing: numbers from the previous filter set,
@@ -126,22 +128,30 @@ export function useStats() {
     }
   }
 
+  /** The fetched rows under the chosen Showdown name, whatever the format. */
+  const nameRows = computed(() => {
+    const wanted = filters.value.identity ? toID(filters.value.identity) : null
+
+    return (rows.value ?? []).filter(
+      (row) => wanted === null || toID(row.my_username ?? '') === wanted,
+    )
+  })
+
   /**
-   * The fetched rows under the chosen format and Showdown name.
+   * The fetched rows under the chosen Showdown name and format.
    *
    * Empty until a format is chosen, which is a state the dashboard passes
    * through for one tick before `adoptFormat()` runs and never returns to.
+   *
+   * A null identity is left unfiltered rather than emptied: it survives only
+   * on an account whose battles carry no Showdown name at all, and there is
+   * then no second name for anything to be pooled with.
    */
   const battles = computed<StatsRow[]>(() => {
-    const { identity, formatId } = filters.value
-    const wanted = identity ? toID(identity) : null
-
+    const { formatId } = filters.value
     if (formatId === null) return []
 
-    return (rows.value ?? []).filter(
-      (row) =>
-        (wanted === null || toID(row.my_username ?? '') === wanted) && row.format_id === formatId,
-    )
+    return nameRows.value.filter((row) => row.format_id === formatId)
   })
 
   /**
@@ -149,15 +159,16 @@ export function useStats() {
    * rather than from a list of every format Showdown has, so the picker only
    * ever offers a format that would return something.
    *
-   * Ordered by count rather than alphabetically because the first entry is
-   * also the default: an account with two hundred ladder games and one
-   * Hackmons Cup should open on the two hundred.
+   * Scoped to the chosen name, so the two required pickers cannot be walked
+   * into a combination nobody played. Ordered by count rather than
+   * alphabetically because the first entry is also the default: an account
+   * with two hundred ladder games and one Hackmons Cup should open on the two
+   * hundred.
    */
   const formatOptions = computed(() => {
     const games = new Map<string, number>()
 
-    for (const row of rows.value ?? [])
-      games.set(row.format_id, (games.get(row.format_id) ?? 0) + 1)
+    for (const row of nameRows.value) games.set(row.format_id, (games.get(row.format_id) ?? 0) + 1)
 
     return [...games].toSorted((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).map(([id]) => id)
   })
@@ -187,17 +198,41 @@ export function useStats() {
     filters.value.formatId = options[0]!
   }
 
-  /** Likewise the Showdown names, in the spelling the replays carried. */
+  /**
+   * Likewise the Showdown names, most-played first and in the spelling the
+   * replays carried. One entry per `toID()`, so a rename in capitalisation is
+   * not a second person.
+   */
   const identityOptions = computed(() => {
-    const byId = new Map<string, string>()
+    const byId = new Map<string, { name: string; games: number }>()
 
     for (const row of rows.value ?? []) {
       const name = row.my_username
-      if (name && !byId.has(toID(name))) byId.set(toID(name), name)
+      if (!name) continue
+
+      const seen = byId.get(toID(name))
+      if (seen) seen.games += 1
+      else byId.set(toID(name), { name, games: 1 })
     }
 
     return [...byId.values()]
+      .toSorted((a, b) => b.games - a.games || a.name.localeCompare(b.name))
+      .map((entry) => entry.name)
   })
+
+  /**
+   * Settles the required Showdown name on the most-played one, unless the
+   * chosen one is still among the battles that came back.
+   */
+  function adoptIdentity(): void {
+    const options = identityOptions.value
+    if (!options.length) return
+
+    const chosen = filters.value.identity
+    if (chosen !== null && options.some((name) => toID(name) === toID(chosen))) return
+
+    filters.value.identity = options[0]!
+  }
 
   /**
    * What the pages watch to know a re-read is due. The other filters are
@@ -226,6 +261,7 @@ export function useStats() {
     formatOptions,
     adoptFormat,
     identityOptions,
+    adoptIdentity,
     serverFilterKey,
     loading,
     error,

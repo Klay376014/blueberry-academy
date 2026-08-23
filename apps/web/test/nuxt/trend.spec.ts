@@ -100,11 +100,13 @@ describe('the recent form section', () => {
   it('shows the totals and the run the last game leaves you on', async () => {
     const page = await mountSuspended(Dashboard)
 
-    // The ladder format, which the page opens on: six decided games of the
-    // seven, four of them won, and the last of them — ladder-7 — lost.
-    expect(page.get('[data-testid="summary-games"]').text()).toBe('6')
-    expect(page.get('[data-testid="summary-rate"]').text()).toBe('67%')
-    expect(page.get('[data-testid="summary-streak"]').text()).toBe('1')
+    // The page opens on the most-played name and its most-played format:
+    // NotLittleStar on the ladder. Five decided games — ladder-5 has no
+    // result and ladder-7 belongs to SomeAlt — four of them won, the last
+    // three in a row.
+    expect(page.get('[data-testid="summary-games"]').text()).toBe('5')
+    expect(page.get('[data-testid="summary-rate"]').text()).toBe('80%')
+    expect(page.get('[data-testid="summary-streak"]').text()).toBe('3')
   })
 
   it('offers the window sizes and says which one the curve is drawn at', async () => {

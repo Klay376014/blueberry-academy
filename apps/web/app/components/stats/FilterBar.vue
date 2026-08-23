@@ -17,13 +17,6 @@ const filters = useStatsFilters()
 
 const fieldId = useId()
 
-/**
- * The "everything" option carries a word rather than an empty string: an
- * empty-valued <option> reads as an unfilled placeholder to a screen reader,
- * and this one is a real choice.
- */
-const ANY = 'any'
-
 const AGGREGATES: Aggregate[] = ['game', 'series']
 
 function valueOf(event: Event): string {
@@ -31,8 +24,7 @@ function valueOf(event: Event): string {
 }
 
 function pickIdentity(event: Event) {
-  const value = valueOf(event)
-  filters.value.identity = value === ANY ? null : value
+  filters.value.identity = valueOf(event)
 }
 
 function pickFormat(event: Event) {
@@ -63,12 +55,11 @@ function toggleIncomplete(event: Event) {
       </label>
       <select
         :id="`${fieldId}-identity`"
-        :value="filters.identity ?? ANY"
+        :value="filters.identity ?? ''"
         class="h-9 rounded-md border border-input bg-background px-2 text-sm"
         data-testid="filter-identity"
         @change="pickIdentity"
       >
-        <option :value="ANY">{{ t('filters.anyIdentity') }}</option>
         <option v-for="name of identities" :key="name" :value="name">{{ name }}</option>
       </select>
     </div>
