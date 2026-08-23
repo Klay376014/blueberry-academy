@@ -42,14 +42,17 @@ const message = computed(() => {
 </script>
 
 <template>
+  <!-- Whose row this is, in colour rather than in words: the ink of the theme
+       against its accent, plus a wash of each so a row reads as one side's at a
+       glance rather than by looking at the rail. -->
   <div
-    class="hover:bg-muted/50 grid grid-cols-[14px_28px_1fr] items-center gap-2 rounded-sm border-l-2 py-0.5 pr-1.5 pl-2"
+    class="grid grid-cols-[14px_28px_1fr] items-center gap-2 rounded-sm border-l-2 py-0.5 pr-1.5 pl-2"
     :class="
       row.side === null
         ? 'border-l-transparent'
         : mine
-          ? 'border-l-primary'
-          : 'border-l-muted-foreground/60'
+          ? 'border-l-primary bg-primary/10'
+          : 'border-l-foreground bg-foreground/5'
     "
     data-testid="timeline-row"
   >

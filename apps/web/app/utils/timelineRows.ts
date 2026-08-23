@@ -271,9 +271,31 @@ export interface RowOptions {
   detailed: boolean
 }
 
+/**
+ * Whether this event is only how the next one was carried out.
+ *
+ * A Mega Evolution arrives as `detailschange` and then `-mega`, which is one
+ * thing happening: megaing is the event, changing forme is how it is done, and
+ * the mega row already carries the new forme's icon. Two rows would make the
+ * reader discount one of them.
+ */
+function isPlumbingFor(events: TimelineEvent[], index: number): boolean {
+  const event = events[index]
+  const next = events[index + 1]
+
+  return (
+    event?.kind === 'formeChange' &&
+    next?.kind === 'mega' &&
+    next.pokemon.position === event.pokemon.position
+  )
+}
+
 export function rowsOf(turn: TimelineTurn, { detailed }: RowOptions): TimelineRow[] {
   return turn.events
-    .filter((event) => detailed || MAIN_LINE.has(event.kind))
+    .filter(
+      (event, index) =>
+        (detailed || MAIN_LINE.has(event.kind)) && !isPlumbingFor(turn.events, index),
+    )
     .map(rowOf)
     .filter((row): row is TimelineRow => row !== null)
 }

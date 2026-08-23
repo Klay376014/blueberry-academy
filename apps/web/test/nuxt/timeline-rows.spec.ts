@@ -95,6 +95,31 @@ describe('the rows one turn becomes', () => {
     })
   })
 
+  it('does not say a Mega Evolution changed forme as well', () => {
+    // Showdown sends `detailschange` and then `-mega` for one thing happening.
+    // Megaing is the event; the forme change is how it is implemented, and the
+    // mega row already carries the new forme's icon.
+    const rows = rowsOf(
+      turnsOf([
+        '|detailschange|p1a: Scrafty|Scrafty-Mega, L50, F',
+        '|-mega|p1a: Scrafty|Scrafty|Scraftinite',
+      ])[1]!,
+      { detailed: true },
+    )
+
+    expect(rows.map((row) => row.message?.key)).toEqual(['megaEvolved'])
+    expect(rows[0]?.species).toBe('Scrafty-Mega')
+  })
+
+  it('keeps a forme change that no Mega Evolution follows', () => {
+    // Palafin, Zen Mode, Terapagos: the forme change is the event.
+    const rows = rowsOf(turnsOf(['|detailschange|p1a: Scrafty|Scrafty-Mega, L50, F'])[1]!, {
+      detailed: true,
+    })
+
+    expect(rows.map((row) => row.message?.key)).toEqual(['changedForme'])
+  })
+
   it('keeps the lead switches, which are what turn 0 is', () => {
     const lead = rowsOf(turnsOf([])[0]!, { detailed: false })
 

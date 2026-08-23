@@ -37,7 +37,7 @@ function label(side: SideId) {
     <div v-for="side of sides" :key="side" class="flex flex-wrap items-center gap-2">
       <span
         class="w-8 font-mono text-[9px] tracking-widest"
-        :class="side === mySide ? 'text-primary' : 'text-muted-foreground'"
+        :class="side === mySide ? 'text-primary' : 'text-foreground'"
       >
         {{ label(side) }}
       </span>
