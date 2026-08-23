@@ -78,6 +78,11 @@
   --chart-3: oklch(0.669 0.094 256);
   --chart-4: oklch(0.564 0.176 31.8);
   --chart-5: oklch(0.722 0.05 251.4);
+
+  /* The hexagon grid behind the reference art. Far enough back that the data
+     stays the loudest thing on screen — it should read as paper, not pattern. */
+  --texture: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='56' height='100'%3E%3Cg fill='none' stroke='%2323417e' stroke-opacity='0.055' stroke-width='1'%3E%3Cpath d='M28 66L0 50L0 16L28 0L56 16L56 50L28 66L28 100'/%3E%3Cpath d='M28 0L28 34L0 50M28 34L56 50'/%3E%3C/g%3E%3C/svg%3E");
+
   --sidebar: oklch(0.944 0.014 258.3);
   --sidebar-foreground: oklch(0.26 0.056 263);
   --sidebar-primary: oklch(0.387 0.109 262.7);
@@ -115,6 +120,23 @@
   --chart-3: oklch(0.519 0.101 243.7);
   --chart-4: oklch(0.655 0.169 38.3);
   --chart-5: oklch(0.711 0.057 246.1);
+
+  /* The faceted crystal of the title art, at viewport scale. */
+  --texture:
+    linear-gradient(
+      148deg,
+      color-mix(in oklab, var(--primary) 7%, transparent) 0 22%,
+      transparent 22% 46%,
+      color-mix(in oklab, var(--primary) 4.5%, transparent) 46% 63%,
+      transparent 63%
+    ),
+    linear-gradient(
+      28deg,
+      color-mix(in oklab, var(--foreground) 3%, transparent) 0 38%,
+      transparent 38% 70%,
+      color-mix(in oklab, var(--primary) 3.5%, transparent) 70%
+    );
+
   --sidebar: oklch(0.254 0.049 248.5);
   --sidebar-foreground: oklch(0.953 0.017 242.4);
   --sidebar-primary: oklch(0.688 0.13 235.9);
@@ -140,6 +162,12 @@
   }
   body {
     @apply bg-background text-foreground;
+
+    /* Fixed, so the ground stays put while the content moves over it. Both
+       palettes carry their own; see the --texture token. */
+    background-image: var(--texture);
+    background-attachment: fixed;
+    min-height: 100dvh;
   }
 
   /* Page shell, carried over from the create-vue main.css this file replaced. */
