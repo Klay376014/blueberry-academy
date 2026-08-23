@@ -25,13 +25,44 @@ const db = {
   extras: new Map<string, Record<string, unknown>>(),
   requests: [] as Filter[][],
   missing: false,
+  /** Whether the read of a battle's series siblings fails. */
+  failSeries: false,
 }
+
+/** A two-turn doubles log, for telling one game's timeline from another's. */
+const shortLog = [
+  '|gametype|doubles',
+  '|player|p1|Alice|benga|1444',
+  '|player|p2|Bob|gentleman|1534',
+  '|start',
+  '|switch|p1a: Scrafty|Scrafty, L50, F|100/100',
+  '|switch|p2a: Whimsicott|Whimsicott, L50, M|100/100',
+  '|turn|1',
+  '|move|p1a: Scrafty|Knock Off|p2a: Whimsicott',
+  '|-damage|p2a: Whimsicott|41/100',
+].join('\n')
+
+/** A Pokémon returning to the field poisoned, which only the HP field says. */
+const switchWithStatusLog = [
+  '|gametype|doubles',
+  '|player|p1|Alice|benga|1444',
+  '|player|p2|Bob|gentleman|1534',
+  '|start',
+  '|switch|p1a: Scrafty|Scrafty, L50, F|100/100',
+  '|switch|p2a: Whimsicott|Whimsicott, L50, M|100/100',
+  '|turn|1',
+  '|switch|p1a: Toxapex|Toxapex, L50, M|97/100 tox',
+].join('\n')
 
 const storage = {
   downloads: [] as string[],
   fail: false,
   /** The stored object, or null to answer with the real fixture. */
   object: null as Blob | null,
+  /** Per path, for the tests that need two games to answer differently. */
+  objects: new Map<string, Blob>(),
+  /** Paths whose download waits until `release` is called. */
+  held: new Map<string, () => void>(),
 }
 
 function extrasFor(replayId: string): Record<string, unknown> {
@@ -63,6 +94,8 @@ function answer(filters: Filter[]): Record<string, unknown>[] {
   }
 
   if (seriesId) {
+    if (db.failSeries) throw new Error('the series read failed')
+
     return db.rows
       .filter((row) => row.series_id === seriesId)
       .map((row) => ({ ...row, ...extrasFor(row.replay_id) }))
@@ -109,8 +142,8 @@ function builder() {
 }
 
 /** The replay JSON, gzipped the way the importer stored it. */
-async function storedLog(): Promise<Blob> {
-  const stream = new Response(JSON.stringify(ladder)).body!
+async function storedLog(replay: unknown = ladder): Promise<Blob> {
+  const stream = new Response(JSON.stringify(replay)).body!
   return await new Response(stream.pipeThrough(new CompressionStream('gzip'))).blob()
 }
 
@@ -190,6 +223,11 @@ async function mountDashboard() {
   return mounted
 }
 
+/** The battle the drawer has actually settled on. */
+function openedBattle(): { replayId: string } | null {
+  return useState<{ replayId: string } | null>('drawer-battle').value ?? null
+}
+
 async function settle() {
   await new Promise((resolve) => setTimeout(resolve, 0))
   await new Promise((resolve) => setTimeout(resolve, 0))
@@ -225,7 +263,14 @@ beforeEach(async () => {
           download: async (path: string) => {
             storage.downloads.push(path)
             if (storage.fail) return { data: null, error: new Error('Object not found') }
-            return { data: storage.object ?? (await storedLog()), error: null }
+
+            if (storage.held.has(path)) {
+              await new Promise<void>((resolve) => storage.held.set(path, resolve))
+            }
+
+            const object = storage.objects.get(path) ?? storage.object ?? (await storedLog())
+
+            return { data: object, error: null }
           },
         }),
       },
@@ -237,9 +282,12 @@ beforeEach(async () => {
   db.extras = new Map()
   db.requests = []
   db.missing = false
+  db.failSeries = false
   storage.downloads = []
   storage.fail = false
   storage.object = null
+  storage.objects = new Map()
+  storage.held = new Map()
 
   useStatsFilters().value = defaultStatsFilters()
   useState('stats-rows').value = null
@@ -249,6 +297,9 @@ beforeEach(async () => {
   useState('drawer-series').value = []
   useState('drawer-timeline').value = null
   useState('drawer-failure').value = null
+  // A test that ends mid-read leaves the battle it was reading behind, and the
+  // next read of the same battle would be taken for that one asking twice.
+  useState('drawer-reading').value = null
   useState('recent-battle-extras').value = new Map()
   goTo({})
 })
@@ -370,6 +421,94 @@ describe('the drawer', () => {
 
     await openDrawer('ladder-6')
     expect(drawer().querySelectorAll('[data-testid="series-game"]')).toHaveLength(0)
+  })
+
+  it('keeps the game the reader asked for last when two are opened at once', async () => {
+    // A Bo3 reader clicking Game 1 then Game 2: game 1's log arrives second and
+    // must not end up under game 2's header.
+    const short = { ...ladder, log: shortLog }
+    storage.objects.set('test-user/series-1-g1.json.gz', await storedLog(short))
+    storage.held.set('test-user/series-1-g1.json.gz', () => {})
+
+    goTo({ battle: 'series-1-g1' })
+    await mountDashboard()
+    await settle()
+
+    goTo({ battle: 'series-1-g3' })
+    await settle()
+
+    // Now let the superseded read finish.
+    storage.held.get('test-user/series-1-g1.json.gz')!()
+    await waitFor(
+      () => !useState('drawer-loading').value && useState('drawer-timeline').value !== null,
+      'the drawer to settle on game 3',
+    )
+    await settle()
+
+    expect(drawer().textContent).toContain('opponent-series-1-g3')
+    // The 15-turn fixture, not the two-turn log that arrived late.
+    expect(drawer().querySelectorAll('[data-testid="timeline-turn"]')).toHaveLength(16)
+  })
+
+  it('reads a battle once, however many things are watching the address', async () => {
+    // Both the list and the drawer use the composable; only one of them may
+    // turn the address into a read.
+    await openDrawer()
+
+    const reads = db.requests.filter((filters) =>
+      filters.some(
+        ([method, column, value]) =>
+          method === 'eq' && column === 'replay_id' && value === 'ladder-6',
+      ),
+    )
+
+    expect(reads).toHaveLength(1)
+  })
+
+  it('still shows the timeline when only the series switcher could not be read', async () => {
+    db.failSeries = true
+    await openDrawer('series-1-g2')
+
+    expect(drawer().querySelector('[data-testid="timeline-error"]')).toBeNull()
+    expect(drawer().querySelectorAll('[data-testid="timeline-turn"]').length).toBeGreaterThan(0)
+    expect(drawer().querySelectorAll('[data-testid="series-game"]')).toHaveLength(0)
+  })
+
+  it('shows the condition a Pokémon comes back on the field with', async () => {
+    // The `|switch|` HP field is the only line that says so, and "came in" on
+    // its own would drop it.
+    storage.object = await storedLog({ ...ladder, log: switchWithStatusLog })
+    await openDrawer()
+
+    // On the event row, not only in the turn's field bar: the row is where the
+    // reader is told, at the moment it happened.
+    const rows = [...drawer().querySelectorAll('[data-testid="timeline-row"]')]
+
+    expect(rows.some((row) => row.textContent?.includes('tox'))).toBe(true)
+  })
+
+  it('opens each game of a series with its own turns collapsed', async () => {
+    await openDrawer('series-1-g1')
+
+    const toggle = () => drawer().querySelector<HTMLElement>('[data-testid="turn-details"]')!
+
+    toggle().click()
+    await settle()
+    expect(toggle().getAttribute('aria-expanded')).toBe('true')
+
+    drawer().querySelectorAll<HTMLElement>('[data-testid="series-game"]')[2]!.click()
+    await waitFor(
+      () =>
+        openedBattle()?.replayId === 'series-1-g3' &&
+        useState('drawer-timeline').value !== null &&
+        drawer().querySelector('[data-testid="turn-details"]') !== null,
+      'game 3 to be drawn',
+    )
+    await settle()
+
+    // The turns of a different game, numbered the same: the switch that was
+    // opened belonged to game 1's turn, not to this one.
+    expect(toggle().getAttribute('aria-expanded')).toBe('false')
   })
 
   it('says the log could not be read rather than spinning for good', async () => {

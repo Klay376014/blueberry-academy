@@ -16,6 +16,13 @@ import { replayUrl } from '../../utils/replayLink'
 const drawer = useBattleDrawer()
 const { battle, series, snapshots, timeline, loading, failure, logError, openId } = drawer
 
+/**
+ * The one watcher on the address, here rather than in the composable: the list
+ * uses the same composable for `open()`, and a watcher per caller would read
+ * the battle, its series and its log once per caller.
+ */
+watch(openId, (replayId) => drawer.follow(replayId), { immediate: true })
+
 const { t, locale } = useI18n()
 
 /** In the reader's own locale, and out of the template: see `import.vue`. */
@@ -47,9 +54,14 @@ const RESULT_TONE = {
 
 <template>
   <Sheet :open="isOpen" @update:open="(next: boolean) => !next && closeDrawer()">
+    <!-- `[&>button:last-child]:hidden` hides the close button SheetContent
+         draws for itself, which sits absolutely positioned over the header's.
+         Hidden from here rather than deleted there: that file is the shadcn CLI's
+         output (ADR-0005), and the button kept is the one whose label is
+         translated. -->
     <SheetContent
       side="right"
-      class="w-full gap-0 p-0 sm:max-w-2xl"
+      class="w-full gap-0 p-0 sm:max-w-2xl [&>button:last-child]:hidden"
       data-testid="battle-drawer"
       @escape-key-down="closeDrawer"
     >
@@ -78,7 +90,7 @@ const RESULT_TONE = {
             </span>
             <a
               v-if="battle"
-              :href="`https://replay.pokemonshowdown.com/${battle.replayId}`"
+              :href="replayUrl(battle.replayId)"
               target="_blank"
               rel="noopener noreferrer"
               class="text-primary flex items-center gap-1 text-xs underline"
@@ -163,7 +175,7 @@ const RESULT_TONE = {
         <div v-else-if="timeline" class="flex flex-col">
           <BattleTurn
             v-for="(turn, index) of timeline.turns"
-            :key="turn.number"
+            :key="`${battle?.replayId}-${turn.number}`"
             :turn
             :snapshot="snapshotOf(index)"
             :my-side="battle?.mySide ?? null"

@@ -81,8 +81,11 @@ const message = computed(() => {
 
       <BattleHealthChange v-if="row.health" :health="row.health" />
 
+      <!-- Beside the message rather than instead of it: a Pokémon switching
+           back in carries both ("came in" and the `tox` it arrived with), and
+           the condition is the half the log only states here. -->
       <span
-        v-if="row.status && !row.message"
+        v-if="row.status"
         class="text-destructive border-destructive/50 rounded border px-1 font-mono text-[10px] uppercase"
       >
         {{ row.status }}

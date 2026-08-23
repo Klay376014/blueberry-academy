@@ -54,11 +54,10 @@ export default defineConfig({
         },
       },
       {
-        // The one outbound link in the app, and it is built rather than passed
-        // in: `replayUrl()` puts a replay id — matched against `REPLAY_ID`
-        // before it was ever stored — after a literal https origin, so there is
-        // no room in it for a scheme. The rule reports every dynamic `:href`
-        // and has no way to see that.
+        // The one outbound link in the app. Its href is built by `replayUrl()`,
+        // which puts a stored replay id after a literal https origin, so there
+        // is no room in it for a scheme of its own. The rule reports every
+        // dynamic `:href` and has no way to see that.
         files: ['apps/web/app/components/battle/BattleDrawer.vue'],
         rules: {
           'vize/vue/no-unsafe-url': 'off',

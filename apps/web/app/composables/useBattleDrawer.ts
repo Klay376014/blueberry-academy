@@ -78,6 +78,14 @@ export function useBattleDrawer() {
     void router.push({ query: rest })
   }
 
+  /**
+   * The battle currently being read. Two things need it: a second call for the
+   * same battle is somebody asking twice rather than work to do, and a call for
+   * a different one supersedes this one — a Bo3 reader clicking Game 1 then
+   * Game 2 must not end up with game 2's header over game 1's turns.
+   */
+  const reading = useState<string | null>('drawer-reading', () => null)
+
   async function rowsOf(column: 'replay_id' | 'series_id', value: string) {
     const userId = user.value?.id
     if (!userId) throw new Error('No signed-in user to read a battle for.')
@@ -99,13 +107,20 @@ export function useBattleDrawer() {
    * way this can fail is a state the drawer draws (design document §4).
    */
   async function load(replayId: string): Promise<void> {
+    if (reading.value === replayId) return
+
+    reading.value = replayId
     loading.value = true
     failure.value = null
     timeline.value = null
     series.value = []
 
+    /** Whether this call still owns the state, or a later one has taken over. */
+    const current = () => reading.value === replayId
+
     try {
       const [found] = await rowsOf('replay_id', replayId)
+      if (!current()) return
 
       if (!found) {
         battle.value = null
@@ -116,10 +131,22 @@ export function useBattleDrawer() {
       battle.value = found
 
       // A Bo3 drawer can move between the games of its own series, so they are
-      // read alongside it rather than when the reader reaches for them.
-      if (found.seriesId) series.value = await rowsOf('series_id', found.seriesId)
+      // read alongside it rather than when the reader reaches for them. Its own
+      // attempt: the switcher is a convenience, and losing it is no reason to
+      // withhold a timeline that reads perfectly well.
+      if (found.seriesId) {
+        try {
+          const games = await rowsOf('series_id', found.seriesId)
+          if (!current()) return
+
+          series.value = games
+        } catch {
+          series.value = []
+        }
+      }
 
       const log = await loadLog(replayId)
+      if (!current()) return
 
       if (log === null) {
         failure.value = 'log'
@@ -128,34 +155,43 @@ export function useBattleDrawer() {
 
       timeline.value = parseTimeline(log)
     } catch {
+      if (!current()) return
+
       battle.value = null
       failure.value = 'row'
     } finally {
-      loading.value = false
+      // Left to whichever call owns the state, so a superseded one does not
+      // report the newer one as finished.
+      if (current()) {
+        reading.value = null
+        loading.value = false
+      }
     }
   }
 
   /**
-   * Follows the address, which is the only place the open battle lives —
-   * including the first load, when the drawer may already be open.
+   * Everything the drawer shows about whatever the address says is open.
+   *
+   * Deliberately not a watcher in here: this is called by the list as well as
+   * by the drawer, and a watcher per call would read the battle, its series and
+   * its log once per caller. `BattleDrawer.vue` owns the one watcher.
    */
-  watch(
-    openId,
-    (replayId) => {
-      if (replayId === null) {
-        battle.value = null
-        timeline.value = null
-        series.value = []
-        failure.value = null
-        return
-      }
+  function follow(replayId: string | null): void {
+    if (replayId === null) {
+      reading.value = null
+      battle.value = null
+      timeline.value = null
+      series.value = []
+      failure.value = null
+      return
+    }
 
-      if (battle.value?.replayId !== replayId) void load(replayId)
-    },
-    { immediate: true },
-  )
+    if (battle.value?.replayId !== replayId) void load(replayId)
+  }
 
   return {
+    follow,
+    load,
     openId,
     battle,
     series,
