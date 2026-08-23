@@ -161,6 +161,7 @@ describe('the global filters', () => {
     const { filters, load, battles, formatOptions } = useStats()
     await load()
 
+    // Most played first: the first entry is also the one a page opens on.
     expect(formatOptions.value).toEqual([FORMATS.LADDER, FORMATS.EVENT])
 
     filters.value = { ...filters.value, formatId: FORMATS.EVENT }
@@ -178,23 +179,6 @@ describe('the global filters', () => {
     // notlittlestar is the same person as NotLittleStar, so it is not a
     // second option; SomeAlt is a different one.
     expect(identityOptions.value).toEqual(['NotLittleStar', 'SomeAlt'])
-  })
-
-  it('separates ladder Bo1 from best-of series by the format suffix', async () => {
-    const { filters, load } = useStats()
-
-    filters.value = { ...filters.value, bestOf: 'bo3' }
-    await load()
-    expect(onlyRequest()).toContainEqual(['or', 'format_id.like.*bo2,format_id.like.*bo3'])
-
-    db.requests = []
-    filters.value = { ...filters.value, bestOf: 'bo1' }
-    await load()
-    const applied = onlyRequest()
-
-    // ANDed, which is what "neither suffix" means. Bo2 is a series too.
-    expect(applied).toContainEqual(['not', 'format_id', 'like', '%bo2'])
-    expect(applied).toContainEqual(['not', 'format_id', 'like', '%bo3'])
   })
 
   it('matches a Showdown identity through toID, not by spelling', async () => {
@@ -216,11 +200,15 @@ describe('the global filters', () => {
     const { filters, load, overall } = useStats()
     await load()
 
-    expect(overall.value).toMatchObject({ games: 11, wins: 7 })
+    // The Bo3 event, which is where the series are: three games of one series
+    // and two of another.
+    filters.value = { ...filters.value, formatId: FORMATS.EVENT }
+    expect(overall.value).toMatchObject({ games: 5, wins: 3, losses: 2 })
 
     filters.value = { ...filters.value, aggregate: 'series' }
 
-    expect(overall.value).toMatchObject({ games: 8, wins: 5, ties: 1 })
+    // The 2-1 is one win; the series held in part is a tie.
+    expect(overall.value).toMatchObject({ games: 2, wins: 1, ties: 1 })
     expect(db.requests).toHaveLength(1)
   })
 

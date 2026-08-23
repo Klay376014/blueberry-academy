@@ -25,75 +25,75 @@ update public.profiles set showdown_usernames = array['NotLittleStar']
 -- The fixture. Team A is the six that appears throughout; team B is the other.
 insert into public.battles (
   user_id, replay_id, played_at, format_id, series_id,
-  my_side, my_username, opponent_username, result,
+  my_side, my_username, opponent_username, result, rating,
   team_signature, bring_signature, bring_complete
 ) values
   -- Ladder Bo1.
   ('11111111-1111-1111-1111-111111111111', 'ladder-1', '2026-08-01T10:00:00Z', 'gen9championsvgc2026regmb', null,
-   'p1', 'NotLittleStar', 'Rival', 'win',
+   'p1', 'NotLittleStar', 'Rival', 'win', 1500,
    'calyrexshadow|incineroar|ironhands|ragingbolt|rillaboom|urshifu',
    'calyrexshadow|incineroar|ironhands|urshifu', true),
   ('11111111-1111-1111-1111-111111111111', 'ladder-2', '2026-08-02T10:00:00Z', 'gen9championsvgc2026regmb', null,
-   'p1', 'NotLittleStar', 'Rival', 'loss',
+   'p1', 'NotLittleStar', 'Rival', 'loss', 1518,
    'calyrexshadow|incineroar|ironhands|ragingbolt|rillaboom|urshifu',
    'calyrexshadow|incineroar|ironhands|urshifu', true),
   -- Forfeited on turn four: four were picked, three ever appeared.
   ('11111111-1111-1111-1111-111111111111', 'ladder-3', '2026-08-03T10:00:00Z', 'gen9championsvgc2026regmb', null,
-   'p1', 'NotLittleStar', 'Rival', 'win',
+   'p1', 'NotLittleStar', 'Rival', 'win', 1502,
    'calyrexshadow|incineroar|ironhands|ragingbolt|rillaboom|urshifu',
    'calyrexshadow|incineroar|urshifu', false),
   ('11111111-1111-1111-1111-111111111111', 'ladder-4', '2026-08-04T10:00:00Z', 'gen9championsvgc2026regmb', null,
-   'p1', 'NotLittleStar', 'Rival', 'win',
+   'p1', 'NotLittleStar', 'Rival', 'win', 1520,
    'amoonguss|chiyu|farigiraf|kingambit|miraidon|ogerpon',
    'chiyu|farigiraf|miraidon|ogerpon', true),
   -- The log declared no winner.
   ('11111111-1111-1111-1111-111111111111', 'ladder-5', '2026-08-05T10:00:00Z', 'gen9championsvgc2026regmb', null,
-   'p1', 'NotLittleStar', 'Rival', null,
+   'p1', 'NotLittleStar', 'Rival', null, 1538,
    'calyrexshadow|incineroar|ironhands|ragingbolt|rillaboom|urshifu',
    'calyrexshadow|incineroar|ironhands|urshifu', true),
   -- Me, spelled the other way.
   ('11111111-1111-1111-1111-111111111111', 'ladder-6', '2026-08-06T10:00:00Z', 'gen9championsvgc2026regmb', null,
-   'p1', 'notlittlestar', 'Rival', 'win',
+   'p1', 'notlittlestar', 'Rival', 'win', 1524,
    'calyrexshadow|incineroar|ironhands|ragingbolt|rillaboom|urshifu',
    'calyrexshadow|incineroar|ironhands|urshifu', true),
   -- Not me: a name that is not on the profile at all.
   ('11111111-1111-1111-1111-111111111111', 'ladder-7', '2026-08-07T10:00:00Z', 'gen9championsvgc2026regmb', null,
-   'p1', 'SomeAlt', 'Rival', 'loss',
+   'p1', 'SomeAlt', 'Rival', 'loss', 1541,
    'calyrexshadow|incineroar|ironhands|ragingbolt|rillaboom|urshifu',
    'calyrexshadow|incineroar|ironhands|urshifu', true),
 
   -- A Bo3 taken 2-1.
   ('11111111-1111-1111-1111-111111111111', 'series-1-g1', '2026-08-08T10:00:00Z', 'gen9championsvgc2026regmbbo3', 'series-1',
-   'p1', 'NotLittleStar', 'Rival', 'win',
+   'p1', 'NotLittleStar', 'Rival', 'win', null,
    'calyrexshadow|incineroar|ironhands|ragingbolt|rillaboom|urshifu',
    'calyrexshadow|ragingbolt|rillaboom|urshifu', true),
   ('11111111-1111-1111-1111-111111111111', 'series-1-g2', '2026-08-08T10:30:00Z', 'gen9championsvgc2026regmbbo3', 'series-1',
-   'p1', 'NotLittleStar', 'Rival', 'loss',
+   'p1', 'NotLittleStar', 'Rival', 'loss', null,
    'calyrexshadow|incineroar|ironhands|ragingbolt|rillaboom|urshifu',
    'incineroar|ironhands|ragingbolt|rillaboom', true),
   ('11111111-1111-1111-1111-111111111111', 'series-1-g3', '2026-08-08T11:00:00Z', 'gen9championsvgc2026regmbbo3', 'series-1',
-   'p1', 'NotLittleStar', 'Rival', 'win',
+   'p1', 'NotLittleStar', 'Rival', 'win', null,
    'calyrexshadow|incineroar|ironhands|ragingbolt|rillaboom|urshifu',
    'calyrexshadow|ragingbolt|rillaboom|urshifu', true),
 
   -- A Bo3 with only two of its games imported: 1-1 of what is held.
   ('11111111-1111-1111-1111-111111111111', 'series-2-g1', '2026-08-09T10:00:00Z', 'gen9championsvgc2026regmbbo3', 'series-2',
-   'p1', 'NotLittleStar', 'Rival', 'win',
+   'p1', 'NotLittleStar', 'Rival', 'win', null,
    'amoonguss|chiyu|farigiraf|kingambit|miraidon|ogerpon',
    'amoonguss|kingambit|miraidon|ogerpon', true),
   ('11111111-1111-1111-1111-111111111111', 'series-2-g2', '2026-08-09T10:30:00Z', 'gen9championsvgc2026regmbbo3', 'series-2',
-   'p1', 'NotLittleStar', 'Rival', 'loss',
+   'p1', 'NotLittleStar', 'Rival', 'loss', null,
    'amoonguss|chiyu|farigiraf|kingambit|miraidon|ogerpon',
    'amoonguss|kingambit|miraidon|ogerpon', true),
 
   -- Spectated: neither player is this user, so there is no side, no result and
   -- nothing to count.
   ('11111111-1111-1111-1111-111111111111', 'spectated-1', '2026-08-10T10:00:00Z', 'gen9championsvgc2026regmb', null,
-   null, null, null, null, null, null, false),
+   null, null, null, null, null, null, null, false),
 
   -- Somebody else's battle, which this user's read must never reach.
   ('22222222-2222-2222-2222-222222222222', 'theirs-1', '2026-08-11T10:00:00Z', 'gen9championsvgc2026regmb', null,
-   'p1', 'SomeoneElse', 'Rival', 'win',
+   'p1', 'SomeoneElse', 'Rival', 'win', null,
    'amoonguss|chiyu|farigiraf|kingambit|miraidon|ogerpon',
    'chiyu|farigiraf|miraidon|ogerpon', true);
 

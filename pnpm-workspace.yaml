@@ -4,6 +4,9 @@ packages:
 
 allowBuilds:
   esbuild: true
+  # Pulled in by @unovis/ts for its map components, which this app does not
+  # use. Its build script only matters to those, so it stays unrun.
+  maplibre-gl: false
   vue-demi: true
 
 catalog:
