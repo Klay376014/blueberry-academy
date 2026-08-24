@@ -1,0 +1,85 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  node:
+    name: check, type-check, test, build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      # This action reads the `packageManager` field, which this repo does not
+      # set — it pins devEngines.packageManager instead. The version therefore
+      # lives in two places and they must move together.
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.22.0
+
+      - uses: actions/setup-node@v4
+        with:
+          # Has to satisfy engines.node — `^22.18.0 || >=24.12.0`.
+          node-version: 24
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # Not redundant: `vp check` type-checks with tsgolint, which cannot read
+      # Vue SFCs, so vue-tsc is the type gate and the two see different files.
+      - run: pnpm check
+      - run: pnpm type-check
+
+      - run: pnpm test:unit
+      - run: pnpm build
+
+  conventions:
+    name: AGENTS.md 實作守則
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          # The script diffs two revisions and reads content out of one of them.
+          fetch-depth: 0
+
+      - id: range
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = pull_request ]; then
+            base="$PR_BASE_SHA"
+          else
+            # All-zeros on a branch's first push and after some force-pushes.
+            base="$PUSH_BEFORE_SHA"
+            git cat-file -e "$base^{commit}" 2>/dev/null || base=$(git rev-parse HEAD^)
+          fi
+          echo "base=$base" >>"$GITHUB_OUTPUT"
+        env:
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PUSH_BEFORE_SHA: ${{ github.event.before }}
+
+      # GITHUB_SHA on a pull request is the merge commit, so the content checked
+      # is what would land rather than what the branch holds in isolation.
+      - run: sh scripts/check-conventions.sh "${{ steps.range.outputs.base }}" "$GITHUB_SHA"
+
+  database:
+    name: pgTAP
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      # supabase/.env is absent here, which is fine: without the Google
+      # credentials the stack still starts and no test signs in through Google.
+      - run: supabase start
+
+      # What `pnpm db:test` runs. Called directly to keep the node toolchain out
+      # of a job that only needs Postgres.
+      - run: supabase test db
