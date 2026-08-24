@@ -154,10 +154,11 @@ the other one with `supabase stop --project-id <its-id>` first. Stopping keeps
 its data in a Docker volume.
 
 `supabase/tests/` is where the schema's guarantees are checked. `schema.test.sql`
-covers the columns and indexes design document §5 asks for, and that `authenticated`
-and `service_role` hold the table privileges RLS then filters — a grant is the
-door, a policy only decides which rows are behind it, and the data floor
-originally stated the second half only; `behaviour.test.sql`
+covers the columns and indexes design document §5 asks for, that `authenticated`
+and `service_role` hold the table privileges RLS then filters, and that `anon`
+holds none — a grant is the door, a policy only decides which rows are behind
+it, the data floor originally stated the second half only, and a hosted project
+opens the door by default unless a migration closes it; `behaviour.test.sql`
 covers what `regulation` derives, what the unique key refuses, and — as two
 actual users under RLS — that neither can read, write or delete anything of the
 other's, in the database or in the `replay-logs` bucket. `stats.test.sql` seeds
@@ -244,8 +245,8 @@ To sign in locally you need Google OAuth credentials of your own:
 3. Copy `apps/web/.env.example` to `apps/web/.env` and fill in the anon key that
    `pnpm db:start` printed.
 
-For the hosted project the same two values go in Supabase's Auth settings, with
-the redirect URI pointing at that project instead.
+The hosted project takes the same pair with its own redirect URI; the two sets
+of values and where each lives are in [Hosted project](#hosted-project).
 
 If the last hop of the round trip lands on a refused connection, check what the
 dev server is actually bound to:
@@ -259,6 +260,67 @@ to whichever of `localhost` / `127.0.0.1` you started on — and a dev server
 bound to `[::1]` only serves the first of those. `nuxt.config.ts` pins the host
 to `127.0.0.1` so that both names reach it; that line is load-bearing for the
 OAuth flow, not a preference.
+
+## Hosted project
+
+`scripts/setup-hosted-supabase.sh` stands one up, from nothing to a project two
+accounts have proved they cannot read each other on.
+
+```sh
+bash scripts/setup-hosted-supabase.sh
+```
+
+Eight stages: it creates the project, links it, pushes `supabase/migrations/`,
+checks the schema, the bucket and the grants against the live API, walks you
+through the redirect URI at Google, pushes the Auth settings, and then stands
+beside the two things only real accounts can prove — that the `profiles` trigger
+fired, and that neither account can reach the other's battles or raw log. You
+drive the browser where a browser is unavoidable; it does the rest.
+
+Re-running it is safe. A project it already created is skipped — the ref is in
+`.env.hosted` — and `link` and `db push` have nothing to add on a project that
+is already current. The values it captures go where the rest of the tooling
+reads them: `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` into `.env.hosted` at
+the repo root, `NUXT_PUBLIC_SUPABASE_URL` and `NUXT_PUBLIC_SUPABASE_ANON_KEY`
+into `apps/web/.env.hosted`.
+
+One thing a clone cannot inherit: the Google OAuth client. Its secret is not in
+the repo, so anyone standing up their own project brings their own pair — see
+[Authentication](#authentication) — and adds that project's callback URI to it.
+
+Both halves go up as files rather than as clicks: `supabase db push` carries
+`supabase/migrations/` — schema, RLS policies and the `replay-logs` bucket —
+and `supabase config push` carries `supabase/config.toml`'s `[auth]`, so the
+Google provider and `enable_signup = false` are the same statement the local
+stack reads. Studio is where you look at the result, not where it was decided.
+
+Two sets of values, and mixing them is the failure mode to expect:
+
+| value                                                        | local                                           | hosted                                              |
+| ------------------------------------------------------------ | ----------------------------------------------- | --------------------------------------------------- |
+| `NUXT_PUBLIC_SUPABASE_URL`, `NUXT_PUBLIC_SUPABASE_ANON_KEY`  | `apps/web/.env`, printed by `pnpm db:start`     | `apps/web/.env.hosted`, written by the wizard       |
+| `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` (`pnpm reparse`) | `supabase status -o env`                        | `.env.hosted` at the repo root                      |
+| Google client id and secret                                  | `supabase/.env`, which the CLI loads on its own | the same pair — one OAuth client, two redirect URIs |
+| Google redirect URI                                          | `http://127.0.0.1:54321/auth/v1/callback`       | `https://<ref>.supabase.co/auth/v1/callback`        |
+
+The anon (or publishable) key is meant to be in the browser: the table grants
+and RLS are the defence, not the key's secrecy. The **service_role key bypasses
+RLS**, so it stays in `.env.hosted` and your shell — never in `apps/web/`, never
+in a committed file. `.gitignore` covers `.env` and `.env.*` with
+`.env.example` as the one exception, and `scripts/check-conventions.sh` fails a
+commit that puts a service_role key into the app.
+
+To point the local dev server at the hosted project without disturbing
+`apps/web/.env`:
+
+```sh
+cd apps/web && pnpm exec nuxt dev --dotenv .env.hosted
+```
+
+`redirectTo` is built from `window.location.origin`, so whichever origin you
+browse from has to be in the hosted project's allowlist — `config.toml`'s
+`site_url` and `additional_redirect_urls`, pushed with `supabase config push`.
+Until the site has a deployed origin of its own, that list is localhost only.
 
 ## UI and i18n
 
