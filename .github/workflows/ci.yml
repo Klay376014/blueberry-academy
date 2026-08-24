@@ -1,0 +1,108 @@
+# Everything that used to run only on somebody's laptop. `.vite-hooks/pre-commit`
+# and `pre-push` still run first and still catch most of this earlier, but both
+# are skippable and neither sees another contributor's machine, so the gate that
+# decides whether a change may land lives here.
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# A second push supersedes the run it interrupts; there is nothing to learn from
+# finishing a check on a commit that is no longer the tip.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  node:
+    name: check, type-check, test, build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      # pnpm's version is pinned in devEngines.packageManager, which this action
+      # does not read — it reads the `packageManager` field, which this repo
+      # deliberately does not set. So the version lives in two places and they
+      # must move together. Installing it here rather than through Corepack is
+      # also what keeps the version error the README warns about out of CI:
+      # Corepack does not switch versions on its own.
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.22.0
+
+      - uses: actions/setup-node@v4
+        with:
+          # Has to satisfy engines.node — `^22.18.0 || >=24.12.0`.
+          node-version: 24
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # `vp check` is format + lint (oxlint with the vize template rules) +
+      # tsgolint. It is not the type gate: tsgolint cannot read Vue SFCs, so
+      # `type-check` (nuxt typecheck / vue-tsc) is a separate, non-redundant step.
+      - run: pnpm check
+      - run: pnpm type-check
+
+      # -r: the whole workspace. `vp staged` only ever sees one commit's staged
+      # files, so a change that breaks another package lands green locally.
+      - run: pnpm test:unit
+
+      # The build is a check of its own — the Nuxt build is where a Vue template
+      # error that no test imports finally surfaces.
+      - run: pnpm build
+
+  conventions:
+    name: AGENTS.md 實作守則
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          # The script diffs two revisions and reads file content out of one of
+          # them, so it needs real history rather than a single commit.
+          fetch-depth: 0
+
+      - id: range
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = pull_request ]; then
+            base="$PR_BASE_SHA"
+          else
+            # `before` is all-zeros on a branch's first push and after some
+            # force-pushes; the previous commit is the honest fallback.
+            base="$PUSH_BEFORE_SHA"
+            git cat-file -e "$base^{commit}" 2>/dev/null || base=$(git rev-parse HEAD^)
+          fi
+          echo "base=$base" >>"$GITHUB_OUTPUT"
+        env:
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PUSH_BEFORE_SHA: ${{ github.event.before }}
+
+      # Content is read at GITHUB_SHA, which on a pull request is the merge
+      # commit — what would actually land, not what the branch holds in
+      # isolation. The rules being enforced (no service_role in apps/web/, no
+      # app import of scripts/) are ones a `--no-verify` must not be able to
+      # smuggle past.
+      - run: sh scripts/check-conventions.sh "${{ steps.range.outputs.base }}" "$GITHUB_SHA"
+
+  database:
+    name: pgTAP
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      # `supabase start` applies every migration from zero, so the schema under
+      # test is the one supabase/migrations/ describes. supabase/.env is absent
+      # here and that is fine: without the Google credentials the stack still
+      # starts, only the OAuth button would fail, and no test signs in through
+      # Google.
+      - run: supabase start
+
+      # `pnpm db:test` is this command; calling the CLI directly keeps the node
+      # toolchain and a whole pnpm install out of a job that only needs Postgres.
+      - run: supabase test db

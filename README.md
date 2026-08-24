@@ -103,6 +103,38 @@ Two things that bite:
   `corepack install -g pnpm@<version>` aligns it. The shadcn-vue CLI shells out
   to `corepack pnpm add` internally and fails the same way.
 
+## CI
+
+`.github/workflows/ci.yml` runs on every pull request and on every push to
+`main`, in three jobs:
+
+- **`check, type-check, test, build`** — `pnpm check`, `pnpm type-check`,
+  `pnpm test:unit` and `pnpm build`, the same four commands as above. pnpm's
+  version is pinned in the workflow as well as in `devEngines.packageManager`:
+  `pnpm/action-setup` reads the `packageManager` field, which this repo does not
+  set, so the two have to move together.
+- **`AGENTS.md 實作守則`** — `scripts/check-conventions.sh` over the pull
+  request's diff.
+- **`pgTAP`** — `supabase start` and then `supabase test db`, which is what
+  `pnpm db:test` runs. `supabase/.env` is not present in CI and does not need to
+  be: without the Google credentials the stack still starts, and no test signs in.
+
+The hooks in `.vite-hooks/` still run first and still catch most of this before a
+push. What CI adds is the part that cannot rest on self-discipline: hooks are
+skippable with `--no-verify` and only ever see the machine they run on.
+
+`check-conventions.sh` has two entry points for that reason:
+
+```sh
+sh scripts/check-conventions.sh                 # the staged content, from the pre-commit hook
+sh scripts/check-conventions.sh <base> <head>   # what <head> adds since it left <base>, from CI
+```
+
+The rule bodies are shared; the modes differ only in which files are listed and
+which revision their content is read from. In CI that revision is the pull
+request's merge commit — what would actually land, rather than what the branch
+holds in isolation.
+
 ## Database
 
 The schema lives in `supabase/migrations/` at the repo root, not under
