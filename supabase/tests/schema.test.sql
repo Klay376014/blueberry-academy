@@ -8,7 +8,7 @@ begin;
 
 create extension if not exists pgtap;
 
-select plan(35);
+select plan(37);
 
 -- profiles ------------------------------------------------------------------
 
@@ -201,6 +201,26 @@ select ok(
     and has_table_privilege('authenticated', 'public.profiles', 'update')
     and has_table_privilege('authenticated', 'public.profiles', 'delete'),
   'authenticated may reach profiles, which profiles_own then filters by row'
+);
+
+-- Asserted as an absence, unlike the two above: on a hosted project the Data
+-- API roles are given the default privileges on new tables in `public`, so anon
+-- holding nothing is a thing a migration has to say. See
+-- 20260824174500_close_the_door_on_anon.sql.
+
+select ok(
+  not has_table_privilege('anon', 'public.battles', 'select')
+    and not has_table_privilege('anon', 'public.battles', 'insert')
+    and not has_table_privilege('anon', 'public.battles', 'update')
+    and not has_table_privilege('anon', 'public.battles', 'delete'),
+  'anon may not reach battles at all, policy or no policy'
+);
+select ok(
+  not has_table_privilege('anon', 'public.profiles', 'select')
+    and not has_table_privilege('anon', 'public.profiles', 'insert')
+    and not has_table_privilege('anon', 'public.profiles', 'update')
+    and not has_table_privilege('anon', 'public.profiles', 'delete'),
+  'anon may not reach profiles at all, policy or no policy'
 );
 
 -- Bypassing RLS is not the same as holding a privilege, and a re-parse writes
