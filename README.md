@@ -154,7 +154,10 @@ the other one with `supabase stop --project-id <its-id>` first. Stopping keeps
 its data in a Docker volume.
 
 `supabase/tests/` is where the schema's guarantees are checked. `schema.test.sql`
-covers the columns and indexes design document §5 asks for; `behaviour.test.sql`
+covers the columns and indexes design document §5 asks for, and that `authenticated`
+and `service_role` hold the table privileges RLS then filters — a grant is the
+door, a policy only decides which rows are behind it, and the data floor
+originally stated the second half only; `behaviour.test.sql`
 covers what `regulation` derives, what the unique key refuses, and — as two
 actual users under RLS — that neither can read, write or delete anything of the
 other's, in the database or in the `replay-logs` bucket. `stats.test.sql` seeds

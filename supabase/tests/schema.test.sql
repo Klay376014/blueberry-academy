@@ -8,7 +8,7 @@ begin;
 
 create extension if not exists pgtap;
 
-select plan(32);
+select plan(35);
 
 -- profiles ------------------------------------------------------------------
 
@@ -180,6 +180,38 @@ select bag_eq(
       and policyname like 'replay_logs%'$$,
   $$values ('ALL')$$,
   'every operation on a raw log is gated by the same path rule'
+);
+
+-- Privileges ----------------------------------------------------------------
+
+-- RLS decides which rows a role sees; a grant decides whether it may reach the
+-- table at all. The data floor stated only the first half and left the second
+-- to the image's default privileges, which a current image does not give -- see
+-- 20260824073500_grants_on_the_data_floor.sql. Asserted as "may", not as an
+-- exact privilege set: what a role holds *beyond* this is the image's business,
+-- and pinning the whole ACL here would fail on whichever image disagrees.
+
+select ok(
+  has_table_privilege('authenticated', 'public.battles', 'select')
+    and has_table_privilege('authenticated', 'public.battles', 'insert')
+    and has_table_privilege('authenticated', 'public.battles', 'update')
+    and has_table_privilege('authenticated', 'public.battles', 'delete'),
+  'authenticated may reach battles, which battles_own then filters by row'
+);
+select ok(
+  has_table_privilege('authenticated', 'public.profiles', 'select')
+    and has_table_privilege('authenticated', 'public.profiles', 'insert')
+    and has_table_privilege('authenticated', 'public.profiles', 'update')
+    and has_table_privilege('authenticated', 'public.profiles', 'delete'),
+  'authenticated may reach profiles, which profiles_own then filters by row'
+);
+
+-- Bypassing RLS is not the same as holding a privilege, and `pnpm reparse`
+-- rewrites every row through this role.
+select ok(
+  has_table_privilege('service_role', 'public.battles', 'select')
+    and has_table_privilege('service_role', 'public.battles', 'update'),
+  'service_role may read and rewrite battles, which is what a re-parse does'
 );
 
 select * from finish();
