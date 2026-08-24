@@ -1,22 +1,19 @@
 #!/usr/bin/env sh
-# The AGENTS.md 實作守則. One set of rules, two entry points:
+# The AGENTS.md 實作守則, in two modes:
 #
 #   check-conventions.sh                 the staged content (.vite-hooks/pre-commit)
 #   check-conventions.sh <base> <head>   what <head> adds since it left <base> (CI)
 #
-# The hook is the one place that sees every local edit regardless of whether a
-# human, an editor, or an agent's shell made it — but `--no-verify` skips it, and
-# the rules below are the kind that must not depend on self-discipline, so CI
-# runs the same script over the pull request's diff. The two modes differ only in
-# which files are listed and which revision their content is read from; every
-# rule body is shared. .claude/hooks/guard-conventions.sh applies the same rules
-# earlier still, to Claude's Edit/Write calls only.
+# CI runs it too because `--no-verify` skips the hook, and a leaked service_role
+# key is not an outcome to leave to self-discipline. Only the file list and the
+# revision content is read from differ; the rules below are shared.
+# .claude/hooks/guard-conventions.sh applies them earlier, to Claude's
+# Edit/Write calls only.
 set -eu
 
 case $# in
 0)
-  # Empty rev means `git show ":$f"`, which reads the index — the staged content,
-  # which is not necessarily what is on disk.
+  # Empty rev means `git show ":$f"` — the index, not what is on disk.
   rev=''
   hint='Fix the above, or commit with --no-verify if you are certain.'
   changed_files() { git diff --cached --name-only --diff-filter=ACM; }
@@ -26,9 +23,7 @@ case $# in
   head=$2
   rev=$head
   hint='Fix the above and push again.'
-  # Three dots, not two: what this branch changed since it forked, not
-  # everything that has happened on the base branch in the meantime. Somebody
-  # else's merge is not this pull request's diff.
+  # Three dots, not two: somebody else's merge is not this branch's diff.
   changed_files() { git diff --name-only --diff-filter=ACM "$base...$head"; }
   ;;
 *)

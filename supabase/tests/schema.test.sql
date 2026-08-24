@@ -184,12 +184,9 @@ select bag_eq(
 
 -- Privileges ----------------------------------------------------------------
 
--- RLS decides which rows a role sees; a grant decides whether it may reach the
--- table at all. The data floor stated only the first half and left the second
--- to the image's default privileges, which a current image does not give -- see
--- 20260824073500_grants_on_the_data_floor.sql. Asserted as "may", not as an
--- exact privilege set: what a role holds *beyond* this is the image's business,
--- and pinning the whole ACL here would fail on whichever image disagrees.
+-- Asserted as "may", not as an exact privilege set: what a role holds beyond
+-- these verbs is the image's business, and pinning the whole ACL here would fail
+-- on whichever image disagrees. See 20260824073500_grants_on_the_data_floor.sql.
 
 select ok(
   has_table_privilege('authenticated', 'public.battles', 'select')
@@ -206,8 +203,8 @@ select ok(
   'authenticated may reach profiles, which profiles_own then filters by row'
 );
 
--- Bypassing RLS is not the same as holding a privilege, and `pnpm reparse`
--- rewrites every row through this role.
+-- Bypassing RLS is not the same as holding a privilege, and a re-parse writes
+-- every row through this role.
 select ok(
   has_table_privilege('service_role', 'public.battles', 'select')
     and has_table_privilege('service_role', 'public.battles', 'update'),
