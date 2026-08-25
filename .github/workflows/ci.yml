@@ -7,7 +7,11 @@ on:
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  # Not on main: the run that lands there ends in a deploy, and cancelling that
+  # mid-upload leaves the site halfway between two versions. Superseding a
+  # branch's checks is free; superseding an upload is not. The deploy job's own
+  # group is what then keeps two main runs from uploading at once.
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
   node:
@@ -18,7 +22,8 @@ jobs:
 
       # This action reads the `packageManager` field, which this repo does not
       # set — it pins devEngines.packageManager instead. The version therefore
-      # lives in two places and they must move together.
+      # lives in devEngines and in each setup step here, and they must move
+      # together.
       - uses: pnpm/action-setup@v4
         with:
           version: 11.22.0
@@ -83,3 +88,38 @@ jobs:
       # What `pnpm db:test` runs. Called directly to keep the node toolchain out
       # of a job that only needs Postgres.
       - run: supabase test db
+
+  deploy:
+    name: deploy to Cloudflare
+    needs: [node, conventions, database]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+
+    # One upload at a time. A second push waits rather than racing; GitHub drops
+    # whichever pending deploy it superseded.
+    concurrency:
+      group: deploy-cloudflare
+      cancel-in-progress: false
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.22.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # The same script a human runs -- scripts/deploy.sh -- with the values
+      # coming from secrets rather than from apps/web/.env.hosted.
+      - run: pnpm run deploy
+        env:
+          NUXT_PUBLIC_SUPABASE_URL: ${{ secrets.NUXT_PUBLIC_SUPABASE_URL }}
+          NUXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NUXT_PUBLIC_SUPABASE_ANON_KEY }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
