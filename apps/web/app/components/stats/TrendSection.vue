@@ -12,11 +12,8 @@ import type { SeriesPoint } from '../../utils/winRateTrend'
  * say a dip was caused by anything, because none of this can tell you that.
  */
 /**
- * `units` and `overall` are handed over rather than recomputed: `useStats` has
- * already counted them, and counting them twice is two answers waiting to
- * disagree. The raw rows stay on the interface because the rating curve needs
- * them — a rating is something the ladder does to a single game, not to a
- * series.
+ * `battles` is still here because the rating curve needs the rows themselves;
+ * a rating is something the ladder does to one game, not to a series.
  */
 const props = defineProps<{ battles: StatsRow[]; units: ResultUnit[]; overall: Tally }>()
 

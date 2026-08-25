@@ -39,6 +39,7 @@ beforeEach(async () => {
   signIn()
   useState('stats-rows').value = null
   useState('stats-reading').value = null
+  useState('stats-read-key').value = null
   useStatsFilters().value = defaultStatsFilters()
 
   // Whatever the previous test left in the air is that test's read, and it
@@ -135,6 +136,57 @@ describe('when the battles are read', () => {
     expect(loaded.value).toBe(false)
     expect(rows.value).toEqual([])
     expect(error.value?.message).toBe('nope')
+  })
+
+  it('tries again when the dates move after a read that failed', async () => {
+    // Before: a failure left nothing loaded, and a page moving the dates was
+    // the obvious way to ask again.
+    battles().error = new Error('nope')
+
+    const stats = useStats()
+    await stats.whenLoaded()
+    expect(stats.loaded.value).toBe(false)
+
+    battles().error = null
+    stats.filters.value = { ...stats.filters.value, from: '2026-08-02' }
+    await settle()
+
+    expect(stats.loaded.value).toBe(true)
+  })
+
+  it('shows the newer read when two are in the air at once', async () => {
+    // An import's refresh over a filter change's read: whichever started last
+    // is the answer, whatever order they settle in.
+    const { whenLoaded, refresh, battles: rows } = useStats()
+    await whenLoaded()
+
+    let release = () => {}
+    const held = new Promise<void>((resolve) => {
+      release = resolve
+    })
+
+    // The next read answers with the rows it saw when it started, but only
+    // once it is let go — so the older read is the one that settles last.
+    const answer = battles().battlesOf.bind(battles())
+    battles().battlesOf = (range) => {
+      battles().battlesOf = answer
+      const asked = answer(range)
+
+      return held.then(() => asked)
+    }
+
+    battles().rows = STATS_ROWS.slice(0, 2)
+    const older = refresh()
+
+    battles().rows = STATS_ROWS
+    await refresh()
+
+    release()
+    await older
+
+    // Six ladder games under the chosen name, not the two the superseded read
+    // was still holding.
+    expect(rows.value).toHaveLength(6)
   })
 
   it('lets the next asker try again after a read that failed', async () => {
@@ -256,7 +308,7 @@ describe('the format the address is pointing at', () => {
     const { whenLoaded, filters, focusTeam } = useStats()
     await whenLoaded()
 
-    focusTeam({ formatId: FORMATS.EVENT })
+    focusTeam({ formatId: FORMATS.EVENT, signature: SIGNATURES.TEAM_A })
 
     expect(filters.value.formatId).toBe(FORMATS.EVENT)
   })
@@ -267,7 +319,7 @@ describe('the format the address is pointing at', () => {
     const { whenLoaded, filters, focusTeam } = useStats()
     await whenLoaded()
 
-    focusTeam({ formatId: 'gen9neverplayedthis' })
+    focusTeam({ formatId: 'gen9neverplayedthis', signature: SIGNATURES.TEAM_A })
 
     expect(filters.value.formatId).toBe(FORMATS.LADDER)
   })

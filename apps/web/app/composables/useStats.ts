@@ -1,5 +1,7 @@
 import { effectScope } from 'vue'
+import type { EffectScope } from 'vue'
 import { toID } from 'replay-parser'
+import type { TeamRef } from '../utils/teamRoute'
 import { overallTally, resultUnits, teamStats } from '../utils/battleStats'
 import type { StatsRow } from '../utils/battleStats'
 
@@ -48,8 +50,18 @@ export function useStats() {
    */
   const serverFilterKey = computed(() => [filters.value.from, filters.value.to].join('|'))
 
-  /** The dates the rows in memory were read under, or are being read under. */
+  /**
+   * The dates the rows in memory were read under, or are being read under.
+   * `null` until a read has been attempted at all.
+   */
   const readKey = useState<string | null>('stats-read-key', () => null)
+
+  /**
+   * Which read owns the rows. A later one supersedes an earlier one, so two in
+   * the air at once — an import's `refresh()` over a filter change's read —
+   * cannot settle in the wrong order and leave the older answer on screen.
+   */
+  const reader = useState('stats-reader', () => 0)
 
   const loaded = computed(() => rows.value !== null)
 
@@ -65,29 +77,45 @@ export function useStats() {
    * one format would leave the picker listing only the format already chosen.
    */
   async function read(): Promise<void> {
+    const mine = reader.value + 1
+    reader.value = mine
+
+    /** Whether this read still owns the state, or a later one has taken over. */
+    const current = () => reader.value === mine
+
     loading.value = true
     error.value = null
     readKey.value = serverFilterKey.value
 
     try {
       const { from, to } = filters.value
+      const fetched = await storedBattles.battlesOf({ from, to })
+      if (!current()) return
 
-      rows.value = await storedBattles.battlesOf({ from, to })
+      rows.value = fetched
       // Name first: the formats on offer are the ones that name played.
       adoptIdentity()
       adoptFormat()
     } catch (cause) {
+      if (!current()) return
+
       // Cleared, not left standing: numbers from the previous filter set,
       // sitting under the new one, would be read as an answer.
       rows.value = null
       error.value = cause instanceof Error ? cause : new Error(String(cause))
     } finally {
-      loading.value = false
+      // Left to whichever read owns the state, so a superseded one does not
+      // report the newer one as finished.
+      if (current()) loading.value = false
     }
   }
 
-  /** Starts a read and makes it the one everybody else waits on. */
-  function begin(): Promise<void> {
+  /**
+   * A read, and the promise every other caller is given until it settles.
+   * Dropped once it has, so a read that failed is not what the next caller
+   * gets handed back.
+   */
+  function startReading(): Promise<void> {
     const started = read().finally(() => {
       if (reading.value === started) reading.value = null
     })
@@ -108,7 +136,7 @@ export function useStats() {
   function whenLoaded(): Promise<void> {
     if (!user.value) return Promise.resolve()
 
-    return reading.value ?? (loaded.value ? Promise.resolve() : begin())
+    return reading.value ?? (loaded.value ? Promise.resolve() : startReading())
   }
 
   /**
@@ -121,7 +149,7 @@ export function useStats() {
   function refresh(): Promise<void> {
     if (!user.value) return Promise.resolve()
 
-    return begin()
+    return startReading()
   }
 
   /** The fetched rows under the chosen Showdown name, whatever the format. */
@@ -234,13 +262,14 @@ export function useStats() {
 
   onceForTheSession(() => {
     watch(serverFilterKey, (key) => {
-      // Nothing read and nothing in the air means nobody is waiting on these
-      // rows yet: `whenLoaded()` will read with whatever the filters say when
-      // it runs.
-      if (!loaded.value && !reading.value) return
-      // And the read in the air may be this very change already — a page can
-      // set the dates and await `whenLoaded()` in the same tick, and the
-      // watcher only flushes afterwards.
+      // Nothing has ever been read, so there is nothing to re-read:
+      // `whenLoaded()` will use whatever the dates say when it runs. Read at
+      // all — including a read that failed — and a new date range is a reason
+      // to try again.
+      if (readKey.value === null) return
+      // And what is in the air may be this very change already: a page can set
+      // the dates and await `whenLoaded()` in the same tick, and the watcher
+      // only flushes afterwards.
       if (key === readKey.value) return
 
       void refresh()
@@ -269,7 +298,7 @@ export function useStats() {
    * A verb rather than a writable filter, because the page knows which team it
    * is showing and this module knows which formats have games under them.
    */
-  function focusTeam(team: { formatId: string } | null): void {
+  function focusTeam(team: TeamRef | null): void {
     adoptFormat(team?.formatId)
   }
 
@@ -304,19 +333,26 @@ export function useStats() {
 
 /**
  * Runs `register` once per session, however many times `useStats()` is called
- * — a watcher per caller would turn one filter change into three reads.
+ * — a watcher per caller would turn one filter change into three reads, which
+ * is the trap `BattleDrawer.vue` documents on its own side.
  *
- * The flag is `useState` rather than a module variable so it resets with the
- * state it guards; see the note on `useCurrentUser`. The scope is detached
- * because these watchers belong to the session and not to whichever component
- * happened to call first: registered in that component's scope they would be
- * disposed the moment it unmounted, and the next page to mount would find the
- * flag already set and no watchers left.
+ * The scope is detached because these watchers belong to the session and not
+ * to whichever component happened to call first: registered in that
+ * component's scope they would be disposed the moment it unmounted, and the
+ * next page to mount would find the guard set and no watchers left.
+ *
+ * The scope is what the guard holds, rather than a boolean beside it, so the
+ * two cannot come apart: both live on the Nuxt instance and a new instance
+ * gets a new pair. Nothing stops the old scope — the app has no teardown to
+ * hang that on and lives as long as the tab does. In a test run a torn-down
+ * instance therefore leaves an inert scope behind, watching refs that nothing
+ * writes to again.
  */
 function onceForTheSession(register: () => void): void {
-  const registered = useState('stats-watching', () => false)
-  if (registered.value) return
+  const watchers = useState<EffectScope | null>('stats-watchers', () => null)
+  if (watchers.value) return
 
-  registered.value = true
-  effectScope(true).run(register)
+  const scope = effectScope(true)
+  scope.run(register)
+  watchers.value = scope
 }
