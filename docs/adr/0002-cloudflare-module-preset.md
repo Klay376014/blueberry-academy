@@ -47,6 +47,10 @@ build 時 Nitro 會印：
 對一個之後要放 Supabase 金鑰等環境變數的專案，這個副作用不可忽視。**因此刻意不開**，
 留給實際處理部署的票決定。
 
+**#48 的決定**：`apps/web/wrangler.jsonc` 自己寫 `compatibility_flags:
+["nodejs_compat"]`。設定檔由我們維護、不由 Nitro 產生，上面那個副作用因此不存在 ——
+node compat 開了，dashboard 的設定也還在。
+
 ## 替代方案
 
 - **`cloudflare-pages`** —— Pages 的 Functions 模型與本專案的 Worker 型態不合

@@ -1,0 +1,43 @@
+/**
+ * Deploy config for the Worker built by Nitro's `cloudflare_module` preset
+ * (docs/adr/0002-cloudflare-module-preset.md). Both paths are build outputs, so
+ * `nuxt build` has to have run first — scripts/deploy.sh chains the two.
+ *
+ * NUXT_PUBLIC_SUPABASE_URL / NUXT_PUBLIC_SUPABASE_ANON_KEY are deliberately not
+ * here: they arrive as `--var` at deploy time, from apps/web/.env.hosted or from
+ * CI secrets. See docs/adr/0011-nuxt-public-as-worker-runtime-vars.md.
+ */
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "blueberry-academy",
+  "main": ".output/server/index.mjs",
+  "compatibility_date": "2026-08-18",
+
+  // Answers the WARN that ADR-0002 left open. The flag lives here rather than in
+  // `nitro.cloudflare.deployConfig`, which would have Nitro generate this file
+  // and, per nitropack's own warning, discard the dashboard's settings —
+  // including environment variables.
+  "compatibility_flags": ["nodejs_compat"],
+
+  // ASSETS is the binding name the preset's server entry fetches through; it is
+  // not a free choice.
+  "assets": {
+    "directory": ".output/public",
+    "binding": "ASSETS",
+  },
+
+  // `custom_domain` needs the zone in the same Cloudflare account; wrangler then
+  // creates the DNS record itself. The origin is also what Supabase Auth
+  // allowlists (supabase/config.toml `site_url`), because redirectTo is built
+  // from window.location.origin.
+  "routes": [
+    {
+      "pattern": "blueberry-academy.ivy-cudgel.com",
+      "custom_domain": true,
+    },
+  ],
+
+  "observability": {
+    "enabled": true,
+  },
+}

@@ -49,3 +49,6 @@ __screenshots__/
 .data
 .nitro
 .cache
+
+# Wrangler — local runtime state (miniflare caches, traces)
+.wrangler
