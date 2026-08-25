@@ -398,6 +398,15 @@ looks for that URL in the served shell. A deploy that succeeded but points the
 site at `http://127.0.0.1:54321` is the failure worth spending a request to rule
 out: nothing about it looks wrong until someone tries to sign in.
 
+**From CI that fetch is challenged, not served.** Bot Fight Mode is on for the
+zone and it challenges datacenter IPs, which is what every GitHub runner has —
+and it cannot be excepted, because it does not run on the Ruleset Engine, so WAF
+skip rules and Page Rules have no effect on it. When the origin answers with a
+challenge, the script says so and falls back to reading the deployed version's
+`NUXT_PUBLIC_SUPABASE_URL` back out of Cloudflare (`wrangler versions view`).
+That is a narrower claim than the fetch — it says the deployment is right, not
+that the site is up — and the run's log states which of the two it made.
+
 Auth has to know about the origin too. `redirectTo` is built from
 `window.location.origin`, so `supabase/config.toml` carries the deployed origin
 in `site_url` and `additional_redirect_urls`, and `supabase config push` is what
