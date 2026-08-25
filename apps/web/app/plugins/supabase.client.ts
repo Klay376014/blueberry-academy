@@ -4,14 +4,20 @@ import { createClient } from '@supabase/supabase-js'
  * The `useState` keys holding something that belongs to whoever was signed in
  * when it was read.
  *
- * One list in one place rather than each composable clearing its own. It is a
- * single rule — nothing of the last person survives the next one — and while
- * it lived in four files it was three-quarters missing. Anything per-user
- * added later belongs on this list, and this is where the next person will
- * think to look.
+ * One list in one place rather than each composable clearing its own, so a
+ * new piece of per-user state is one edit here rather than a fifth file
+ * nobody remembers to write. The cost, accepted: these are strings, and
+ * nothing makes the compiler check them against the composables that own
+ * them.
  *
  * RLS decides what the *next* query is allowed to read. It has nothing to say
  * about the answer to the last one, still sitting in memory.
+ *
+ * Three per-user-ish keys are deliberately absent. `current-user` is assigned
+ * two lines below this. `stats-watchers` holds an effect scope, not data, and
+ * clearing it would orphan the scope and register a second set of watchers.
+ * `stats-reader` is a generation counter, and resetting it to zero would let
+ * a superseded read match a fresh one and write after all.
  */
 const PER_USER_STATE = [
   // Which side of an imported battle is yours, and a list that could be
@@ -19,7 +25,9 @@ const PER_USER_STATE = [
   'showdown-aliases',
 
   // The dashboard's battles and everything counted from them, plus the read
-  // that may still be in the air over them.
+  // that may still be in the air over them. The filters go too: the chosen
+  // Showdown name is the last person's, sitting in the next person's picker.
+  'stats-filters',
   'stats-rows',
   'stats-loading',
   'stats-error',

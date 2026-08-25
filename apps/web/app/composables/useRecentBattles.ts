@@ -69,6 +69,14 @@ export function useRecentBattles() {
     const asker = user.value?.id
     if (!asker) return
 
+    /**
+     * Whether this hydrate still owns the state. Somebody else signing in
+     * takes it away: columns fetched for one account must not fill in the next
+     * account's list, and neither must the message about why they could not
+     * be fetched.
+     */
+    const current = () => user.value?.id === asker
+
     const wanted = newest.value
       .map((row) => row.replay_id)
       .filter((replayId) => !extras.value.has(replayId))
@@ -80,18 +88,18 @@ export function useRecentBattles() {
 
     try {
       const found = await storedBattles.detailsOf(wanted)
-      // Somebody else signed in while this was in the air, and the plugin has
-      // already emptied the map these would go back into.
-      if (user.value?.id !== asker) return
+      if (!current()) return
 
       const filled = new Map(extras.value)
       for (const [replayId, details] of found) filled.set(replayId, details)
 
       extras.value = filled
     } catch (cause) {
+      if (!current()) return
+
       error.value = cause instanceof Error ? cause : new Error(String(cause))
     } finally {
-      loading.value = false
+      if (current()) loading.value = false
     }
   }
 

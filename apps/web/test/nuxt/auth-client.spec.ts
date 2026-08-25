@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { mockNuxtImport } from '@nuxt/test-utils/runtime'
 import supabasePlugin from '../../app/plugins/supabase.client'
+import { fakeBattles } from '../fakes/battles'
+import { STATS_ROWS } from '../fixtures/stats-rows'
 
 // The Supabase client is the one thing here that must not be real. Everything
 // between it and the app -- the plugin, useAuth, the session state -- is.
@@ -23,6 +25,13 @@ const { supabaseAuth, createClient, navigateToMock } = vi.hoisted(() => {
 
 vi.mock('@supabase/supabase-js', () => ({ createClient }))
 mockNuxtImport('navigateTo', () => navigateToMock)
+
+/** The dashboard's reads, for the one test that follows a switch all the way through. */
+const { battles } = vi.hoisted(() => ({ battles: { value: null as unknown } }))
+
+battles.value = fakeBattles(STATS_ROWS)
+
+mockNuxtImport('useBattles', () => () => battles.value as never)
 
 /** Runs the plugin the way Nuxt would, and hands back what it provided. */
 async function bootPlugin() {
@@ -74,6 +83,11 @@ describe('the Supabase plugin', () => {
    * into the state the composables that own it would have put it in.
    */
   function fillStateFor(username: string) {
+    // Through the composable that owns it where there is one: `reset` puts
+    // back the initial value whoever declared the key first declared, so the
+    // owner has to have been the one to declare it.
+    useBattleLogs()
+
     useShowdownAliases().value = [username]
     useState<unknown>('stats-rows', () => null).value = [{ replay_id: `${username}-1` }]
     useState<unknown>('drawer-battle', () => null).value = { replayId: `${username}-1` }
@@ -122,8 +136,6 @@ describe('the Supabase plugin', () => {
     const onChange = supabaseAuth.onAuthStateChange.mock.calls[0]?.[0]
     onChange('SIGNED_IN', { user: { id: 'b' } })
 
-    // RLS decides what the next query may read. It has nothing to say about
-    // the answer to the last one, still sitting in memory.
     const left = leftBehind()
     expect(left.aliases).toBeNull()
     expect(left.rows).toBeNull()
@@ -159,6 +171,26 @@ describe('the Supabase plugin', () => {
 
     expect(leftBehind().rows).toBeNull()
     expect(leftBehind().extras.size).toBe(0)
+  })
+
+  it('sends the dashboard back to the database for the next person', async () => {
+    // The whole point of clearing `stats-rows` rather than leaving it: `null`
+    // means "never read", so the watcher in useStats reads for whoever just
+    // signed in instead of showing them an empty dashboard.
+    supabaseAuth.getSession.mockResolvedValue({ data: { session: { user: { id: 'a' } } } })
+    await bootPlugin()
+
+    const stats = useStats()
+    await stats.whenLoaded()
+    expect(stats.loaded.value).toBe(true)
+
+    const onChange = supabaseAuth.onAuthStateChange.mock.calls[0]?.[0]
+    onChange('SIGNED_IN', { user: { id: 'b' } })
+
+    // Emptied the moment the switch happens, and read again straight after.
+    expect(stats.loaded.value).toBe(false)
+
+    await vi.waitFor(() => expect(stats.loaded.value).toBe(true))
   })
 
   it('keeps the battles through a token renewal for the same person', async () => {

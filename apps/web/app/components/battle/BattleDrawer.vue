@@ -14,14 +14,24 @@ import { replayUrl } from '../../utils/replayLink'
  * (design document §1).
  */
 const drawer = useBattleDrawer()
+const user = useCurrentUser()
 const { battle, series, snapshots, timeline, loading, failure, logError, openId } = drawer
 
 /**
  * The one watcher on the address, here rather than in the composable: the list
  * uses the same composable for `open()`, and a watcher per caller would read
  * the battle, its series and its log once per caller.
+ *
+ * Who is signed in is watched alongside it, because the address survives a
+ * change of user and the battle behind it does not: the Supabase plugin
+ * empties the drawer's state, and without this the panel would sit open over
+ * nothing at all.
  */
-watch(openId, (replayId) => drawer.follow(replayId), { immediate: true })
+watch(
+  [openId, () => user.value?.id],
+  ([replayId, signedIn]) => drawer.follow(signedIn ? replayId : null),
+  { immediate: true },
+)
 
 const { t, locale } = useI18n()
 
