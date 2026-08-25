@@ -7,35 +7,16 @@ import type { StatsRow } from '../utils/battleStats'
  * derive from it.
  *
  * The win rate curve needs the individual games anyway, so there is one fetch
- * and the arithmetic happens in `utils/battleStats.ts`. Spectated battles are
- * excluded here and cannot be filtered back in.
+ * and the arithmetic happens in `utils/battleStats.ts`. The read itself — the
+ * columns, the `user_id` scope, the paging, spectated battles staying out —
+ * belongs to `app/lib/battles.ts`.
  *
  * See docs/specs/2026-08-16-replay-analytics-design.md §7.
  */
 
-/**
- * The columns the stats layer slices on — `details` deliberately not among
- * them.
- *
- * Typed as `string` rather than left as the literal it is: postgrest-js parses
- * a literal column list at the type level, and over a list this long tsc gives
- * up with "type instantiation is excessively deep". The shape is asserted as
- * `StatsRow` below instead.
- */
-const COLUMNS: string =
-  'replay_id, played_at, format_id, series_id, my_username, result, rating, rating_delta, team_signature, bring_signature, bring_complete'
-
-/**
- * Rows per request. PostgREST caps a response at its own default of 1000, so
- * without paging a heavy account arrives silently truncated — and a win rate
- * over the first thousand games, presented as the whole of it, is worse than
- * an error.
- */
-const PAGE = 1000
-
 export function useStats() {
-  const { $supabase } = useNuxtApp()
   const user = useCurrentUser()
+  const battlesTable = useBattles()
   const filters = useStatsFilters()
 
   /**
@@ -49,72 +30,29 @@ export function useStats() {
 
   const loaded = computed(() => rows.value !== null)
 
-  function requireUserId() {
-    const id = user.value?.id
-    if (!id) throw new Error('No signed-in user to read battles for.')
-    return id
-  }
-
-  /** A date with no time in it covers the whole of that day. */
-  function endOfDay(bound: string): string {
-    return bound.includes('T') ? bound : `${bound}T23:59:59.999Z`
-  }
-
-  /**
-   * The filters the database can apply.
-   *
-   * Two are settled in the browser instead. Identity, because `toID()` strips
-   * case and every non-alphanumeric character and PostgREST cannot be asked
-   * for that. And the format, because the format picker has to offer the
-   * formats this account actually played — asking the database for one format
-   * would leave the picker listing only the format already chosen.
-   */
-  function queryFor(userId: string) {
-    const base = $supabase
-      .from('battles')
-      .select(COLUMNS)
-      // Redundant under RLS, and what puts the (user_id, played_at) index to work.
-      .eq('user_id', userId)
-      // Spectated. Not a filter the caller can turn off.
-      .not('my_side', 'is', null)
-
-    let query = base
-
-    const { from, to } = filters.value
-
-    if (from) query = query.gte('played_at', from)
-    if (to) query = query.lte('played_at', endOfDay(to))
-
-    // Oldest first, so a curve can be drawn straight off the rows.
-    return query.order('played_at', { ascending: true })
-  }
-
   /**
    * Reads every matching row, replacing whatever was read before. Reports
    * through `error` rather than throwing, except for the one programming
    * error: no signed-in user.
+   *
+   * Only two of the six filters are asked of the database. Identity, because
+   * `toID()` strips case and every non-alphanumeric character and PostgREST
+   * cannot be asked for that. And the format, because the format picker has to
+   * offer the formats this account actually played — asking the database for
+   * one format would leave the picker listing only the format already chosen.
    */
   async function load(): Promise<void> {
-    const userId = requireUserId()
+    // Thrown rather than reported: nobody signed in is a caller's mistake, and
+    // the pages guard on it. Every other failure is a message on screen.
+    if (!user.value) throw new Error('No signed-in user to read battles for.')
 
     loading.value = true
     error.value = null
 
     try {
-      const collected: StatsRow[] = []
+      const { from, to } = filters.value
 
-      for (let start = 0; ; start += PAGE) {
-        const { data, error: failed } = await queryFor(userId).range(start, start + PAGE - 1)
-
-        if (failed) throw failed
-
-        const page = (data as unknown as StatsRow[] | null) ?? []
-        collected.push(...page)
-
-        if (page.length < PAGE) break
-      }
-
-      rows.value = collected
+      rows.value = await battlesTable.battlesOf({ from, to })
       // Name first: the formats on offer are the ones that name played.
       adoptIdentity()
       adoptFormat()

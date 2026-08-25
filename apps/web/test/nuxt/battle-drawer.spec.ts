@@ -2,31 +2,49 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { mockNuxtImport, mountSuspended } from '@nuxt/test-utils/runtime'
 import { reactive } from 'vue'
 import Dashboard from '../../app/pages/index.vue'
-import type { StatsRow } from '../../app/utils/battleStats'
+import { fakeBattles } from '../fakes/battles'
+import type { FakeBattles, StoredBattle } from '../fakes/battles'
 import { FORMATS, STATS_ROWS } from '../fixtures/stats-rows'
 import { signIn } from '../helpers'
 import ladder from '../../../../packages/replay-parser/test/fixtures/gen9championsvgc2026regmb-2667169457.json'
 
 /**
- * The recent battles list and the battle drawer, over the real query layer and
- * the real timeline parser, with only Supabase faked.
+ * The recent battles list and the battle drawer, over the in-memory `Battles`
+ * adapter and the real timeline parser, with Storage faked.
  *
  * What is asserted is what a reader is shown and what the address bar says: the
  * drawer state lives in `?battle=`, so the link is shareable and the back
  * button closes it (design document §4, decision T1).
  */
 
-type Filter = [string, ...unknown[]]
+const { battles } = vi.hoisted(() => ({ battles: { value: null as unknown } }))
 
-/** Everything the fake database answers with, per test. */
-const db = {
-  rows: [] as StatsRow[],
-  /** `replay_id` → the columns only the list and the drawer ask for. */
-  extras: new Map<string, Record<string, unknown>>(),
-  requests: [] as Filter[][],
-  missing: false,
-  /** Whether the read of a battle's series siblings fails. */
-  failSeries: false,
+mockNuxtImport('useBattles', () => () => battles.value as never)
+
+function fake(): FakeBattles {
+  return battles.value as FakeBattles
+}
+
+/**
+ * The columns the stats read leaves out, which the list and the drawer are the
+ * only readers of. Recognisable per row, so "this is game 3's header" is
+ * something a test can read off the screen.
+ */
+function withExtras(row: StoredBattle): StoredBattle {
+  return {
+    my_side: 'p1',
+    opponent_username: `opponent-${row.replay_id}`,
+    turn_count: 12,
+    details: { sides: { p1: { bringSignature: 'a|b' }, p2: { bringSignature: 'c|d' } } },
+    ...row,
+  }
+}
+
+/** Rewrites one stored row, for the tests about what a single battle shows. */
+function amend(replayId: string, overrides: Partial<StoredBattle>) {
+  fake().rows = fake().rows.map((row) =>
+    row.replay_id === replayId ? { ...row, ...overrides } : row,
+  )
 }
 
 /** A two-turn doubles log, for telling one game's timeline from another's. */
@@ -63,82 +81,6 @@ const storage = {
   objects: new Map<string, Blob>(),
   /** Paths whose download waits until `release` is called. */
   held: new Map<string, () => void>(),
-}
-
-function extrasFor(replayId: string): Record<string, unknown> {
-  return (
-    db.extras.get(replayId) ?? {
-      replay_id: replayId,
-      opponent_username: `opponent-${replayId}`,
-      turn_count: 12,
-      my_side: 'p1',
-      details: { sides: { p1: { bringSignature: 'a|b' }, p2: { bringSignature: 'c|d' } } },
-    }
-  )
-}
-
-/** The rows a query with these filters should answer with. */
-function answer(filters: Filter[]): Record<string, unknown>[] {
-  const value = (method: string, column: string) =>
-    filters.find(([name, key]) => name === method && key === column)?.[2]
-
-  const ids = value('in', 'replay_id') as string[] | undefined
-  const replayId = value('eq', 'replay_id') as string | undefined
-  const seriesId = value('eq', 'series_id') as string | undefined
-
-  if (ids) return ids.map((id) => ({ ...findRow(id), ...extrasFor(id) }))
-
-  if (replayId) {
-    if (db.missing) return []
-    return [{ ...findRow(replayId), ...extrasFor(replayId) }]
-  }
-
-  if (seriesId) {
-    if (db.failSeries) throw new Error('the series read failed')
-
-    return db.rows
-      .filter((row) => row.series_id === seriesId)
-      .map((row) => ({ ...row, ...extrasFor(row.replay_id) }))
-  }
-
-  return db.rows.map((row) => ({ ...row }))
-}
-
-function findRow(replayId: string): Partial<StatsRow> {
-  return db.rows.find((row) => row.replay_id === replayId) ?? { replay_id: replayId }
-}
-
-function builder() {
-  const filters: Filter[] = []
-
-  const resolve = () => {
-    db.requests.push(filters)
-    return { data: answer(filters), error: null }
-  }
-
-  const chain = {
-    select: (...args: unknown[]) => (filters.push(['select', ...args]), chain),
-    eq: (...args: unknown[]) => (filters.push(['eq', ...args]), chain),
-    in: (...args: unknown[]) => (filters.push(['in', ...args]), chain),
-    not: (...args: unknown[]) => (filters.push(['not', ...args]), chain),
-    gte: (...args: unknown[]) => (filters.push(['gte', ...args]), chain),
-    lte: (...args: unknown[]) => (filters.push(['lte', ...args]), chain),
-    or: (...args: unknown[]) => (filters.push(['or', ...args]), chain),
-    order: (...args: unknown[]) => (filters.push(['order', ...args]), chain),
-    range: (from: number, to: number) => {
-      const { data } = resolve()
-      return Promise.resolve({ data: data.slice(from, to + 1), error: null })
-    },
-    maybeSingle: () => {
-      const { data } = resolve()
-      return Promise.resolve({ data: data[0] ?? null, error: null })
-    },
-    // The builder is awaited directly wherever there is no cap to apply.
-    then: (onFulfilled: (value: unknown) => unknown) =>
-      Promise.resolve(resolve()).then(onFulfilled),
-  }
-
-  return chain
 }
 
 /** The replay JSON, gzipped the way the importer stored it. */
@@ -257,7 +199,6 @@ beforeEach(async () => {
 
   if (!nuxtApp.$supabase) {
     nuxtApp.provide('supabase', {
-      from: () => builder(),
       storage: {
         from: () => ({
           download: async (path: string) => {
@@ -278,11 +219,7 @@ beforeEach(async () => {
   }
 
   signIn()
-  db.rows = STATS_ROWS
-  db.extras = new Map()
-  db.requests = []
-  db.missing = false
-  db.failSeries = false
+  battles.value = fakeBattles(STATS_ROWS.map(withExtras))
   storage.downloads = []
   storage.fail = false
   storage.object = null
@@ -455,18 +392,17 @@ describe('the drawer', () => {
     // turn the address into a read.
     await openDrawer()
 
-    const reads = db.requests.filter((filters) =>
-      filters.some(
-        ([method, column, value]) =>
-          method === 'eq' && column === 'replay_id' && value === 'ladder-6',
-      ),
+    const reads = fake().reads.filter(
+      (read) => read.method === 'battleById' && read.argument === 'ladder-6',
     )
 
     expect(reads).toHaveLength(1)
   })
 
   it('still shows the timeline when only the series switcher could not be read', async () => {
-    db.failSeries = true
+    // Its own attempt: the switcher is a convenience, and losing it is no
+    // reason to withhold a timeline that reads perfectly well.
+    fake().gamesOfSeries = () => Promise.reject(new Error('the series read failed'))
     await openDrawer('series-1-g2')
 
     expect(drawer().querySelector('[data-testid="timeline-error"]')).toBeNull()
@@ -531,8 +467,7 @@ describe('the drawer', () => {
   it('closes the timeline with how the battle ended and what it cost', async () => {
     // Without it the last turn simply stops, and a game that ended in a
     // forfeit looks like a log that was cut off.
-    db.extras.set('ladder-6', {
-      ...extrasFor('ladder-6'),
+    amend('ladder-6', {
       end_reason: 'forfeit',
       rating: 1429,
       rating_delta: -15,
@@ -551,11 +486,7 @@ describe('the drawer', () => {
   it('says nothing about a rating a best-of series never had', async () => {
     // A Bo3 game is not played on the ladder, so there is no number to show —
     // and a zero would be a claim (design document, rating gaps).
-    db.extras.set('series-1-g2', {
-      ...extrasFor('series-1-g2'),
-      rating: null,
-      rating_delta: null,
-    })
+    amend('series-1-g2', { rating: null, rating_delta: null })
 
     await openDrawer('series-1-g2')
 
@@ -573,7 +504,6 @@ describe('the drawer', () => {
   })
 
   it('says so when the battle itself is not there', async () => {
-    db.missing = true
     await openDrawer('never-imported')
 
     expect(drawer().querySelector('[data-testid="battle-missing"]')).not.toBeNull()
@@ -604,11 +534,9 @@ describe('a Pokémon the icon table has never heard of', () => {
   it('draws the fallback icon and says the id it could not name', async () => {
     // A new Pokémon is a table regeneration away; until then the drawer has to
     // hold its shape rather than break over it.
-    db.extras.set('ladder-6', {
-      replay_id: 'ladder-6',
+    amend('ladder-6', {
       opponent_username: 'Somebody',
       turn_count: 3,
-      my_side: 'p1',
       details: {
         sides: { p1: { bringSignature: 'urshifu' }, p2: { bringSignature: 'notapokemon' } },
       },

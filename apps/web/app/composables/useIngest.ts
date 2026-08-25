@@ -28,12 +28,6 @@ const BUCKET = 'replay-logs'
  */
 const CONCURRENCY = 5
 
-/**
- * Replay ids per "which of these do I already have" lookup. PostgREST puts the
- * list in the query string, and a heavy account is thousands of ids.
- */
-const LOOKUP_CHUNK = 200
-
 /** Why one replay did not make it in. */
 export type IngestFailure =
   /** Showdown could not be reached, or would not answer with the replay. */
@@ -103,6 +97,7 @@ async function gzip(text: string): Promise<Blob> {
 export function useIngest() {
   const { $supabase } = useNuxtApp()
   const user = useCurrentUser()
+  const battlesTable = useBattles()
   const stored = useShowdownAliases()
   const { fetchReplay, listReplays } = useShowdown()
 
@@ -141,20 +136,6 @@ export function useIngest() {
     if (error) throw error
 
     return path
-  }
-
-  async function writeRow(row: BattleRow): Promise<BattleRow> {
-    const { data, error } = await $supabase
-      .from('battles')
-      .upsert(row, { onConflict: 'user_id,replay_id' })
-      .select()
-      // Asked for back, so a write that RLS quietly matched nothing cannot
-      // pass for an import.
-      .single()
-
-    if (error) throw error
-
-    return (data as BattleRow | null) ?? row
   }
 
   /**
@@ -200,7 +181,7 @@ export function useIngest() {
 
     let written: BattleRow
     try {
-      written = await writeRow(row)
+      written = await battlesTable.putBattle(row)
     } catch (error) {
       return { status: 'failed', reason: 'write-failed', message: messageOf(error) }
     }
@@ -208,34 +189,6 @@ export function useIngest() {
     return parseError === null
       ? { status: 'imported', battle: written }
       : { status: 'unparsed', battle: written, message: parseError }
-  }
-
-  /**
-   * Which of these replays this user already has. Asked once for the whole
-   * batch and before anything is fetched: the request never made to Showdown
-   * is the point. Duplicate rows are impossible anyway — `unique(user_id,
-   * replay_id)` and an upsert see to that — so this is politeness and speed.
-   *
-   * Throws rather than answering "none of them": treating an unreachable
-   * database as an empty one would re-fetch an entire account.
-   */
-  async function knownReplayIds(ids: string[]): Promise<Set<string>> {
-    const userId = requireUserId()
-    const known = new Set<string>()
-
-    for (let start = 0; start < ids.length; start += LOOKUP_CHUNK) {
-      const { data, error } = await $supabase
-        .from('battles')
-        .select('replay_id')
-        .eq('user_id', userId)
-        .in('replay_id', ids.slice(start, start + LOOKUP_CHUNK))
-
-      if (error) throw error
-
-      for (const row of (data as { replay_id: string }[] | null) ?? []) known.add(row.replay_id)
-    }
-
-    return known
   }
 
   function countsOf(items: BatchItem[]): ImportReport['counts'] {
@@ -258,7 +211,11 @@ export function useIngest() {
     // First spelling of each id wins. A pasted list is typed by a human, and a
     // listing that was paged through shares one row between adjacent pages.
     const unique = [...new Map(refs.map((ref) => [ref.id, ref])).values()]
-    const known = await knownReplayIds(unique.map((ref) => ref.id))
+    // Asked once for the whole batch and before anything is fetched: the
+    // request never made to Showdown is the point. Duplicate rows are
+    // impossible anyway — `unique(user_id, replay_id)` and an upsert see to
+    // that — so this is politeness and speed.
+    const known = await battlesTable.knownReplayIds(unique.map((ref) => ref.id))
 
     options.onTotal?.(unique.length)
 

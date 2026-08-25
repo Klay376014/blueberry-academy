@@ -1,4 +1,4 @@
-import type { SideId } from 'replay-parser'
+import type { BattleDetails } from '../lib/battles'
 import type { BattleResult } from '../utils/battleStats'
 
 /**
@@ -8,24 +8,11 @@ import type { BattleResult } from '../utils/battleStats'
  * The stats read deliberately leaves `details` out — it is per-row JSON and a
  * heavy account is thousands of rows. So the list takes the ids it is about to
  * show and asks for their extra columns, which is one small request whatever
- * the size of the account (design document §7, and `useStats` on `COLUMNS`).
+ * the size of the account (design document §7, and `app/lib/battles.ts`).
  */
 
 /** Games in the list. Twenty is a screen of scrolling, not a history. */
 const LIMIT = 20
-
-const EXTRA_COLUMNS = 'replay_id, opponent_username, turn_count, my_side, details'
-
-/** The opponent's own side of a battle, as `details` keeps it. */
-interface StoredSides {
-  sides?: Partial<Record<SideId, { bringSignature?: string | null }>>
-}
-
-interface Extra {
-  opponentUsername: string | null
-  turnCount: number | null
-  opponentBring: string | null
-}
 
 export interface RecentBattle {
   replayId: string
@@ -42,11 +29,11 @@ export interface RecentBattle {
 }
 
 export function useRecentBattles() {
-  const { $supabase } = useNuxtApp()
   const user = useCurrentUser()
+  const battlesTable = useBattles()
   const { battles } = useStats()
 
-  const extras = useState<Map<string, Extra>>('recent-battle-extras', () => new Map())
+  const extras = useState<Map<string, BattleDetails>>('recent-battle-extras', () => new Map())
   const loading = useState('recent-battles-loading', () => false)
   const error = useState<Error | null>('recent-battles-error', () => null)
 
@@ -79,8 +66,7 @@ export function useRecentBattles() {
    * session: the same games come back every time a filter moves.
    */
   async function hydrate(): Promise<void> {
-    const userId = user.value?.id
-    if (!userId) return
+    if (!user.value) return
 
     const wanted = newest.value
       .map((row) => row.replay_id)
@@ -92,19 +78,10 @@ export function useRecentBattles() {
     error.value = null
 
     try {
-      const { data, error: failed } = await $supabase
-        .from('battles')
-        .select(EXTRA_COLUMNS)
-        // Redundant under RLS, and what puts the (user_id, played_at) index to work.
-        .eq('user_id', userId)
-        .in('replay_id', wanted)
-
-      if (failed) throw failed
-
       const filled = new Map(extras.value)
 
-      for (const row of (data as unknown as ExtraRow[] | null) ?? []) {
-        filled.set(row.replay_id, extraOf(row))
+      for (const [replayId, details] of await battlesTable.detailsOf(wanted)) {
+        filled.set(replayId, details)
       }
 
       extras.value = filled
@@ -116,24 +93,4 @@ export function useRecentBattles() {
   }
 
   return { recent, loading, error, hydrate }
-}
-
-interface ExtraRow {
-  replay_id: string
-  opponent_username: string | null
-  turn_count: number | null
-  my_side: SideId | null
-  details: StoredSides | null
-}
-
-function extraOf(row: ExtraRow): Extra {
-  // Which side is the opponent's is only knowable from `my_side`; a spectated
-  // battle has no side of mine and therefore no opponent either.
-  const theirs = row.my_side === 'p1' ? 'p2' : row.my_side === 'p2' ? 'p1' : null
-
-  return {
-    opponentUsername: row.opponent_username,
-    turnCount: row.turn_count,
-    opponentBring: (theirs && row.details?.sides?.[theirs]?.bringSignature) || null,
-  }
 }

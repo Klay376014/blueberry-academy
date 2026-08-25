@@ -1,36 +1,28 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { mountSuspended } from '@nuxt/test-utils/runtime'
+import { mockNuxtImport, mountSuspended } from '@nuxt/test-utils/runtime'
 import Dashboard from '../../app/pages/index.vue'
-import type { StatsRow } from '../../app/utils/battleStats'
 import { defaultStatsFilters } from '../../app/composables/useStatsFilters'
+import { fakeBattles } from '../fakes/battles'
+import type { FakeBattles, StoredBattle } from '../fakes/battles'
 import { STATS_ROWS } from '../fixtures/stats-rows'
 import { signIn } from '../helpers'
 
 /**
- * The recent-form section on the dashboard, over the real query layer with
- * only Supabase faked — the same arrangement as team-performance.spec.ts.
+ * The recent-form section on the dashboard, over the in-memory `Battles`
+ * adapter — the same arrangement as team-performance.spec.ts.
  *
  * The charts are rendered for real rather than stubbed, so the assertion that
  * a missing rating breaks the line is made against the path Unovis actually
  * drew. See test/setup.ts for the two jsdom holes that makes necessary.
  */
 
-const db = { rows: [] as StatsRow[] }
+const { battles } = vi.hoisted(() => ({ battles: { value: null as unknown } }))
 
-function builder() {
-  const chain = {
-    select: () => chain,
-    eq: () => chain,
-    not: () => chain,
-    gte: () => chain,
-    lte: () => chain,
-    or: () => chain,
-    order: () => chain,
-    range: (from: number, to: number) =>
-      Promise.resolve({ data: db.rows.slice(from, to + 1), error: null }),
-  }
+mockNuxtImport('useBattles', () => () => battles.value as never)
 
-  return chain
+/** The rows the dashboard will read, replacing whatever the fixture had. */
+function answerWith(rows: StoredBattle[]) {
+  ;(battles.value as FakeBattles).rows = rows
 }
 
 /**
@@ -70,7 +62,7 @@ async function strokesIn(
   return strokes
 }
 
-function rated(replayId: string, playedAt: string, rating: number | null): StatsRow {
+function rated(replayId: string, playedAt: string, rating: number | null): StoredBattle {
   return {
     replay_id: replayId,
     played_at: playedAt,
@@ -87,11 +79,9 @@ function rated(replayId: string, playedAt: string, rating: number | null): Stats
 }
 
 beforeEach(() => {
-  const nuxtApp = useNuxtApp()
-  if (!nuxtApp.$supabase) nuxtApp.provide('supabase', { from: () => builder() })
+  battles.value = fakeBattles(STATS_ROWS)
 
   signIn()
-  db.rows = STATS_ROWS
   useStatsFilters().value = defaultStatsFilters()
   useState('stats-rows').value = null
 })
@@ -125,14 +115,14 @@ describe('the recent form section', () => {
     // Two rated days, two days of battles the log gave no rating for, then
     // rated again — all in one format, because the format is now required and
     // the gap has to be an interior one.
-    db.rows = [
+    answerWith([
       rated('ladder-a', '2026-08-01T10:00:00Z', 1500),
       rated('ladder-b', '2026-08-02T10:00:00Z', 1520),
       rated('ladder-c', '2026-08-03T10:00:00Z', null),
       rated('ladder-d', '2026-08-04T10:00:00Z', null),
       rated('ladder-e', '2026-08-05T10:00:00Z', 1490),
       rated('ladder-f', '2026-08-06T10:00:00Z', 1512),
-    ]
+    ])
 
     const page = await mountSuspended(Dashboard)
 
@@ -145,7 +135,7 @@ describe('the recent form section', () => {
   })
 
   it('says so rather than drawing an empty frame when nothing has a rating', async () => {
-    db.rows = STATS_ROWS.map((row) => ({ ...row, rating: null }))
+    answerWith(STATS_ROWS.map((row) => ({ ...row, rating: null })))
 
     const page = await mountSuspended(Dashboard)
 
