@@ -159,15 +159,23 @@ max_indexes = 5
 enabled = true
 # The base URL of your website. Used as an allow-list for redirects and for constructing URLs used
 # in emails.
-site_url = "http://127.0.0.1:3000"
+site_url = "https://blueberry-academy.ivy-cudgel.com"
 # The public URL that Auth serves on. Defaults to the API external URL with `/auth/v1` appended.
 # external_url = ""
 # A list of *exact* URLs that auth providers are permitted to redirect to post authentication.
 # Wildcards rather than one entry per callback path: the callback is
 # locale-prefixed (/zh-TW/auth/callback), so an exact list would need a new line
-# for every locale added. Local dev only -- the hosted project lists its exact
-# URLs.
-additional_redirect_urls = ["http://localhost:3000/**", "http://127.0.0.1:3000/**"]
+# for every locale added. One file serves both stacks: `supabase config push`
+# carries this [auth] block to the hosted project, so the deployed origin has to
+# be here as well as the two local ones. site_url is the deployed origin because
+# that is the one that matters when it is used -- as a fallback, and in emails;
+# local dev never falls back, useAuth always passes an explicit redirectTo built
+# from window.location.origin.
+additional_redirect_urls = [
+  "https://blueberry-academy.ivy-cudgel.com/**",
+  "http://localhost:3000/**",
+  "http://127.0.0.1:3000/**",
+]
 # How long tokens are valid for, in seconds. Defaults to 3600 (1 hour), maximum 604,800 (1 week).
 jwt_expiry = 3600
 # JWT issuer URL. If not set, defaults to auth.external_url.

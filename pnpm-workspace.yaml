@@ -12,6 +12,11 @@ allowBuilds:
   # use. Its build script only matters to those, so it stays unrun.
   maplibre-gl: false
   vue-demi: true
+  # wrangler's local runtime. Only `wrangler dev` runs it -- `wrangler deploy`
+  # uploads the bundle and never starts a worker locally -- but its build script
+  # is what puts the platform binary in place, so leaving it unrun turns a local
+  # preview into a confusing failure later.
+  workerd: true
 
 catalog:
   '@tsconfig/node24': ^24.0.4

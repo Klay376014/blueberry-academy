@@ -7,6 +7,7 @@
     "dev": "vp -C apps/web run dev",
     "build": "vp run -r build",
     "preview": "vp -C apps/web run preview",
+    "deploy": "sh scripts/deploy.sh",
     "test:unit": "vp run -r test:unit",
     "type-check": "vp run -r type-check",
     "check": "vp check",

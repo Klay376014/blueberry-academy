@@ -90,7 +90,11 @@ pnpm test:unit      # unit tests
 pnpm type-check     # nuxt typecheck (vue-tsc)
 pnpm check          # format, lint and type-check everything
 pnpm check:fix      # …and fix what it can
+pnpm run deploy     # build and deploy to Cloudflare — see Deploying
 ```
+
+`pnpm run deploy`, not `pnpm deploy`: the bare form is pnpm's own built-in
+command for deploying a workspace package, and it will not run this script.
 
 For a `vp` subcommand with no script of its own, use `pnpm exec vp <args>`.
 
@@ -320,7 +324,67 @@ cd apps/web && pnpm exec nuxt dev --dotenv .env.hosted
 `redirectTo` is built from `window.location.origin`, so whichever origin you
 browse from has to be in the hosted project's allowlist — `config.toml`'s
 `site_url` and `additional_redirect_urls`, pushed with `supabase config push`.
-Until the site has a deployed origin of its own, that list is localhost only.
+That list holds the deployed origin as well as the two local ones — see
+[Deploying](#deploying).
+
+## Deploying
+
+```sh
+pnpm run deploy
+```
+
+The site is a Worker on Cloudflare at
+**<https://blueberry-academy.ivy-cudgel.com>**. `scripts/deploy.sh` builds,
+uploads and then checks the result; `apps/web/wrangler.jsonc` says what gets
+uploaded — `.output/server/index.mjs` as the Worker, `.output/public/` as its
+assets, both produced by Nitro's `cloudflare_module` preset
+([ADR-0002](docs/adr/0002-cloudflare-module-preset.md)).
+
+You need `wrangler login` once, and the `ivy-cudgel.com` zone has to be in the
+same Cloudflare account — that is what lets `custom_domain: true` create the DNS
+record on its own.
+
+**The two `NUXT_PUBLIC_*` values are runtime variables of the Worker, not build
+inputs.** `ssr: false` makes this counter-intuitive enough to be worth stating
+plainly: it turns off server-rendering of the page components, but the Nitro
+server is still there, and every HTML response is a SPA shell it computes per
+request — `runtimeConfig.public` is written into the payload at that moment,
+from the Worker's environment. The build output contains neither value.
+[ADR-0011](docs/adr/0011-nuxt-public-as-worker-runtime-vars.md) has the
+measurement.
+
+So the deploy passes them with `--var`, reading them from
+`apps/web/.env.hosted`, or from the environment when it is set — which is how CI
+will supply them from secrets:
+
+```sh
+NUXT_PUBLIC_SUPABASE_URL=… NUXT_PUBLIC_SUPABASE_ANON_KEY=… pnpm run deploy
+```
+
+`--var` replaces the whole set on every deploy, so both values go in every time;
+omitting one empties it rather than keeping the previous value. Both are public
+by design (RLS is the defence), and the **service_role key has no part in this
+path at all** — it belongs to `scripts/`, which is never deployed.
+
+The script fails rather than deploys when the URL is not the hosted project's
+`https://<ref>.supabase.co`, and after uploading it fetches the live origin and
+looks for that URL in the served shell. A deploy that succeeded but points the
+site at `http://127.0.0.1:54321` is the failure worth spending a request to rule
+out: nothing about it looks wrong until someone tries to sign in.
+
+Auth has to know about the origin too. `redirectTo` is built from
+`window.location.origin`, so `supabase/config.toml` carries the deployed origin
+in `site_url` and `additional_redirect_urls`, and `supabase config push` is what
+puts it on the hosted project. Google's own OAuth client is unaffected: its
+redirect URI is Supabase's `https://<ref>.supabase.co/auth/v1/callback`, which
+does not change when the site gets a domain.
+
+To look at the production bundle locally before sending it up:
+
+```sh
+pnpm build
+cd apps/web && pnpm exec wrangler dev --var NUXT_PUBLIC_SUPABASE_URL:… --var NUXT_PUBLIC_SUPABASE_ANON_KEY:…
+```
 
 ## UI and i18n
 
