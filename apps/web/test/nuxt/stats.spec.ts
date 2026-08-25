@@ -1,9 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { mockNuxtImport } from '@nuxt/test-utils/runtime'
 import { fakeBattles } from '../fakes/battles'
-import type { FakeBattles } from '../fakes/battles'
 import { FORMATS, SIGNATURES, STATS_ROWS } from '../fixtures/stats-rows'
-import { signIn } from '../helpers'
+import { signIn, signOut } from '../helpers'
 
 /**
  * What the dashboard's numbers do, over the in-memory `Battles` adapter.
@@ -11,40 +10,125 @@ import { signIn } from '../helpers'
  * The query itself is not faked here and is not asserted here: the columns,
  * the paging, the `user_id` scope and the date boundary belong to
  * `battles.spec.ts`, which runs the real module. What is left is this
- * composable's own job — which filters cost a request and which are settled in
- * the browser, and what the numbers are when they are.
+ * composable's own job — when a read happens, how many happen, and what the
+ * numbers are once one has.
  */
 
-const { battles } = vi.hoisted(() => ({ battles: { value: null as unknown } }))
+/**
+ * One fake for the file rather than one per test. `useStats` registers its
+ * watchers once per session and they hold on to whatever `useBattles()`
+ * answered with first; a fresh fake per test would leave them talking to the
+ * previous one.
+ */
+const { fake } = vi.hoisted(() => ({ fake: { value: null as unknown } }))
 
-mockNuxtImport('useBattles', () => () => battles.value as never)
+fake.value = fakeBattles()
 
-function fake(): FakeBattles {
-  return battles.value as FakeBattles
+mockNuxtImport('useBattles', () => () => fake.value as never)
+
+function battles() {
+  return fake.value as ReturnType<typeof fakeBattles>
 }
 
-beforeEach(() => {
-  battles.value = fakeBattles(STATS_ROWS)
+/** Long enough for a read the fake resolves immediately to have landed. */
+async function settle() {
+  for (let turn = 0; turn < 3; turn += 1) await new Promise((resolve) => setTimeout(resolve, 0))
+}
 
+beforeEach(async () => {
   signIn()
-  useStatsFilters().value = defaultStatsFilters()
   useState('stats-rows').value = null
+  useState('stats-reading').value = null
+  useStatsFilters().value = defaultStatsFilters()
+
+  // Whatever the previous test left in the air is that test's read, and it
+  // has to land before the counters below are zeroed.
+  await settle()
+
+  battles().rows = STATS_ROWS
+  battles().reads = []
+  battles().error = null
 })
 
-describe('reading the battles the dashboard stands on', () => {
-  it('refuses to read without a signed-in user', async () => {
-    const { load } = useStats()
-    useCurrentUser().value = null
+describe('when the battles are read', () => {
+  it('reads once, and answers the second asker with the first read', async () => {
+    const { whenLoaded, loaded } = useStats()
 
-    await expect(load()).rejects.toThrow(/signed-in user/)
-    expect(fake().reads).toHaveLength(0)
+    await Promise.all([whenLoaded(), whenLoaded()])
+
+    expect(loaded.value).toBe(true)
+    expect(battles().reads).toHaveLength(1)
+  })
+
+  it('asks for nothing more once they are in', async () => {
+    const stats = useStats()
+
+    await stats.whenLoaded()
+    await stats.whenLoaded()
+
+    expect(battles().reads).toHaveLength(1)
+  })
+
+  it('reads nothing at all with nobody signed in', async () => {
+    signOut()
+
+    // Not a throw: setup runs before the route middleware has bounced a
+    // signed-out visitor off the page.
+    await expect(useStats().whenLoaded()).resolves.toBeUndefined()
+    expect(battles().reads).toHaveLength(0)
+
+    signIn()
+  })
+
+  it('reads as soon as somebody signs in', async () => {
+    signOut()
+
+    const { whenLoaded, loaded } = useStats()
+    await whenLoaded()
+    expect(loaded.value).toBe(false)
+
+    signIn()
+    await settle()
+
+    expect(loaded.value).toBe(true)
+  })
+
+  it('re-reads once, not once per caller, when a server-side filter moves', async () => {
+    // Three callers: both pages and the recent battles list. A watcher each
+    // would turn one date change into three requests.
+    const first = useStats()
+    useStats()
+    useStats()
+
+    await first.whenLoaded()
+    battles().reads = []
+
+    first.filters.value = { ...first.filters.value, from: '2026-08-02' }
+    await settle()
+
+    expect(battles().reads).toHaveLength(1)
+  })
+
+  it('reads again when something the module cannot see has changed', async () => {
+    // What `/import` calls: three hundred battles have just been written and
+    // nothing in here could have known.
+    const { whenLoaded, refresh, battles: rows } = useStats()
+
+    battles().rows = STATS_ROWS.slice(0, 2)
+    await whenLoaded()
+    const before = rows.value.length
+
+    battles().rows = STATS_ROWS
+    await refresh()
+
+    expect(rows.value.length).toBeGreaterThan(before)
   })
 
   it('clears the numbers when the read fails', async () => {
-    fake().error = new Error('nope')
+    battles().error = new Error('nope')
 
-    const { load, error, loaded, battles: rows } = useStats()
-    await load()
+    const { whenLoaded, error, loaded, battles: rows } = useStats()
+    await whenLoaded()
 
     // Numbers from the previous filter set, left standing under the new one,
     // would be read as an answer.
@@ -52,16 +136,28 @@ describe('reading the battles the dashboard stands on', () => {
     expect(rows.value).toEqual([])
     expect(error.value?.message).toBe('nope')
   })
+
+  it('lets the next asker try again after a read that failed', async () => {
+    battles().error = new Error('nope')
+
+    const stats = useStats()
+    await stats.whenLoaded()
+
+    battles().error = null
+    await stats.whenLoaded()
+
+    expect(stats.loaded.value).toBe(true)
+  })
 })
 
 describe('the global filters', () => {
   it('is the dates, and only the dates, that the server is asked for', async () => {
-    const { filters, load } = useStats()
+    const { filters, whenLoaded } = useStats()
     filters.value = { ...filters.value, from: '2026-08-01', to: '2026-08-31' }
 
-    await load()
+    await whenLoaded()
 
-    expect(fake().reads).toEqual([
+    expect(battles().reads).toEqual([
       { method: 'battlesOf', argument: { from: '2026-08-01', to: '2026-08-31' } },
     ])
   })
@@ -69,8 +165,8 @@ describe('the global filters', () => {
   it('settles the format in the browser, so the picker can offer every format', async () => {
     // Asked of the database, one format would come back and the picker would
     // then be able to offer only the format already chosen.
-    const { filters, load, battles: rows, formatOptions } = useStats()
-    await load()
+    const { filters, whenLoaded, battles: rows, formatOptions } = useStats()
+    await whenLoaded()
 
     // Most played first: the first entry is also the one a page opens on.
     expect(formatOptions.value).toEqual([FORMATS.LADDER, FORMATS.EVENT])
@@ -79,12 +175,12 @@ describe('the global filters', () => {
 
     expect(rows.value.every((row) => row.format_id === FORMATS.EVENT)).toBe(true)
     expect(formatOptions.value).toEqual([FORMATS.LADDER, FORMATS.EVENT])
-    expect(fake().reads).toHaveLength(1)
+    expect(battles().reads).toHaveLength(1)
   })
 
   it('offers each Showdown name once, in the spelling the replays carried', async () => {
-    const { load, identityOptions } = useStats()
-    await load()
+    const { whenLoaded, identityOptions } = useStats()
+    await whenLoaded()
 
     // notlittlestar is the same person as NotLittleStar, so it is not a
     // second option; SomeAlt is a different one.
@@ -92,8 +188,8 @@ describe('the global filters', () => {
   })
 
   it('matches a Showdown identity through toID, not by spelling', async () => {
-    const { filters, load, battles: rows } = useStats()
-    await load()
+    const { filters, whenLoaded, battles: rows } = useStats()
+    await whenLoaded()
 
     filters.value = { ...filters.value, identity: 'NotLittleStar' }
 
@@ -103,12 +199,12 @@ describe('the global filters', () => {
     expect(names).toContain('notlittlestar')
     expect(names).not.toContain('SomeAlt')
     // Settled on the fetched rows, so no second read.
-    expect(fake().reads).toHaveLength(1)
+    expect(battles().reads).toHaveLength(1)
   })
 
   it('re-counts without re-reading when the aggregation is switched', async () => {
-    const { filters, load, overall } = useStats()
-    await load()
+    const { filters, whenLoaded, overall } = useStats()
+    await whenLoaded()
 
     // The Bo3 event, which is where the series are: three games of one series
     // and two of another.
@@ -119,12 +215,12 @@ describe('the global filters', () => {
 
     // The 2-1 is one win; the series held in part is a tie.
     expect(overall.value).toMatchObject({ games: 2, wins: 1, ties: 1 })
-    expect(fake().reads).toHaveLength(1)
+    expect(battles().reads).toHaveLength(1)
   })
 
   it('moves the bring floor without re-reading either', async () => {
-    const { filters, load, teams } = useStats()
-    await load()
+    const { filters, whenLoaded, teams } = useStats()
+    await whenLoaded()
 
     // The ladder registration of team A, which is where the forfeit is.
     const bringsOf = () =>
@@ -137,7 +233,7 @@ describe('the global filters', () => {
     filters.value = { ...filters.value, includeIncompleteBrings: true }
 
     expect(bringsOf()).toBe(2)
-    expect(fake().reads).toHaveLength(1)
+    expect(battles().reads).toHaveLength(1)
   })
 
   it('shares one set of filters between both sections', async () => {
@@ -146,11 +242,33 @@ describe('the global filters', () => {
     const first = useStats()
     const second = useStats()
 
-    await first.load()
+    await first.whenLoaded()
     first.filters.value = { ...first.filters.value, aggregate: 'series' }
 
     expect(second.filters.value.aggregate).toBe('series')
     expect(second.overall.value).toEqual(first.overall.value)
     expect(second.battles.value).toHaveLength(first.battles.value.length)
+  })
+})
+
+describe('the format the address is pointing at', () => {
+  it('adopts a format the battles actually hold', async () => {
+    const { whenLoaded, filters, focusTeam } = useStats()
+    await whenLoaded()
+
+    focusTeam({ formatId: FORMATS.EVENT })
+
+    expect(filters.value.formatId).toBe(FORMATS.EVENT)
+  })
+
+  it('leaves the chosen one alone when the address names a format with no games', async () => {
+    // Writing it in regardless would draw an empty screen with nothing on it
+    // to say why.
+    const { whenLoaded, filters, focusTeam } = useStats()
+    await whenLoaded()
+
+    focusTeam({ formatId: 'gen9neverplayedthis' })
+
+    expect(filters.value.formatId).toBe(FORMATS.LADDER)
   })
 })

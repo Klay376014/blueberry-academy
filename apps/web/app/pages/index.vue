@@ -6,35 +6,24 @@
  */
 const { t } = useI18n()
 const localePath = useLocalePath()
-const user = useCurrentUser()
 
 const {
   teams,
   battles,
+  units,
+  overall,
   formatOptions,
-  adoptFormat,
   identityOptions,
-  serverFilterKey,
   loading,
   error,
   loaded,
-  load,
+  whenLoaded,
 } = useStats()
 
 // Awaited in setup, so the first paint carries the numbers rather than an
-// empty state that turns into them a tick later. Guarded on the user because
-// setup runs before the route middleware has bounced a signed-out visitor.
-if (user.value && !loaded.value) await load()
-
-// Only the filters the database applies; the rest are recomputed in place.
-watch(serverFilterKey, () => load())
-
-// The formats on offer are the ones the chosen name played, so moving the name
-// can leave the chosen format with nothing under it.
-watch(
-  () => useStatsFilters().value.identity,
-  () => adoptFormat(),
-)
+// empty state that turns into them a tick later. When to read again is
+// useStats's business.
+await whenLoaded()
 
 const strongest = computed(() => teams.value[0])
 </script>
@@ -68,7 +57,7 @@ const strongest = computed(() => teams.value[0])
     </section>
 
     <template v-else>
-      <StatsTrendSection :battles />
+      <StatsTrendSection :battles :units :overall />
 
       <BattleRecentList />
 
