@@ -41,6 +41,17 @@ describe('the Supabase plugin', () => {
   beforeEach(() => {
     useCurrentUser().value = null
     useShowdownAliases().value = null
+    clearNuxtState(
+      [
+        'stats-rows',
+        'drawer-battle',
+        'drawer-series',
+        'drawer-timeline',
+        'recent-battle-extras',
+        'battle-logs',
+      ],
+      { reset: true },
+    )
     supabaseAuth.getSession.mockResolvedValue({ data: { session: null } })
     supabaseAuth.onAuthStateChange.mockReset()
   })
@@ -58,6 +69,37 @@ describe('the Supabase plugin', () => {
     expect(useCurrentUser().value).toMatchObject({ id: 'stored' })
   })
 
+  /**
+   * One account's worth of everything the plugin is supposed to forget, put
+   * into the state the composables that own it would have put it in.
+   */
+  function fillStateFor(username: string) {
+    useShowdownAliases().value = [username]
+    useState<unknown>('stats-rows', () => null).value = [{ replay_id: `${username}-1` }]
+    useState<unknown>('drawer-battle', () => null).value = { replayId: `${username}-1` }
+    useState<unknown[]>('drawer-series', () => []).value = [{ replayId: `${username}-1` }]
+    useState<unknown>('drawer-timeline', () => null).value = { turns: [] }
+    useState<Map<string, unknown>>('recent-battle-extras', () => new Map()).value = new Map([
+      [`${username}-1`, { opponentUsername: 'Somebody' }],
+    ])
+    useState<Map<string, unknown>>('battle-logs', () => new Map()).value = new Map([
+      [`${username}-1`, Promise.resolve('|turn|1')],
+    ])
+  }
+
+  /** What the plugin left behind, by the key the composable reads it under. */
+  function leftBehind() {
+    return {
+      aliases: useShowdownAliases().value,
+      rows: useState<unknown>('stats-rows', () => null).value,
+      battle: useState<unknown>('drawer-battle', () => null).value,
+      series: useState<unknown[]>('drawer-series', () => []).value,
+      timeline: useState<unknown>('drawer-timeline', () => null).value,
+      extras: useState<Map<string, unknown>>('recent-battle-extras', () => new Map()).value,
+      logs: useState<Map<string, unknown>>('battle-logs', () => new Map()).value,
+    }
+  }
+
   it("drops one user's Showdown names when somebody else signs in", async () => {
     await bootPlugin()
     const aliases = useShowdownAliases()
@@ -70,6 +112,69 @@ describe('the Supabase plugin', () => {
     // alone, the first user's names would be on the second user's screen --
     // and could be written into their profile.
     expect(aliases.value).toBeNull()
+  })
+
+  it("keeps none of one user's battles when somebody else signs in", async () => {
+    supabaseAuth.getSession.mockResolvedValue({ data: { session: { user: { id: 'a' } } } })
+    await bootPlugin()
+    fillStateFor('a')
+
+    const onChange = supabaseAuth.onAuthStateChange.mock.calls[0]?.[0]
+    onChange('SIGNED_IN', { user: { id: 'b' } })
+
+    // RLS decides what the next query may read. It has nothing to say about
+    // the answer to the last one, still sitting in memory.
+    const left = leftBehind()
+    expect(left.aliases).toBeNull()
+    expect(left.rows).toBeNull()
+    expect(left.battle).toBeNull()
+    expect(left.series).toEqual([])
+    expect(left.timeline).toBeNull()
+    expect(left.extras.size).toBe(0)
+    expect(left.logs.size).toBe(0)
+  })
+
+  it('puts "nothing read yet" back, rather than nothing at all', async () => {
+    // `stats-rows` distinguishes "no matching battles" from "never read", and
+    // the dashboard only has something to say about the first. Cleared to
+    // `undefined` it would read as loaded and empty.
+    supabaseAuth.getSession.mockResolvedValue({ data: { session: { user: { id: 'a' } } } })
+    await bootPlugin()
+    fillStateFor('a')
+
+    const onChange = supabaseAuth.onAuthStateChange.mock.calls[0]?.[0]
+    onChange('SIGNED_OUT', null)
+
+    expect(useState<unknown>('stats-rows', () => null).value).toBeNull()
+    expect(useState<unknown>('stats-rows', () => null).value).not.toBeUndefined()
+  })
+
+  it('empties everything on the way out as well, not only on the way in', async () => {
+    supabaseAuth.getSession.mockResolvedValue({ data: { session: { user: { id: 'a' } } } })
+    await bootPlugin()
+    fillStateFor('a')
+
+    const onChange = supabaseAuth.onAuthStateChange.mock.calls[0]?.[0]
+    onChange('SIGNED_OUT', null)
+
+    expect(leftBehind().rows).toBeNull()
+    expect(leftBehind().extras.size).toBe(0)
+  })
+
+  it('keeps the battles through a token renewal for the same person', async () => {
+    // A renewal happens roughly hourly. Clearing on one would re-read the
+    // whole table every time, and blank the dashboard while it did.
+    supabaseAuth.getSession.mockResolvedValue({ data: { session: { user: { id: 'a' } } } })
+    await bootPlugin()
+    fillStateFor('a')
+
+    const onChange = supabaseAuth.onAuthStateChange.mock.calls[0]?.[0]
+    onChange('TOKEN_REFRESHED', { user: { id: 'a' } })
+
+    const left = leftBehind()
+    expect(left.rows as unknown[]).toHaveLength(1)
+    expect(left.aliases).toEqual(['a'])
+    expect(left.extras.size).toBe(1)
   })
 
   it('follows the session as it changes', async () => {

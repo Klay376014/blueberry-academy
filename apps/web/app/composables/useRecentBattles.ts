@@ -66,7 +66,8 @@ export function useRecentBattles() {
    * session: the same games come back every time a filter moves.
    */
   async function hydrate(): Promise<void> {
-    if (!user.value) return
+    const asker = user.value?.id
+    if (!asker) return
 
     const wanted = newest.value
       .map((row) => row.replay_id)
@@ -78,11 +79,13 @@ export function useRecentBattles() {
     error.value = null
 
     try {
-      const filled = new Map(extras.value)
+      const found = await storedBattles.detailsOf(wanted)
+      // Somebody else signed in while this was in the air, and the plugin has
+      // already emptied the map these would go back into.
+      if (user.value?.id !== asker) return
 
-      for (const [replayId, details] of await storedBattles.detailsOf(wanted)) {
-        filled.set(replayId, details)
-      }
+      const filled = new Map(extras.value)
+      for (const [replayId, details] of found) filled.set(replayId, details)
 
       extras.value = filled
     } catch (cause) {
