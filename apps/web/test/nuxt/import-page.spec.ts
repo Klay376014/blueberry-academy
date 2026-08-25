@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { mountSuspended, mockNuxtImport } from '@nuxt/test-utils/runtime'
 import App from '../../app/app.vue'
+import { fakeBattles } from '../fakes/battles'
+import { STATS_ROWS } from '../fixtures/stats-rows'
 import { signIn } from '../helpers'
 import type {
   BatchItem,
@@ -19,6 +21,26 @@ const { importMany, syncAccount, load } = vi.hoisted(() => ({
 }))
 
 mockNuxtImport('useIngest', () => () => ({ importMany, syncAccount }))
+
+/**
+ * The dashboard's own reads, because this page now asks for one when a batch
+ * finishes. One fake for the file: `useStats` registers its watchers once per
+ * session and they keep whichever adapter answered first.
+ */
+const { battles } = vi.hoisted(() => ({ battles: { value: null as unknown } }))
+
+battles.value = fakeBattles()
+
+mockNuxtImport('useBattles', () => () => battles.value as never)
+
+function stored() {
+  return battles.value as ReturnType<typeof fakeBattles>
+}
+
+/** Long enough for a read the fake resolves immediately to have landed. */
+async function settle() {
+  for (let turn = 0; turn < 3; turn += 1) await new Promise((resolve) => setTimeout(resolve, 0))
+}
 
 mockNuxtImport('useProfile', () => () => {
   const stored = useShowdownAliases()
@@ -100,6 +122,9 @@ function reportRows(wrapper: Wrapper): string[] {
 describe('the import page', () => {
   beforeEach(() => {
     signIn()
+    stored().rows = []
+    useState('stats-rows').value = null
+    useState('stats-reading').value = null
     useShowdownAliases().value = ['DavoPro1214']
     load.mockReset().mockResolvedValue(undefined)
     importMany.mockReset().mockResolvedValue(report([imported()]))
@@ -108,6 +133,23 @@ describe('the import page', () => {
       report: report([imported()]),
       truncated: false,
     })
+  })
+
+  it('re-reads the dashboard once a batch has finished', async () => {
+    // `useState` outlives a route in an SPA, so without this the dashboard
+    // still shows the numbers from before the import and only a page reload
+    // says otherwise.
+    const stats = useStats()
+    await stats.whenLoaded()
+    expect(stats.battles.value).toHaveLength(0)
+
+    const wrapper = await mountSuspended(App, { route: '/import' })
+    stored().rows = STATS_ROWS
+
+    await paste(wrapper, LINK)
+    await settle()
+
+    expect(stats.battles.value.length).toBeGreaterThan(0)
   })
 
   it('imports the replay a pasted link points at', async () => {

@@ -6,6 +6,7 @@ import type { ReplayRef } from '~/composables/useShowdown'
 const { t, locale } = useI18n()
 const { aliases, loaded, load } = useProfile()
 const { importMany, syncAccount } = useIngest()
+const { refresh: refreshStats } = useStats()
 
 /** One line per replay, the way a pasted list arrives. */
 const links = ref('')
@@ -201,6 +202,11 @@ async function run(work: () => Promise<void>) {
   busy.value = true
   try {
     await work()
+    // Not awaited: the dashboard's rows are session state that this route
+    // never touched, so without this a hundred freshly imported battles would
+    // stay invisible until the user happened to reload — but nothing on this
+    // page is waiting to hear how that read went.
+    void refreshStats()
   } finally {
     busy.value = false
   }

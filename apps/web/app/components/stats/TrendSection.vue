@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { overallTally, resultUnits } from '../../utils/battleStats'
-import type { StatsRow } from '../../utils/battleStats'
+import { resultUnits } from '../../utils/battleStats'
+import type { ResultUnit, StatsRow, Tally } from '../../utils/battleStats'
 import { currentStreak, ratingSeries, slidingWinRate } from '../../utils/winRateTrend'
 import type { SeriesPoint } from '../../utils/winRateTrend'
 
@@ -11,18 +11,17 @@ import type { SeriesPoint } from '../../utils/winRateTrend'
  * Descriptive statistics and nothing more: the copy here is careful never to
  * say a dip was caused by anything, because none of this can tell you that.
  */
-const props = defineProps<{ battles: StatsRow[] }>()
+/**
+ * `battles` is still here because the rating curve needs the rows themselves;
+ * a rating is something the ladder does to one game, not to a series.
+ */
+const props = defineProps<{ battles: StatsRow[]; units: ResultUnit[]; overall: Tally }>()
 
 const { t } = useI18n()
-const filters = useStatsFilters()
 
 /** The presets the curve is worth reading at. 20 is decision Q21's default. */
 const WINDOWS = [10, 20, 50]
 const windowSize = ref(20)
-
-const units = computed(() => resultUnits(props.battles, filters.value.aggregate))
-
-const tally = computed(() => overallTally(props.battles, filters.value.aggregate))
 
 /**
  * Always by game, whatever the aggregation is counting: "three in a row" is
@@ -32,7 +31,7 @@ const tally = computed(() => overallTally(props.battles, filters.value.aggregate
 const streak = computed(() => currentStreak(resultUnits(props.battles, 'game')))
 
 const winRatePoints = computed<SeriesPoint[]>(() =>
-  slidingWinRate(units.value, windowSize.value).map((point) => ({
+  slidingWinRate(props.units, windowSize.value).map((point) => ({
     date: point.date,
     value: point.rate,
   })),
@@ -100,7 +99,7 @@ function formatRating(value: number): string {
           {{ t('summary.games') }}
         </span>
         <p class="font-mono text-3xl tabular-nums" data-testid="summary-games">
-          {{ tally.games }}
+          {{ overall.games }}
         </p>
       </div>
 
@@ -109,10 +108,10 @@ function formatRating(value: number): string {
           {{ t('summary.winRate') }}
         </span>
         <p class="font-mono text-3xl tabular-nums" data-testid="summary-rate">
-          {{ formatRate(tally.winRate) }}
+          {{ formatRate(overall.winRate) }}
         </p>
         <p class="font-mono text-[11px] text-muted-foreground tabular-nums">
-          {{ tally.wins }}–{{ tally.losses }}
+          {{ overall.wins }}–{{ overall.losses }}
         </p>
       </div>
 

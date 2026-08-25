@@ -14,19 +14,16 @@ import { rateFill } from '../../utils/rateFill'
 const { t } = useI18n()
 const route = useRoute()
 const localePath = useLocalePath()
-const user = useCurrentUser()
 
-const { teams, serverFilterKey, loading, error, loaded, load, adoptFormat } = useStats()
+const { teams, loading, error, loaded, whenLoaded, focusTeam } = useStats()
 
-if (user.value && !loaded.value) await load()
-
-watch(serverFilterKey, () => load())
+await whenLoaded()
 
 const wanted = computed(() => parseTeamRouteId(String(route.params.id ?? '')))
 
 // The address carries the team's format, and the format is a required filter:
 // arriving here with another one chosen would find no team and say so.
-watch(wanted, (team) => adoptFormat(team?.formatId), { immediate: true })
+watch(wanted, focusTeam, { immediate: true })
 
 const index = computed(() =>
   teams.value.findIndex(
