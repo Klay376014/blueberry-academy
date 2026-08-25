@@ -7,7 +7,11 @@ on:
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  # Not on main: the run that lands there ends in a deploy, and cancelling that
+  # mid-upload leaves the site halfway between two versions. Superseding a
+  # branch's checks is free; superseding an upload is not. The deploy job's own
+  # group is what then keeps two main runs from uploading at once.
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
   node:
@@ -18,7 +22,8 @@ jobs:
 
       # This action reads the `packageManager` field, which this repo does not
       # set — it pins devEngines.packageManager instead. The version therefore
-      # lives in two places and they must move together.
+      # lives in devEngines and in each setup step here, and they must move
+      # together.
       - uses: pnpm/action-setup@v4
         with:
           version: 11.22.0
@@ -86,15 +91,12 @@ jobs:
 
   deploy:
     name: deploy to Cloudflare
-    # The gate is the gate: every check has to be green, and only a push to main
-    # deploys -- a pull request runs the same three jobs and stops there.
     needs: [node, conventions, database]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
 
-    # Its own group, and no cancelling: the workflow-level concurrency cancels
-    # in-progress runs, which is right for checks and wrong for an upload that is
-    # halfway through replacing what the site serves.
+    # One upload at a time. A second push waits rather than racing; GitHub drops
+    # whichever pending deploy it superseded.
     concurrency:
       group: deploy-cloudflare
       cancel-in-progress: false
@@ -113,13 +115,8 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      # The same script a human runs, with the values coming from secrets instead
-      # of from apps/web/.env.hosted. It builds, deploys, and then fetches the
-      # live origin to confirm the served shell points at the hosted Supabase.
-      #
-      # Only the two public NUXT_PUBLIC_* values and the Cloudflare token are
-      # here. The service_role key belongs to scripts/, which is never deployed,
-      # and has no business in this job.
+      # The same script a human runs -- scripts/deploy.sh -- with the values
+      # coming from secrets rather than from apps/web/.env.hosted.
       - run: pnpm run deploy
         env:
           NUXT_PUBLIC_SUPABASE_URL: ${{ secrets.NUXT_PUBLIC_SUPABASE_URL }}
