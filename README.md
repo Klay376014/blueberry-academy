@@ -110,7 +110,7 @@ Two things that bite:
 ## CI
 
 `.github/workflows/ci.yml` runs on every pull request and on every push to
-`main`, in three jobs:
+`main`, in three jobs — plus a fourth that only a push to `main` reaches:
 
 - **`check, type-check, test, build`** — `pnpm check`, `pnpm type-check`,
   `pnpm test:unit` and `pnpm build`, the same four commands as above. pnpm's
@@ -122,6 +122,8 @@ Two things that bite:
 - **`pgTAP`** — `supabase start` and then `supabase test db`, which is what
   `pnpm db:test` runs. `supabase/.env` is not present in CI and does not need to
   be: without the Google credentials the stack still starts, and no test signs in.
+- **`deploy to Cloudflare`** — `pnpm run deploy`, gated on all three of the
+  above and on the push being to `main`. See [Deploying](#deploying).
 
 The hooks in `.vite-hooks/` still run first and still catch most of this before a
 push. What CI adds is the part that cannot rest on self-discipline: hooks are
@@ -329,9 +331,33 @@ That list holds the deployed origin as well as the two local ones — see
 
 ## Deploying
 
+**Merging to `main` puts the site up.** The `deploy to Cloudflare` job runs
+`pnpm run deploy` after the three check jobs pass, so a red gate produces no
+deploy and nothing has to be remembered. Deploying by hand is the same command:
+
 ```sh
 pnpm run deploy
 ```
+
+Reach for the manual form when CI cannot do it — rolling back to an older commit
+without a revert, or pushing while the gate is broken for reasons unrelated to
+the app. `wrangler login` once, and it deploys from your machine with the values
+in `apps/web/.env.hosted`; the next push to `main` overwrites whatever you sent.
+Cloudflare's dashboard keeps previous versions, so a rollback can also be done
+there without this repo at all.
+
+CI needs four secrets, and they are the whole list:
+
+| secret                          | what it is                           |
+| ------------------------------- | ------------------------------------ |
+| `CLOUDFLARE_API_TOKEN`          | an **Edit Cloudflare Workers** token |
+| `CLOUDFLARE_ACCOUNT_ID`         | the account the Worker lives in      |
+| `NUXT_PUBLIC_SUPABASE_URL`      | the hosted project's URL             |
+| `NUXT_PUBLIC_SUPABASE_ANON_KEY` | its anon key                         |
+
+The **service_role key is not among them and must never be**: it belongs to
+`scripts/`, which is never deployed, and the deploy path has no reason to touch
+it (`scripts/check-conventions.sh` enforces the same rule on the app's source).
 
 The site is a Worker on Cloudflare at
 **<https://blueberry-academy.ivy-cudgel.com>**. `scripts/deploy.sh` builds,

@@ -83,3 +83,46 @@ jobs:
       # What `pnpm db:test` runs. Called directly to keep the node toolchain out
       # of a job that only needs Postgres.
       - run: supabase test db
+
+  deploy:
+    name: deploy to Cloudflare
+    # The gate is the gate: every check has to be green, and only a push to main
+    # deploys -- a pull request runs the same three jobs and stops there.
+    needs: [node, conventions, database]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+
+    # Its own group, and no cancelling: the workflow-level concurrency cancels
+    # in-progress runs, which is right for checks and wrong for an upload that is
+    # halfway through replacing what the site serves.
+    concurrency:
+      group: deploy-cloudflare
+      cancel-in-progress: false
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.22.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # The same script a human runs, with the values coming from secrets instead
+      # of from apps/web/.env.hosted. It builds, deploys, and then fetches the
+      # live origin to confirm the served shell points at the hosted Supabase.
+      #
+      # Only the two public NUXT_PUBLIC_* values and the Cloudflare token are
+      # here. The service_role key belongs to scripts/, which is never deployed,
+      # and has no business in this job.
+      - run: pnpm run deploy
+        env:
+          NUXT_PUBLIC_SUPABASE_URL: ${{ secrets.NUXT_PUBLIC_SUPABASE_URL }}
+          NUXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NUXT_PUBLIC_SUPABASE_ANON_KEY }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
