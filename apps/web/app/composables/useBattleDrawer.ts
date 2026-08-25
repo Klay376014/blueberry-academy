@@ -33,7 +33,7 @@ export type DrawerFailure =
   | 'row'
 
 export function useBattleDrawer() {
-  const battlesTable = useBattles()
+  const storedBattles = useBattles()
   const route = useRoute()
   const router = useRouter()
   const { loadLog, error: logError } = useBattleLog()
@@ -89,7 +89,7 @@ export function useBattleDrawer() {
     const current = () => reading.value === replayId
 
     try {
-      const found = await battlesTable.battleById(replayId)
+      const found = await storedBattles.battleById(replayId)
       if (!current()) return
 
       if (!found) {
@@ -106,7 +106,7 @@ export function useBattleDrawer() {
       // withhold a timeline that reads perfectly well.
       if (found.seriesId) {
         try {
-          const games = await battlesTable.gamesOfSeries(found.seriesId)
+          const games = await storedBattles.gamesOfSeries(found.seriesId)
           if (!current()) return
 
           series.value = games

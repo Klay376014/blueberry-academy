@@ -9,8 +9,17 @@ import type { BattleResult, StatsRow } from '../utils/battleStats'
  *
  * Nothing outside this file assembles a `battles` query. The column lists, the
  * `user_id` scope, the paging, the row shapes and the opponent-side derivation
- * live here once, so a caller cannot get any of them subtly wrong — see the
- * design in issue #52.
+ * live here once, so a caller cannot get any of them subtly wrong. The readers
+ * above it are docs/specs/2026-08-16-replay-analytics-design.md §7 (the
+ * dashboard) and docs/specs/2026-08-20-battle-timeline-design.md §4 (the
+ * drawer); the move itself is issue #52.
+ *
+ * It sits in `lib/` rather than `utils/` because everything in `utils/` is a
+ * pure function and this is the app's one piece of I/O over `battles`.
+ *
+ * The interface exists for a second reason as well as the first: it is the
+ * seam the tests need. The in-memory adapter behind it is
+ * `test/fakes/battles.ts`, which is why the row mapping below is exported.
  *
  * `scripts/reparse.ts` deliberately does not use this: it reads across users,
  * by id, with `select('*')`, and widening the interface to cover both would
@@ -25,6 +34,13 @@ import type { BattleResult, StatsRow } from '../utils/battleStats'
  * Failures throw. `null` and an absent map entry mean "the read worked and
  * there is no such row" — what to show for a failure is each page's decision,
  * and the drawer, the importer and the dashboard all answer it differently.
+ */
+
+/**
+ * The column lists, each typed as `string` rather than left as the literal it
+ * is: postgrest-js parses a literal column list at the type level, and over a
+ * list this long tsc gives up with "type instantiation is excessively deep".
+ * The shapes are asserted below instead.
  */
 
 /** The columns the stats layer slices on — `details` deliberately not among them. */
@@ -103,21 +119,33 @@ export interface Battles {
   /** The extra columns for these battles, by replay id. Missing ids are absent. */
   detailsOf(replayIds: string[]): Promise<Map<string, BattleDetails>>
 
-  /** Which of these replays this user already has. */
+  /**
+   * Which of these replays this user already has.
+   *
+   * Throws rather than answering "none of them": treating an unreachable
+   * database as an empty one would re-fetch an entire account.
+   */
   knownReplayIds(ids: string[]): Promise<Set<string>>
 
   /** Writes one battle and answers with the row as the database kept it. */
   putBattle(row: BattleRow): Promise<BattleRow>
 }
 
-export function createBattles(client: SupabaseClient, userId: string): Battles {
+/**
+ * @param currentUserId Whose battles these are. A function rather than a value
+ * because the shell around this is reached in setup, which runs before the
+ * route middleware has bounced a signed-out visitor, and because signing in as
+ * somebody else happens without a page reload. It throws when nobody is signed
+ * in, which is the one thing a caller cannot supply.
+ */
+export function createBattles(client: SupabaseClient, currentUserId: () => string): Battles {
   /**
    * Every read starts here, so `.eq('user_id', …)` cannot be left off. It is
    * redundant under RLS and is what puts the (user_id, played_at) index to
    * work.
    */
   function scoped(columns: string) {
-    return client.from('battles').select(columns).eq('user_id', userId)
+    return client.from('battles').select(columns).eq('user_id', currentUserId())
   }
 
   async function recordsWhere(column: 'replay_id' | 'series_id', value: string) {
@@ -127,7 +155,7 @@ export function createBattles(client: SupabaseClient, userId: string): Battles {
 
     if (error) throw error
 
-    return ((data as unknown as StoredRecordRow[] | null) ?? []).map(recordOf)
+    return ((data as unknown as StoredRecordRow[] | null) ?? []).map(battleRecordOf)
   }
 
   return {
@@ -179,7 +207,7 @@ export function createBattles(client: SupabaseClient, userId: string): Battles {
         if (error) throw error
 
         for (const row of (data as unknown as StoredDetailRow[] | null) ?? []) {
-          found.set(row.replay_id, detailsOf(row))
+          found.set(row.replay_id, battleDetailsOf(row))
         }
       }
 
@@ -205,21 +233,31 @@ export function createBattles(client: SupabaseClient, userId: string): Battles {
     async putBattle(row) {
       const { data, error } = await client
         .from('battles')
-        .upsert(row, { onConflict: 'user_id,replay_id' })
+        // The user is the module's to fill in on a write as much as on a read.
+        .upsert({ ...row, user_id: currentUserId() }, { onConflict: 'user_id,replay_id' })
         .select()
         // Asked for back, so a write that RLS quietly matched nothing cannot
         // pass for an import.
         .single()
 
       if (error) throw error
+      // Not softened to "assume it worked": that is the whole point of reading
+      // it back. `.single()` normally errors first, so this is the last door.
+      if (!data) throw new Error(`The write of ${row.replay_id} came back with no row.`)
 
-      return (data as BattleRow | null) ?? row
+      return data as BattleRow
     },
   }
 }
 
-/** A date with no time in it covers the whole of that day. */
-function endOfDay(bound: string): string {
+/**
+ * A date with no time in it covers the whole of that day.
+ *
+ * Exported, like the two mappings below, for the in-memory adapter in
+ * `test/fakes/battles.ts`: one derivation and two adapters, rather than a fake
+ * that quietly answers differently from the module it stands in for.
+ */
+export function endOfDay(bound: string): string {
   return bound.includes('T') ? bound : `${bound}T23:59:59.999Z`
 }
 
@@ -234,7 +272,8 @@ interface StoredSides {
   sides?: Partial<Record<SideId, { bringSignature?: string | null }>>
 }
 
-interface StoredDetailRow {
+/** A stored row as `detailsOf` reads it. */
+export interface StoredDetailRow {
   replay_id: string
   opponent_username: string | null
   turn_count: number | null
@@ -242,7 +281,8 @@ interface StoredDetailRow {
   details: StoredSides | null
 }
 
-interface StoredRecordRow extends StoredDetailRow {
+/** A stored row as `battleById` and `gamesOfSeries` read it. */
+export interface StoredRecordRow extends StoredDetailRow {
   played_at: string
   format_id: string
   series_id: string | null
@@ -265,7 +305,7 @@ function opponentBringOf(row: StoredDetailRow): string | null {
   return (theirs && row.details?.sides?.[theirs]?.bringSignature) || null
 }
 
-function detailsOf(row: StoredDetailRow): BattleDetails {
+export function battleDetailsOf(row: StoredDetailRow): BattleDetails {
   return {
     opponentUsername: row.opponent_username,
     turnCount: row.turn_count,
@@ -273,7 +313,7 @@ function detailsOf(row: StoredDetailRow): BattleDetails {
   }
 }
 
-function recordOf(row: StoredRecordRow): BattleRecord {
+export function battleRecordOf(row: StoredRecordRow): BattleRecord {
   return {
     replayId: row.replay_id,
     playedAt: row.played_at,

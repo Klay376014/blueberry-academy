@@ -30,7 +30,7 @@ export interface RecentBattle {
 
 export function useRecentBattles() {
   const user = useCurrentUser()
-  const battlesTable = useBattles()
+  const storedBattles = useBattles()
   const { battles } = useStats()
 
   const extras = useState<Map<string, BattleDetails>>('recent-battle-extras', () => new Map())
@@ -80,7 +80,7 @@ export function useRecentBattles() {
     try {
       const filled = new Map(extras.value)
 
-      for (const [replayId, details] of await battlesTable.detailsOf(wanted)) {
+      for (const [replayId, details] of await storedBattles.detailsOf(wanted)) {
         filled.set(replayId, details)
       }
 

@@ -32,7 +32,8 @@ function valueOf(calls: Call[], method: string, column: string): unknown {
 /** The rows a request with these calls should answer with. */
 function answer(calls: Call[]): Record<string, unknown>[] {
   const upserted = calls.find(([name]) => name === 'upsert')
-  if (upserted) return [upserted[1] as Record<string, unknown>]
+  // An empty `db.rows` stands for the write RLS matched nothing.
+  if (upserted) return db.rows.length ? [upserted[1] as Record<string, unknown>] : []
 
   const ids = valueOf(calls, 'in', 'replay_id') as string[] | undefined
   const replayId = valueOf(calls, 'eq', 'replay_id') as string | undefined
@@ -97,7 +98,7 @@ function builder() {
 const client = { from: () => builder() } as unknown as SupabaseClient
 
 function battles() {
-  return createBattles(client, USER)
+  return createBattles(client, () => USER)
 }
 
 /** The calls of the one request that was made. */
@@ -147,7 +148,7 @@ describe('every read is this user’s', () => {
     await battles().battlesOf({ from: null, to: null })
 
     // Redundant under RLS, and what puts the (user_id, played_at) index to
-    // work. Bound at construction, so no caller can leave it off.
+    // work. The module fills it in, so no caller can leave it off.
     expect(onlyRequest()).toContainEqual(['eq', 'user_id', USER])
   })
 
@@ -323,6 +324,22 @@ describe('writing a battle', () => {
 
   it('answers with the row the database kept', async () => {
     await expect(battles().putBattle(row)).resolves.toMatchObject({ replay_id: 'ladder-1' })
+  })
+
+  it('files the write under the bound user, whatever the row says', async () => {
+    await battles().putBattle({ ...row, user_id: 'somebody-else' } as unknown as BattleRow)
+
+    const written = onlyRequest().find(([name]) => name === 'upsert')?.[1] as { user_id: string }
+
+    expect(written.user_id).toBe(USER)
+  })
+
+  it('refuses a write that came back with no row at all', async () => {
+    // The read-back is the whole point: a write RLS quietly matched nothing
+    // must not pass for an import.
+    db.rows = []
+
+    await expect(battles().putBattle(row)).rejects.toThrow(/no row/)
   })
 
   it('throws when the write is refused', async () => {

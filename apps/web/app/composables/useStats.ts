@@ -16,7 +16,7 @@ import type { StatsRow } from '../utils/battleStats'
 
 export function useStats() {
   const user = useCurrentUser()
-  const battlesTable = useBattles()
+  const storedBattles = useBattles()
   const filters = useStatsFilters()
 
   /**
@@ -52,7 +52,7 @@ export function useStats() {
     try {
       const { from, to } = filters.value
 
-      rows.value = await battlesTable.battlesOf({ from, to })
+      rows.value = await storedBattles.battlesOf({ from, to })
       // Name first: the formats on offer are the ones that name played.
       adoptIdentity()
       adoptFormat()

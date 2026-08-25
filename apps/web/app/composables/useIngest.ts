@@ -97,7 +97,7 @@ async function gzip(text: string): Promise<Blob> {
 export function useIngest() {
   const { $supabase } = useNuxtApp()
   const user = useCurrentUser()
-  const battlesTable = useBattles()
+  const storedBattles = useBattles()
   const stored = useShowdownAliases()
   const { fetchReplay, listReplays } = useShowdown()
 
@@ -181,7 +181,7 @@ export function useIngest() {
 
     let written: BattleRow
     try {
-      written = await battlesTable.putBattle(row)
+      written = await storedBattles.putBattle(row)
     } catch (error) {
       return { status: 'failed', reason: 'write-failed', message: messageOf(error) }
     }
@@ -215,7 +215,7 @@ export function useIngest() {
     // request never made to Showdown is the point. Duplicate rows are
     // impossible anyway — `unique(user_id, replay_id)` and an upsert see to
     // that — so this is politeness and speed.
-    const known = await battlesTable.knownReplayIds(unique.map((ref) => ref.id))
+    const known = await storedBattles.knownReplayIds(unique.map((ref) => ref.id))
 
     options.onTotal?.(unique.length)
 
