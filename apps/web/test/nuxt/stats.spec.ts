@@ -1,83 +1,34 @@
-import { beforeEach, describe, expect, it } from 'vitest'
-import type { StatsRow } from '../../app/utils/battleStats'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { mockNuxtImport } from '@nuxt/test-utils/runtime'
+import { fakeBattles } from '../fakes/battles'
+import type { FakeBattles } from '../fakes/battles'
 import { FORMATS, SIGNATURES, STATS_ROWS } from '../fixtures/stats-rows'
 import { signIn } from '../helpers'
 
-/** One filter as it reached PostgREST: the method and what it was given. */
-type Filter = [string, ...unknown[]]
-
 /**
- * A PostgREST query builder that records instead of asking, and answers from
- * `db.rows`. Faked at the client, so the composable's own chain — the columns,
- * the filters, the paging — is the thing under test.
+ * What the dashboard's numbers do, over the in-memory `Battles` adapter.
+ *
+ * The query itself is not faked here and is not asserted here: the columns,
+ * the paging, the `user_id` scope and the date boundary belong to
+ * `battles.spec.ts`, which runs the real module. What is left is this
+ * composable's own job — which filters cost a request and which are settled in
+ * the browser, and what the numbers are when they are.
  */
-const db = {
-  rows: [] as StatsRow[],
-  error: null as unknown,
-  /** One entry per request, so paging is visible. */
-  requests: [] as { filters: Filter[]; range: [number, number] }[],
-}
 
-function builder() {
-  const filters: Filter[] = []
+const { battles } = vi.hoisted(() => ({ battles: { value: null as unknown } }))
 
-  const chain = {
-    select: (...args: unknown[]) => (filters.push(['select', ...args]), chain),
-    eq: (...args: unknown[]) => (filters.push(['eq', ...args]), chain),
-    not: (...args: unknown[]) => (filters.push(['not', ...args]), chain),
-    gte: (...args: unknown[]) => (filters.push(['gte', ...args]), chain),
-    lte: (...args: unknown[]) => (filters.push(['lte', ...args]), chain),
-    or: (...args: unknown[]) => (filters.push(['or', ...args]), chain),
-    order: (...args: unknown[]) => (filters.push(['order', ...args]), chain),
-    range: (from: number, to: number) => {
-      db.requests.push({ filters, range: [from, to] })
+mockNuxtImport('useBattles', () => () => battles.value as never)
 
-      return Promise.resolve(
-        db.error
-          ? { data: null, error: db.error }
-          : { data: db.rows.slice(from, to + 1), error: null },
-      )
-    },
-  }
-
-  return chain
-}
-
-/** The filters of the one request that was made. */
-function onlyRequest() {
-  expect(db.requests).toHaveLength(1)
-  return db.requests[0]!.filters
-}
-
-function synthetic(count: number): StatsRow[] {
-  return Array.from({ length: count }, (_, index) => ({
-    replay_id: `bulk-${index}`,
-    played_at: `2026-01-01T00:00:${String(index % 60).padStart(2, '0')}Z`,
-    format_id: FORMATS.LADDER,
-    series_id: null,
-    my_username: 'NotLittleStar',
-    result: 'win' as const,
-    rating: null,
-    rating_delta: null,
-    team_signature: SIGNATURES.TEAM_A,
-    bring_signature: SIGNATURES.BRING_A1,
-    bring_complete: true,
-  }))
+function fake(): FakeBattles {
+  return battles.value as FakeBattles
 }
 
 beforeEach(() => {
-  const nuxtApp = useNuxtApp()
-  if (!nuxtApp.$supabase) {
-    nuxtApp.provide('supabase', { from: () => builder() })
-  }
+  battles.value = fakeBattles(STATS_ROWS)
 
   signIn()
-
-  db.rows = STATS_ROWS
-  db.error = null
-  db.requests = []
-
   useStatsFilters().value = defaultStatsFilters()
+  useState('stats-rows').value = null
 })
 
 describe('reading the battles the dashboard stands on', () => {
@@ -86,79 +37,39 @@ describe('reading the battles the dashboard stands on', () => {
     useCurrentUser().value = null
 
     await expect(load()).rejects.toThrow(/signed-in user/)
-    expect(db.requests).toHaveLength(0)
-  })
-
-  it('excludes spectated battles, and not on request', async () => {
-    // A battle where neither player is the user has no result to count. It is
-    // not a filter the caller can turn back on.
-    await useStats().load()
-
-    expect(onlyRequest()).toContainEqual(['not', 'my_side', 'is', null])
-  })
-
-  it('asks for the columns it slices on and no jsonb', async () => {
-    await useStats().load()
-
-    const select = onlyRequest().find(([method]) => method === 'select')?.[1] as string
-
-    expect(select).toContain('bring_complete')
-    expect(select).not.toContain('details')
-  })
-
-  it('reads newest last, so a curve can be drawn straight off it', async () => {
-    await useStats().load()
-
-    expect(onlyRequest()).toContainEqual(['order', 'played_at', { ascending: true }])
-  })
-
-  it('pages until a short page says that was all of them', async () => {
-    // PostgREST caps a response at a thousand rows on its own. A win rate over
-    // the first thousand games of an account, shown as the whole of it, is
-    // worse than an error.
-    db.rows = synthetic(1001)
-
-    const { battles, load } = useStats()
-    await load()
-
-    expect(db.requests.map((request) => request.range)).toEqual([
-      [0, 999],
-      [1000, 1999],
-    ])
-    expect(battles.value).toHaveLength(1001)
+    expect(fake().reads).toHaveLength(0)
   })
 
   it('clears the numbers when the read fails', async () => {
-    db.error = new Error('nope')
+    fake().error = new Error('nope')
 
-    const { load, error, loaded, battles } = useStats()
+    const { load, error, loaded, battles: rows } = useStats()
     await load()
 
     // Numbers from the previous filter set, left standing under the new one,
     // would be read as an answer.
     expect(loaded.value).toBe(false)
-    expect(battles.value).toEqual([])
+    expect(rows.value).toEqual([])
     expect(error.value?.message).toBe('nope')
   })
 })
 
 describe('the global filters', () => {
-  it('asks the database for the dates', async () => {
+  it('is the dates, and only the dates, that the server is asked for', async () => {
     const { filters, load } = useStats()
     filters.value = { ...filters.value, from: '2026-08-01', to: '2026-08-31' }
 
     await load()
-    const applied = onlyRequest()
 
-    expect(applied).toContainEqual(['gte', 'played_at', '2026-08-01'])
-    // The day the user named, all of it — not its first instant.
-    expect(applied).toContainEqual(['lte', 'played_at', '2026-08-31T23:59:59.999Z'])
+    expect(fake().reads).toEqual([
+      { method: 'battlesOf', argument: { from: '2026-08-01', to: '2026-08-31' } },
+    ])
   })
 
   it('settles the format in the browser, so the picker can offer every format', async () => {
     // Asked of the database, one format would come back and the picker would
     // then be able to offer only the format already chosen.
-    const { filters, load, battles, formatOptions } = useStats()
+    const { filters, load, battles: rows, formatOptions } = useStats()
     await load()
 
     // Most played first: the first entry is also the one a page opens on.
@@ -166,10 +77,9 @@ describe('the global filters', () => {
 
     filters.value = { ...filters.value, formatId: FORMATS.EVENT }
 
-    expect(battles.value.every((row) => row.format_id === FORMATS.EVENT)).toBe(true)
+    expect(rows.value.every((row) => row.format_id === FORMATS.EVENT)).toBe(true)
     expect(formatOptions.value).toEqual([FORMATS.LADDER, FORMATS.EVENT])
-    expect(onlyRequest()).not.toContainEqual(['eq', 'format_id', FORMATS.EVENT])
-    expect(db.requests).toHaveLength(1)
+    expect(fake().reads).toHaveLength(1)
   })
 
   it('offers each Showdown name once, in the spelling the replays carried', async () => {
@@ -182,18 +92,18 @@ describe('the global filters', () => {
   })
 
   it('matches a Showdown identity through toID, not by spelling', async () => {
-    const { filters, load, battles } = useStats()
+    const { filters, load, battles: rows } = useStats()
     await load()
 
     filters.value = { ...filters.value, identity: 'NotLittleStar' }
 
-    const names = battles.value.map((row) => row.my_username)
+    const names = rows.value.map((row) => row.my_username)
 
     // notlittlestar is the same person; SomeAlt is not.
     expect(names).toContain('notlittlestar')
     expect(names).not.toContain('SomeAlt')
     // Settled on the fetched rows, so no second read.
-    expect(db.requests).toHaveLength(1)
+    expect(fake().reads).toHaveLength(1)
   })
 
   it('re-counts without re-reading when the aggregation is switched', async () => {
@@ -209,7 +119,7 @@ describe('the global filters', () => {
 
     // The 2-1 is one win; the series held in part is a tie.
     expect(overall.value).toMatchObject({ games: 2, wins: 1, ties: 1 })
-    expect(db.requests).toHaveLength(1)
+    expect(fake().reads).toHaveLength(1)
   })
 
   it('moves the bring floor without re-reading either', async () => {
@@ -227,7 +137,7 @@ describe('the global filters', () => {
     filters.value = { ...filters.value, includeIncompleteBrings: true }
 
     expect(bringsOf()).toBe(2)
-    expect(db.requests).toHaveLength(1)
+    expect(fake().reads).toHaveLength(1)
   })
 
   it('shares one set of filters between both sections', async () => {

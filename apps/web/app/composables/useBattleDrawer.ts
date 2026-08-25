@@ -1,7 +1,7 @@
 import { parseTimeline } from 'replay-parser'
-import type { BattleTimeline, SideId } from 'replay-parser'
+import type { BattleTimeline } from 'replay-parser'
 import { fieldSnapshots } from '../utils/battleField'
-import type { BattleResult } from '../utils/battleStats'
+import type { BattleRecord } from '../lib/battles'
 
 /**
  * Which battle the drawer is showing, and everything it shows about it.
@@ -15,30 +15,13 @@ import type { BattleResult } from '../utils/battleStats'
  * from somebody else's chat is for a game the current filters may exclude.
  */
 
-const COLUMNS =
-  'replay_id, played_at, format_id, series_id, result, rating, rating_delta, end_reason, my_side, my_username, opponent_username, turn_count, bring_signature, details, parse_error'
-
-/** What the drawer's header and timeline are drawn from. */
-export interface DrawerBattle {
-  replayId: string
-  playedAt: string
-  formatId: string
-  seriesId: string | null
-  result: BattleResult | null
-  /** My rating once the game was over, or null for a game off the ladder. */
-  rating: number | null
-  ratingDelta: number | null
-  /** What the log said beyond who won, e.g. a forfeit. */
-  endReason: string | null
-  mySide: SideId | null
-  myUsername: string | null
-  opponentUsername: string | null
-  turnCount: number | null
-  myBring: string | null
-  opponentBring: string | null
-  /** Why the import could not read this log, when it could not. */
-  parseError: string | null
-}
+/**
+ * What the drawer's header and timeline are drawn from.
+ *
+ * The name the components use for a row of `battles`; the shape belongs to
+ * `app/lib/battles.ts`, which is what reads it.
+ */
+export type DrawerBattle = BattleRecord
 
 /** Why there is no timeline to show. */
 export type DrawerFailure =
@@ -50,8 +33,7 @@ export type DrawerFailure =
   | 'row'
 
 export function useBattleDrawer() {
-  const { $supabase } = useNuxtApp()
-  const user = useCurrentUser()
+  const storedBattles = useBattles()
   const route = useRoute()
   const router = useRouter()
   const { loadLog, error: logError } = useBattleLog()
@@ -90,22 +72,6 @@ export function useBattleDrawer() {
    */
   const reading = useState<string | null>('drawer-reading', () => null)
 
-  async function rowsOf(column: 'replay_id' | 'series_id', value: string) {
-    const userId = user.value?.id
-    if (!userId) throw new Error('No signed-in user to read a battle for.')
-
-    const { data, error } = await $supabase
-      .from('battles')
-      .select(COLUMNS)
-      .eq('user_id', userId)
-      .eq(column, value)
-      .order('played_at', { ascending: true })
-
-    if (error) throw error
-
-    return ((data as unknown as StoredRow[] | null) ?? []).map(drawerBattleOf)
-  }
-
   /**
    * The battle, its series siblings and its timeline. Nothing throws: every
    * way this can fail is a state the drawer draws (design document §4).
@@ -123,7 +89,7 @@ export function useBattleDrawer() {
     const current = () => reading.value === replayId
 
     try {
-      const [found] = await rowsOf('replay_id', replayId)
+      const found = await storedBattles.battleById(replayId)
       if (!current()) return
 
       if (!found) {
@@ -140,7 +106,7 @@ export function useBattleDrawer() {
       // withhold a timeline that reads perfectly well.
       if (found.seriesId) {
         try {
-          const games = await rowsOf('series_id', found.seriesId)
+          const games = await storedBattles.gamesOfSeries(found.seriesId)
           if (!current()) return
 
           series.value = games
@@ -207,45 +173,5 @@ export function useBattleDrawer() {
     logError,
     open,
     close,
-  }
-}
-
-interface StoredRow {
-  replay_id: string
-  played_at: string
-  format_id: string
-  series_id: string | null
-  result: BattleResult | null
-  rating: number | null
-  rating_delta: number | null
-  end_reason: string | null
-  my_side: SideId | null
-  my_username: string | null
-  opponent_username: string | null
-  turn_count: number | null
-  bring_signature: string | null
-  details: { sides?: Partial<Record<SideId, { bringSignature?: string | null }>> } | null
-  parse_error: string | null
-}
-
-function drawerBattleOf(row: StoredRow): DrawerBattle {
-  const theirs = row.my_side === 'p1' ? 'p2' : row.my_side === 'p2' ? 'p1' : null
-
-  return {
-    replayId: row.replay_id,
-    playedAt: row.played_at,
-    formatId: row.format_id,
-    seriesId: row.series_id,
-    result: row.result,
-    rating: row.rating,
-    ratingDelta: row.rating_delta,
-    endReason: row.end_reason,
-    mySide: row.my_side,
-    myUsername: row.my_username,
-    opponentUsername: row.opponent_username,
-    turnCount: row.turn_count,
-    myBring: row.bring_signature,
-    opponentBring: (theirs && row.details?.sides?.[theirs]?.bringSignature) || null,
-    parseError: row.parse_error,
   }
 }

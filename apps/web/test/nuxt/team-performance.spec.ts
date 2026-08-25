@@ -2,84 +2,27 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { mountSuspended, mockNuxtImport } from '@nuxt/test-utils/runtime'
 import Dashboard from '../../app/pages/index.vue'
 import TeamDetail from '../../app/pages/teams/[id].vue'
-import type { StatsRow } from '../../app/utils/battleStats'
 import { teamRouteId } from '../../app/utils/teamRoute'
+import { fakeBattles } from '../fakes/battles'
+import type { FakeBattles, StoredBattle } from '../fakes/battles'
 import { FORMATS, SIGNATURES, STATS_ROWS } from '../fixtures/stats-rows'
 import { signIn } from '../helpers'
 
 /**
- * The dashboard and the team detail page, over the real query layer with only
- * Supabase faked. What is asserted is what a user is shown: the ordering rule
- * doing its job, the low-sample team still on screen, and the gap between the
- * team's games and its brings explained rather than left to look like an
- * arithmetic error.
+ * The dashboard and the team detail page, over the in-memory `Battles`
+ * adapter. What is asserted is what a user is shown: the ordering rule doing
+ * its job, the low-sample team still on screen, and the gap between the team's
+ * games and its brings explained rather than left to look like an arithmetic
+ * error.
  */
 
-type Filter = [string, ...unknown[]]
+const { battles } = vi.hoisted(() => ({ battles: { value: null as unknown } }))
 
-const db = {
-  rows: [] as StatsRow[],
-  requests: [] as Filter[][],
-}
+mockNuxtImport('useBattles', () => () => battles.value as never)
 
-const BEST_OF = /bo[23]$/
-
-/**
- * Enough of PostgREST to be worth testing against: the best-of filters are
- * applied for real, because "switching Bo1/Bo3 changes the list" is one of the
- * things this page has to get right.
- */
-function builder() {
-  const filters: Filter[] = []
-
-  const chain = {
-    select: (...args: unknown[]) => (filters.push(['select', ...args]), chain),
-    eq: (...args: unknown[]) => (filters.push(['eq', ...args]), chain),
-    in: (...args: unknown[]) => (filters.push(['in', ...args]), chain),
-    not: (...args: unknown[]) => (filters.push(['not', ...args]), chain),
-    gte: (...args: unknown[]) => (filters.push(['gte', ...args]), chain),
-    lte: (...args: unknown[]) => (filters.push(['lte', ...args]), chain),
-    or: (...args: unknown[]) => (filters.push(['or', ...args]), chain),
-    order: (...args: unknown[]) => (filters.push(['order', ...args]), chain),
-    range: (from: number, to: number) => {
-      db.requests.push(filters)
-
-      const wantsBestOf = filters.some(([method]) => method === 'or')
-      const wantsBo1 = filters.some(
-        ([method, column]) => method === 'not' && column === 'format_id',
-      )
-
-      const rows = db.rows.filter((row) => {
-        if (wantsBestOf) return BEST_OF.test(row.format_id)
-        if (wantsBo1) return !BEST_OF.test(row.format_id)
-        return true
-      })
-
-      return Promise.resolve({ data: rows.slice(from, to + 1), error: null })
-    },
-    /**
-     * The recent battles list awaits the builder rather than capping it. This
-     * page is not what asserts that list, so answering with the rows it asked
-     * about is enough for the dashboard to render.
-     */
-    then: (onFulfilled: (value: unknown) => unknown) => {
-      db.requests.push(filters)
-      const ids = filters.find(([method]) => method === 'in')?.[2] as string[] | undefined
-
-      return Promise.resolve({
-        data: (ids ?? []).map((replay_id) => ({
-          replay_id,
-          opponent_username: 'Somebody',
-          turn_count: 11,
-          my_side: 'p1',
-          details: {},
-        })),
-        error: null,
-      }).then(onFulfilled)
-    },
-  }
-
-  return chain
+/** The rows the pages will read, replacing whatever the fixture had. */
+function answerWith(rows: StoredBattle[]) {
+  ;(battles.value as FakeBattles).rows = rows
 }
 
 const { routeParams } = vi.hoisted(() => ({ routeParams: { value: { id: '' } } }))
@@ -94,7 +37,7 @@ function rowsFor(options: {
   games: number
   wins: number
   tag: string
-}): StatsRow[] {
+}): StoredBattle[] {
   return Array.from({ length: options.games }, (_, index) => ({
     replay_id: `${options.tag}-${index}`,
     played_at: `2026-07-${String((index % 28) + 1).padStart(2, '0')}T10:00:00Z`,
@@ -124,12 +67,9 @@ async function pickFormat(
 }
 
 beforeEach(() => {
-  const nuxtApp = useNuxtApp()
-  if (!nuxtApp.$supabase) nuxtApp.provide('supabase', { from: () => builder() })
+  battles.value = fakeBattles(STATS_ROWS)
 
   signIn()
-  db.rows = STATS_ROWS
-  db.requests = []
   useStatsFilters().value = defaultStatsFilters()
   useState('stats-rows').value = null
   routeParams.value = { id: '' }
@@ -139,7 +79,7 @@ describe('the dashboard', () => {
   it('ranks a perfect three-game team below a twenty-game one', async () => {
     // The whole reason the sort key is the Wilson lower bound: three wins from
     // three is a 100% win rate and belongs below a season of 70%.
-    db.rows = [
+    answerWith([
       ...rowsFor({
         formatId: FORMATS.LADDER,
         team: SIGNATURES.TEAM_A,
@@ -156,7 +96,7 @@ describe('the dashboard', () => {
         wins: 14,
         tag: 'seasoned',
       }),
-    ]
+    ])
 
     const page = await mountSuspended(Dashboard)
     const cards = page.findAll('[data-testid="team-card"]')
@@ -212,7 +152,7 @@ describe('the dashboard', () => {
   })
 
   it('offers to import when nothing matches', async () => {
-    db.rows = []
+    answerWith([])
 
     const page = await mountSuspended(Dashboard)
 
