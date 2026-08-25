@@ -66,7 +66,16 @@ export function useRecentBattles() {
    * session: the same games come back every time a filter moves.
    */
   async function hydrate(): Promise<void> {
-    if (!user.value) return
+    const asker = user.value?.id
+    if (!asker) return
+
+    /**
+     * Whether this hydrate still owns the state. Somebody else signing in
+     * takes it away: columns fetched for one account must not fill in the next
+     * account's list, and neither must the message about why they could not
+     * be fetched.
+     */
+    const current = () => user.value?.id === asker
 
     const wanted = newest.value
       .map((row) => row.replay_id)
@@ -78,17 +87,19 @@ export function useRecentBattles() {
     error.value = null
 
     try {
-      const filled = new Map(extras.value)
+      const found = await storedBattles.detailsOf(wanted)
+      if (!current()) return
 
-      for (const [replayId, details] of await storedBattles.detailsOf(wanted)) {
-        filled.set(replayId, details)
-      }
+      const filled = new Map(extras.value)
+      for (const [replayId, details] of found) filled.set(replayId, details)
 
       extras.value = filled
     } catch (cause) {
+      if (!current()) return
+
       error.value = cause instanceof Error ? cause : new Error(String(cause))
     } finally {
-      loading.value = false
+      if (current()) loading.value = false
     }
   }
 

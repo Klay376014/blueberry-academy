@@ -79,9 +79,14 @@ export function useStats() {
   async function read(): Promise<void> {
     const mine = reader.value + 1
     reader.value = mine
+    const asker = user.value?.id
 
-    /** Whether this read still owns the state, or a later one has taken over. */
-    const current = () => reader.value === mine
+    /**
+     * Whether this read still owns the state. A later read supersedes it, and
+     * so does somebody else signing in: rows fetched for one account must not
+     * land on the next account's dashboard, however long the request took.
+     */
+    const current = () => reader.value === mine && user.value?.id === asker
 
     loading.value = true
     error.value = null

@@ -125,6 +125,55 @@ describe('when the battles are read', () => {
     expect(rows.value.length).toBeGreaterThan(before)
   })
 
+  it('reads again for the next person when the rows are emptied under it', async () => {
+    // What the Supabase plugin does on a user switch: the rows in memory are
+    // the last person's, so they go. This has to answer by reading rather
+    // than by showing the next person an empty dashboard.
+    const stats = useStats()
+    await stats.whenLoaded()
+    expect(stats.loaded.value).toBe(true)
+
+    useState('stats-rows').value = null
+    useCurrentUser().value = { id: 'somebody-else' } as never
+    await settle()
+
+    expect(stats.loaded.value).toBe(true)
+    expect(battles().reads.length).toBeGreaterThan(1)
+  })
+
+  it('does not let one account’s read land after that account has gone', async () => {
+    const stats = useStats()
+    await stats.whenLoaded()
+
+    let release = () => {}
+    const held = new Promise<void>((resolve) => {
+      release = resolve
+    })
+
+    const answer = battles().battlesOf.bind(battles())
+    battles().battlesOf = (range) => {
+      battles().battlesOf = answer
+      const asked = answer(range)
+
+      return held.then(() => asked)
+    }
+
+    battles().rows = STATS_ROWS.slice(0, 2)
+    const inFlight = stats.refresh()
+
+    // Signed out while it was in the air, and the plugin has emptied what was
+    // read for whoever asked.
+    signOut()
+    useState('stats-rows').value = null
+
+    release()
+    await inFlight
+
+    expect(useState('stats-rows').value).toBeNull()
+
+    signIn()
+  })
+
   it('clears the numbers when the read fails', async () => {
     battles().error = new Error('nope')
 
