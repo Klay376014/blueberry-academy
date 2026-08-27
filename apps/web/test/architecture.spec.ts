@@ -235,10 +235,29 @@ describe('feature seams, auto-imported', () => {
     }),
   )
 
-  it('names every feature’s auto-imports', () => {
-    expect(Object.fromEntries([...owned].map(([name, set]) => [name, set.size > 0]))).toEqual(
-      Object.fromEntries(featureNames.map((name) => [name, true])),
+  /**
+   * The vacuity guard: if the scan silently stopped finding names, every rule
+   * below it would pass by finding nothing. A feature made only of components
+   * legitimately contributes none, so this asks only of the ones that have a
+   * scanned directory at all.
+   */
+  it('names the auto-imports of every feature that has any', () => {
+    const expected = featureNames.filter((name) =>
+      ['composables', 'utils'].some((dir) => {
+        try {
+          return statSync(path.join(FEATURES, name, dir)).isDirectory()
+        } catch {
+          return false
+        }
+      }),
     )
+
+    expect(
+      [...owned]
+        .filter(([, names]) => names.size > 0)
+        .map(([name]) => name)
+        .sort(),
+    ).toEqual(expected.sort())
   })
 
   it('keeps a feature from reaching for another one’s auto-imports', () => {
@@ -259,5 +278,143 @@ describe('feature seams, auto-imported', () => {
     })
 
     expect(uses).toEqual([])
+  })
+})
+
+/**
+ * The same seam over Nuxt's component registration, which is the other half of
+ * what has no import statement: `<BattleDrawer />` inside a stats component is
+ * a cross-feature dependency that lint cannot see and the auto-import scan
+ * above does not cover, because a component is registered by Nuxt rather than
+ * exported from `composables/` or `utils/` (issue #61).
+ */
+describe('feature components', () => {
+  /**
+   * Nuxt's own manifest rather than a re-derivation of its naming rules: it is
+   * written by `nuxt prepare` (the `postinstall` script, so CI has it before it
+   * tests) and maps every registered tag to the file behind it. Re-deriving
+   * `Battle` + `BattleDrawer.vue` → `BattleDrawer` here would be a second
+   * implementation of a rule only Nuxt owns.
+   */
+  const MANIFEST = path.join(WEB, '.nuxt/components.d.ts')
+
+  /** Registered tag → the file it resolves to. */
+  const registered = new Map<string, string>(
+    [
+      ...readFileSync(MANIFEST, 'utf8').matchAll(/export const (\w+): typeof import\("([^"]+)"\)/g),
+    ].map(([, tag, target]) => [tag!, path.resolve(path.dirname(MANIFEST), target!)]),
+  )
+
+  it('has a manifest to check against', () => {
+    // Guards every assertion below: an empty map would pass all of them.
+    // `nuxt prepare` writes it; `pnpm install` runs that.
+    expect(registered.size).toBeGreaterThan(0)
+  })
+
+  it('registers every feature’s components', () => {
+    const files = new Set([...registered.values()])
+
+    const unregistered = walk(FEATURES)
+      .filter(
+        (file) =>
+          file.endsWith('.vue') &&
+          path.relative(APP, file).replaceAll(path.sep, '/').includes('/components/'),
+      )
+      .filter((file) => !files.has(file))
+      .map(
+        (file) =>
+          `${show(file)} is in no components entry in nuxt.config.ts — its tag would resolve to nothing, silently`,
+      )
+
+    expect(unregistered).toEqual([])
+  })
+
+  it('keeps a feature from drawing with another one’s components', () => {
+    /** Which feature owns each tag, for the tags a feature owns. */
+    const owner = new Map(
+      [...registered]
+        .map(([tag, file]) => [tag, featureOf(file)] as const)
+        .filter(([, feature]) => feature !== null),
+    )
+
+    const uses = appFiles
+      .filter((file) => file.endsWith('.vue') && featureOf(file))
+      .flatMap((file) => {
+        const from = featureOf(file)
+        const source = readFileSync(file, 'utf8')
+        // The <template> block only. A script block holds type arguments like
+        // `useState<Map<string, X>>`, and `<Map` is not a tag.
+        const opened = source.indexOf('<template>')
+        const closed = source.lastIndexOf('</template>')
+        if (opened === -1 || closed === -1) return []
+
+        const template = withoutComments(source.slice(opened, closed))
+        const tags = new Set([...template.matchAll(/<([A-Z][A-Za-z0-9]*)/g)].map(([, tag]) => tag!))
+
+        return [...tags]
+          .filter((tag) => owner.has(tag) && owner.get(tag) !== from)
+          .map((tag) => `${show(file)} draws with ${owner.get(tag)}'s <${tag} />`)
+      })
+
+    expect(uses).toEqual([])
+  })
+})
+
+/**
+ * What `app/` is allowed to contain. The rules above keep the dependencies
+ * pointing one way; these keep the folders themselves from drifting back to a
+ * layer per kind of file, which is the state issue #61 moved away from.
+ */
+describe('the shape of app/', () => {
+  const NUXT_CONFIG = readFileSync(path.join(WEB, 'nuxt.config.ts'), 'utf8')
+
+  const directoriesIn = (dir: string) =>
+    readdirSync(dir, { withFileTypes: true })
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => entry.name)
+
+  it('keeps ~/shared/components last in the components list', () => {
+    // ADR-0005: shadcn ships an index.ts barrel beside each component, and a
+    // later entry scanning the same tree would register both files under one
+    // name (NUXT_B3011). Being last is what has kept that shut.
+    const paths = [
+      ...(NUXT_CONFIG.match(/components:\s*\[([\s\S]*?)\n {2}\]/)?.[1] ?? '').matchAll(
+        /path:\s*'([^']+)'/g,
+      ),
+    ].map(([, entry]) => entry!)
+
+    expect(paths.length).toBeGreaterThan(1)
+    expect(paths.at(-1)).toBe('~/shared/components')
+  })
+
+  it('keeps a feature to its own directories', () => {
+    const ALLOWED = ['components', 'composables', 'utils', 'test']
+
+    const stray = featureNames.flatMap((feature) => {
+      const dirs = directoriesIn(path.join(FEATURES, feature))
+      const files = readdirSync(path.join(FEATURES, feature), { withFileTypes: true })
+        .filter((entry) => entry.isFile() && entry.name !== 'index.ts')
+        .map((entry) => entry.name)
+
+      return [
+        ...dirs.filter((dir) => !ALLOWED.includes(dir)).map((dir) => `features/${feature}/${dir}/`),
+        ...files.map((file) => `features/${feature}/${file}`),
+      ]
+    })
+
+    expect(stray).toEqual([])
+  })
+
+  it('keeps app/ to the composition layer, the features and shared', () => {
+    // Nuxt owns `pages`, `middleware`, `plugins`, `assets` and `app.vue` and
+    // scans nowhere else for them (ADR-0011). A new directory here is a new
+    // technical layer, which is what this structure exists to stop.
+    const ALLOWED = ['app.vue', 'assets', 'features', 'middleware', 'pages', 'plugins', 'shared']
+
+    const stray = readdirSync(APP)
+      .filter((entry) => !ALLOWED.includes(entry))
+      .map((entry) => `app/${entry}`)
+
+    expect(stray).toEqual([])
   })
 })
