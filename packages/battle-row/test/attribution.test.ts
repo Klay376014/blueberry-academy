@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vite-plus/test'
 import { parseReplay } from 'replay-parser'
 import type { ParsedBattle } from 'replay-parser'
-import { attributionOf } from '../src/index.ts'
+import { attributionOf, battleRowOf } from '../src/index.ts'
 import ladder from '../../replay-parser/test/fixtures/gen9championsvgc2026regmb-2667169457.json'
 
 /** A stored replay, parsed with the metadata its own JSON carries. */
@@ -18,11 +18,15 @@ function parsed(replay: {
   })
 }
 
-/** What the `details` column holds for a battle, as jsonb comes back. */
+/**
+ * What the `details` column holds for a battle, as jsonb comes back — taken
+ * from the row the importer writes, so this reads the stored shape rather
+ * than keeping a second copy of it.
+ */
 function detailsOf(battle: ParsedBattle): unknown {
-  return JSON.parse(
-    JSON.stringify({ winner: battle.winner, sides: { p1: battle.p1, p2: battle.p2 } }),
-  )
+  const row = battleRowOf(battle, { userId: 'u', aliases: [], logPath: 'u/x.json.gz' })
+
+  return JSON.parse(JSON.stringify(row.details))
 }
 
 describe('the attribution an alias list gives a stored battle', () => {
@@ -47,8 +51,6 @@ describe('the signatures and rating attribution carries', () => {
       team_signature: battle.p1.teamSignature,
       bring_signature: battle.p1.bringSignature,
       bring_complete: battle.p1.bringComplete,
-      // The replay metadata carries a rating too, but it is the loser's
-      // whichever side that is, so it belongs to neither.
       rating: battle.p1.ratingAfter,
       rating_delta: battle.p1.ratingDelta,
     })
@@ -89,9 +91,6 @@ describe('an alias list holding both players', () => {
 })
 
 describe('details whose shape it does not recognise', () => {
-  // `details` is jsonb: TypeScript knows nothing about what comes back, and
-  // it may predate the current parser or be the empty object a failed parse
-  // left behind. One bad row must not take a whole backfill down with it.
   const unusable = {
     'the empty object a failed parse leaves': {},
     'no details at all': null,

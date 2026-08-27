@@ -34,12 +34,11 @@ export interface Attribution {
 /**
  * The `details` shape, checked by hand.
  *
- * `details` is jsonb, so TypeScript knows nothing about what comes back, and
- * a stored row may predate the current parser or be the `{}` a failed parse
- * left behind. The check is narrow on purpose — only the fields attribution
- * reads — so an older row stays attributable instead of being stranded, and a
- * malformed one is skipped instead of taking a whole backfill down with it.
- * Not a schema library: this shape is internal and never crosses the wire.
+ * `details` is jsonb, so nothing about what comes back is known at compile
+ * time, and a stored row may predate the current parser or be the `{}` a
+ * failed parse left behind. Narrow on purpose — only the fields attribution
+ * reads — so an older row stays attributable, and a malformed one is reported
+ * rather than taking a whole backfill down (#64).
  */
 function detailsOf(details: unknown): BattleDetails | null {
   if (!isRecord(details) || !isRecord(details.sides)) return null
@@ -56,33 +55,42 @@ function detailsOf(details: unknown): BattleDetails | null {
 
 function sideOf(side: unknown): AttributableSide | null {
   if (!isRecord(side)) return null
-  if (typeof side.username !== 'string' || typeof side.userId !== 'string') return null
 
-  // Absent is fine — an unattributable side simply has none of these. Present
+  const { username, userId, teamSignature, bringSignature } = side
+  const { bringComplete, ratingAfter, ratingDelta } = side
+  if (typeof username !== 'string' || typeof userId !== 'string') return null
+
+  // Absent is fine — a side of an older row simply has none of these. Present
   // but of the wrong type is not: it would be written straight into a column.
-  for (const [field, type] of Object.entries(DERIVED)) {
-    const value = side[field]
-    if (value !== undefined && value !== null && typeof value !== type) return null
-  }
+  // Either side failing rejects the battle, because a row this malformed is
+  // one to report, not one to half-read.
+  if (!isOptional(teamSignature, 'string') || !isOptional(bringSignature, 'string')) return null
+  if (!isOptional(bringComplete, 'boolean')) return null
+  if (!isOptional(ratingAfter, 'number') || !isOptional(ratingDelta, 'number')) return null
 
   return {
-    username: side.username,
-    userId: side.userId,
-    teamSignature: (side.teamSignature as string | undefined) ?? null,
-    bringSignature: (side.bringSignature as string | undefined) ?? null,
-    bringComplete: (side.bringComplete as boolean | undefined) ?? false,
-    ratingAfter: (side.ratingAfter as number | undefined) ?? null,
-    ratingDelta: (side.ratingDelta as number | undefined) ?? null,
+    username,
+    userId,
+    teamSignature: teamSignature ?? null,
+    bringSignature: bringSignature ?? null,
+    bringComplete: bringComplete ?? false,
+    ratingAfter: ratingAfter ?? null,
+    ratingDelta: ratingDelta ?? null,
   }
 }
 
-const DERIVED = {
-  teamSignature: 'string',
-  bringSignature: 'string',
-  bringComplete: 'boolean',
-  ratingAfter: 'number',
-  ratingDelta: 'number',
-} as const
+interface OptionalTypes {
+  string: string
+  number: number
+  boolean: boolean
+}
+
+function isOptional<K extends keyof OptionalTypes>(
+  value: unknown,
+  type: K,
+): value is OptionalTypes[K] | null | undefined {
+  return value === undefined || value === null || typeof value === type
+}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)

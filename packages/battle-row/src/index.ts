@@ -1,6 +1,7 @@
 import { PARSER_VERSION } from 'replay-parser'
-import type { ParsedBattle, ReplayMeta, SideId } from 'replay-parser'
+import type { ParsedBattle, ReplayMeta } from 'replay-parser'
 import { attributionOf } from './attribution.ts'
+import type { Attribution } from './attribution.ts'
 
 // Re-attribution's entry point lives here too: it is the same derivation the
 // importer runs, and having one door is the point (#64).
@@ -19,24 +20,21 @@ export type { Attribution } from './attribution.ts'
  * parse can serve any user (CONTEXT.md, 身分).
  */
 
-/** A `battles` row, in the database's own column names. */
-export interface BattleRow {
+/**
+ * A `battles` row, in the database's own column names.
+ *
+ * Extends `Attribution` rather than restating its columns: the spread in
+ * `battleRowOf` then covers them by construction, and a column added to the
+ * attribution is a column added here.
+ */
+export interface BattleRow extends Attribution {
   user_id: string
   replay_id: string
   played_at: string
   format_id: string
   rated: boolean | null
   game_type: string | null
-  rating: number | null
-  rating_delta: number | null
   series_id: string | null
-  my_side: SideId | null
-  my_username: string | null
-  opponent_username: string | null
-  result: 'win' | 'loss' | 'tie' | null
-  team_signature: string | null
-  bring_signature: string | null
-  bring_complete: boolean
   turn_count: number | null
   end_reason: string | null
   details: Record<string, unknown>
