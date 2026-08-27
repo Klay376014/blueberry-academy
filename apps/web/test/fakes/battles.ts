@@ -1,8 +1,7 @@
 // The real paths rather than `#imports`: this file sits outside the Nuxt
 // tsconfig that defines that alias.
-import type { BattleRow } from 'battle-row'
+import type { Attribution, BattleRow } from 'battle-row'
 import type { SideId } from 'replay-parser'
-import type { Attribution } from 'battle-row'
 import { battleDetailsOf, battleRecordOf, endOfDay } from '../../app/shared/api/battles'
 import type {
   AttributableRow,

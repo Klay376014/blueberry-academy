@@ -200,6 +200,48 @@ describe('a backfill that cannot finish', () => {
   })
 })
 
+describe('a backfill whose numbers have to be honest', () => {
+  it('counts the rows a failing batch did write before it stopped', async () => {
+    // The writes of a batch go out together, so some of the failing batch's
+    // rows land anyway. Reporting only whole batches would tell the user 25
+    // when 40 moved, and the number is what they retry from (#69).
+    useShowdownAliases().value = ['NotLittleStar']
+    fake.value = fakeBattles(manyRows(60))
+    refuseWritesAfter(30)
+
+    const outcome = await useReattribution().reattribute()
+
+    expect(outcome.report.attributed).toBe(battles().rows.filter((row) => row.my_side).length)
+    expect(outcome.report.processed).toBe(outcome.report.attributed)
+  })
+
+  it('reports a read it could not even make as a run that got nowhere', async () => {
+    // The name is bound by this point. Saying "that change did not save"
+    // would be the opposite of what happened.
+    useShowdownAliases().value = ['NotLittleStar']
+    fake.value = fakeBattles(manyRows(3))
+    battles().error = new Error('unreachable')
+
+    const outcome = await useReattribution().reattribute()
+
+    expect(outcome).toMatchObject({ status: 'stopped', report: { processed: 0, total: 0 } })
+  })
+
+  it('calls a row newly claimed only when it is claimed', async () => {
+    // The two numbers are read differently: "turned over" is the only signal
+    // that somebody bound a name that was not theirs.
+    useShowdownAliases().value = ['Nobody At All']
+    fake.value = fakeBattles([
+      // Spectated, and stays spectated — but with a stale column to write.
+      spectated({ my_username: 'Left Over' }),
+    ])
+
+    const outcome = await useReattribution().reattribute()
+
+    expect(outcome.report).toMatchObject({ attributed: 0, reattributed: 1 })
+  })
+})
+
 describe('what the settings page watches while it runs', () => {
   it('is running from the first row to the last, and reports how far it got', async () => {
     useShowdownAliases().value = ['NotLittleStar']

@@ -38,10 +38,11 @@ export interface ReattributionReport {
 export type ReattributionOutcome =
   | { status: 'done'; report: ReattributionReport }
   /**
-   * A batch failed. What was written stays written: re-running is idempotent,
-   * so an unfinished run leaves a state that is consistent, just incomplete.
+   * It could not finish. What was written stays written: re-running is
+   * idempotent, so an unfinished run leaves a state that is consistent, just
+   * incomplete — and `processed` is where the next run picks up from.
    */
-  | { status: 'stopped'; report: ReattributionReport; message: string }
+  | { status: 'stopped'; report: ReattributionReport }
 
 export function useReattribution() {
   const storedBattles = useBattles()
@@ -59,43 +60,61 @@ export function useReattribution() {
     }
 
     const aliases = stored.value
+    const report: ReattributionReport = {
+      attributed: 0,
+      reattributed: 0,
+      unattributable: 0,
+      processed: 0,
+      total: 0,
+    }
     running.value = true
 
     try {
-      const rows = await storedBattles.attributableRows()
-      const report: ReattributionReport = {
-        attributed: 0,
-        reattributed: 0,
-        unattributable: 0,
-        processed: 0,
-        total: rows.length,
+      let rows: AttributableRow[]
+      try {
+        rows = await storedBattles.attributableRows()
+      } catch {
+        // Reported as a run that got nowhere rather than thrown: the name is
+        // already bound by now, and "that change did not save" would be the
+        // opposite of what happened.
+        return { status: 'stopped', report }
       }
+
+      report.total = rows.length
       progress.value = { processed: 0, total: rows.length }
 
       for (const batch of batched(rows)) {
         const plans = batch.map((row) => ({ row, next: attributionOf(row.details, aliases) }))
         const writes = plans.filter((plan) => plan.next && changed(plan.row, plan.next))
 
-        try {
-          await Promise.all(
-            writes.map((plan) => storedBattles.setAttribution(plan.row.replay_id, plan.next!)),
-          )
-        } catch (error) {
-          // Stopped rather than retried: a backfill fails on the network or on
-          // permissions, and both give the same answer three times.
-          return { status: 'stopped', report, message: messageOf(error) }
-        }
+        // Settled rather than raced: the writes of a batch go out together, so
+        // some of a failing batch's rows land anyway, and a report that left
+        // them out would send the user back for work already done.
+        const results = await Promise.allSettled(
+          writes.map((plan) => storedBattles.setAttribution(plan.row.replay_id, plan.next!)),
+        )
 
         for (const plan of plans) {
           if (!plan.next) report.unattributable += 1
         }
-        for (const plan of writes) {
-          if (plan.row.my_side === null) report.attributed += 1
-          else report.reattributed += 1
-        }
+        results.forEach((result, index) => {
+          if (result.status === 'rejected') return
 
-        report.processed += batch.length
+          const plan = writes[index]!
+          // Claimed, as against turned over: `my_side` is what "this battle is
+          // mine" means, and the second number is the only sign a user gets
+          // that they bound a name which was never theirs.
+          if (plan.row.my_side === null && plan.next!.my_side !== null) report.attributed += 1
+          else report.reattributed += 1
+        })
+
+        const refused = results.filter((result) => result.status === 'rejected').length
+        report.processed += batch.length - refused
         progress.value = { processed: report.processed, total: report.total }
+
+        // Stopped rather than retried: a backfill fails on the network or on
+        // permissions, and both give the same answer three times.
+        if (refused) return { status: 'stopped', report }
       }
 
       return { status: 'done', report }
@@ -113,11 +132,6 @@ function* batched(rows: AttributableRow[]): Generator<AttributableRow[]> {
   }
 }
 
-/** Whether the derivation says anything different from what the row holds. */
 function changed(row: AttributableRow, next: Attribution): boolean {
   return (Object.keys(next) as (keyof Attribution)[]).some((column) => row[column] !== next[column])
-}
-
-function messageOf(error: unknown): string {
-  return error instanceof Error ? error.message : String(error)
 }

@@ -24,9 +24,9 @@ const summary = ref<ReattributionReport | null>(null)
 const stopped = ref<ReattributionReport | null>(null)
 
 /**
- * Shut while the backfill runs: the alias list is half-applied until it
- * finishes, and binding a second name on top would interleave two backfills
- * over a write that replaces the whole array.
+ * Shut while a re-attribution runs: the alias list is half-applied until it
+ * finishes, and binding a second name on top would interleave two runs over a
+ * write that replaces the whole array.
  */
 const busy = computed(() => !loaded.value || running.value)
 
@@ -53,23 +53,15 @@ function clearMessages() {
  * stands. Reports rather than throws: the alias list is written either way,
  * and what is left is a run to finish rather than a change to undo.
  */
-async function backfill() {
-  try {
-    const outcome = await reattribute()
+async function reattributeBattles() {
+  const outcome = await reattribute()
 
-    if (outcome.status === 'done') {
-      summary.value = outcome.report
-      // The dashboard's rows are session state this page never touched, and
-      // the battles just claimed are not in them.
-      emit('reattributed')
-    } else {
-      stopped.value = outcome.report
-      // Some rows did move, so the dashboard is stale either way.
-      emit('reattributed')
-    }
-  } catch {
-    writeFailed.value = true
-  }
+  if (outcome.status === 'done') summary.value = outcome.report
+  else stopped.value = outcome.report
+
+  // Whichever it was, rows moved and the dashboard is holding the ones from
+  // before them.
+  emit('reattributed')
 }
 
 async function bind() {
@@ -80,7 +72,7 @@ async function bind() {
     const result = await bindAlias(name)
     if (result === 'bound') {
       typed.value = ''
-      await backfill()
+      await reattributeBattles()
     } else {
       notice.value = result
       rejected.value = name

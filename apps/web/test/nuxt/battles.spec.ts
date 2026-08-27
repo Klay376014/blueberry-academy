@@ -366,8 +366,6 @@ describe('writing an attribution back', () => {
 
     const sent = onlyRequest().find(([name]) => name === 'update')?.[1] as Record<string, unknown>
 
-    // Narrow because it has to be: `regulation` is a generated column, so
-    // reading a whole row back and writing it out again is refused (#67).
     expect(Object.keys(sent).toSorted()).toEqual(Object.keys(attribution).toSorted())
   })
 

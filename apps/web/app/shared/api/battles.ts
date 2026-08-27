@@ -30,7 +30,10 @@ import type { SideId } from 'replay-parser'
  * database's own snake_case (`StatsRow`) because the stats layer and its
  * fixtures are written in those names; everything else answers in camelCase.
  * Renaming the stats path would turn this into a rewrite of `battleStats.ts`
- * and every fixture under it.
+ * and every fixture under it. `attributableRows` is snake_case for a third
+ * reason: its columns *are* `battle-row`'s `Attribution`, which is written in
+ * the database's names because that is what it is for (#67), and renaming
+ * them here and back again would be a mapping that could drift.
  *
  * Failures throw. `null` and an absent map entry mean "the read worked and
  * there is no such row" — what to show for a failure is each page's decision,
@@ -323,6 +326,9 @@ export function createBattles(client: SupabaseClient, currentUserId: () => strin
     async setAttribution(replayId, attribution) {
       const { data, error } = await client
         .from('battles')
+        // Spelled out rather than spread: `AttributableRow` widens
+        // `Attribution` with `replay_id` and `details`, and a caller handing
+        // one of those over must not write `details` back as a side effect.
         .update({
           my_side: attribution.my_side,
           my_username: attribution.my_username,
