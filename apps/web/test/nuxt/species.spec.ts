@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { speciesName } from '../../app/utils/speciesName'
-import { speciesIcon } from '../../app/utils/speciesIcon'
-import names from '../../app/lib/dex/species-names.json'
-import icons from '../../app/lib/dex/species-icons.json'
+import { speciesName } from '../../app/shared/utils/speciesName'
+import { speciesIcon } from '../../app/shared/utils/speciesIcon'
+import names from '../../app/shared/lib/dex/species-names.json'
+import icons from '../../app/shared/lib/dex/species-icons.json'
 import pkg from '../../package.json'
 import en from '../../i18n/locales/en.json'
 import zhTW from '../../i18n/locales/zh-TW.json'
@@ -155,7 +155,7 @@ describe('where the dex data is allowed to live', () => {
 
 describe('the display layer wiring', () => {
   it('registers both helpers as Nuxt auto-imports', async () => {
-    // What `app/utils/` buys over `app/lib/`: a component can call these
+    // What `app/shared/utils/` buys over `app/shared/lib/`: a component can call these
     // without an import line. If that stops being true, every consuming
     // template breaks at once.
     const { speciesName: auto, speciesIcon: autoIcon } = await import('#imports')

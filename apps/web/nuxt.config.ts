@@ -22,10 +22,30 @@ export default defineNuxtConfig({
   // through route rules later.
   ssr: false,
 
-  // See docs/adr/0005-shadcn-vue-without-nuxt-module.md — shadcn ships an
-  // index.ts barrel beside each component, and Nuxt's default scan would
-  // register both files under the same name (NUXT_B3011).
-  components: [{ path: '~/components', extensions: ['vue'] }],
+  // One entry per feature, plus `shared/`, because the app is organised by
+  // feature rather than by kind of file (issue #61). The prefixes are the
+  // names the templates already used: `features/timeline` draws a battle, so
+  // its components are `Battle*`.
+  //
+  // `extensions: ['vue']` — see docs/adr/0005-shadcn-vue-without-nuxt-module.md:
+  // shadcn ships an index.ts barrel beside each component, and Nuxt's default
+  // scan would register both files under the same name (NUXT_B3011).
+  components: [
+    { path: '~/features/stats/components', prefix: 'Stats', extensions: ['vue'] },
+    { path: '~/features/timeline/components', prefix: 'Battle', extensions: ['vue'] },
+    { path: '~/features/identity/components', prefix: 'Identity', extensions: ['vue'] },
+    { path: '~/features/ingest/components', prefix: 'Ingest', extensions: ['vue'] },
+    { path: '~/shared/components', extensions: ['vue'] },
+  ],
+
+  // The default scan is `app/composables` and `app/utils`, and neither exists
+  // any more: a composable belongs to the feature it serves. Auto-import stays
+  // whole-app, so a page still calls `useStats()` with no import — what a
+  // feature may reach for is a rule of its own, in `vite.config.ts` and
+  // `test/architecture.spec.ts`.
+  imports: {
+    dirs: ['shared/composables', 'shared/utils', 'features/*/composables', 'features/*/utils'],
+  },
 
   css: ['~/assets/tailwind.css'],
 

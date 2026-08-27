@@ -109,11 +109,14 @@ packages/battle-row/             ParsedBattle → battles 列的對應（純 TS�
   src/index.ts                   battleRowOf / unparsedRowOf、BattleRow
 
 apps/web/                        Nuxt (ssr: false)
-  app/pages/index.vue            儀表板
-  app/pages/import.vue           匯入
-  app/composables/useShowdown.ts 抓取（分頁、並發上限、退避重試）
-  app/composables/useIngest.ts   抓 → 存 raw → 解析 → upsert（用 battle-row 對應）
-  app/composables/useStats.ts    查詢與統計
+  app/pages/                     頁面薄殼；跨 feature 的組合只在這裡（ADR-0011）
+  app/features/ingest/composables/useShowdown.ts
+                                 抓取（分頁、並發上限、退避重試）
+  app/features/ingest/composables/useIngest.ts
+                                 抓 → 存 raw → 解析 → upsert（用 battle-row 對應）
+  app/features/stats/composables/useStats.ts
+                                 查詢與統計
+  app/shared/api/                Supabase 資料存取與 Showdown 的外部型別
   server/api/                    MVP 幾乎為空，保留給升級付費版後
 
 scripts/                         本機維運腳本，自成 workspace 套件（不上線）

@@ -1,15 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { mountSuspended, mockNuxtImport } from '@nuxt/test-utils/runtime'
+import type { BattleRow } from 'battle-row'
 import App from '../../app/app.vue'
 import { fakeBattles } from '../fakes/battles'
 import { STATS_ROWS } from '../fixtures/stats-rows'
 import { signIn } from '../helpers'
-import type {
-  BatchItem,
-  BattleRow,
-  ImportOptions,
-  ImportReport,
-} from '../../app/composables/useIngest'
+import type { BatchItem, ImportOptions, ImportReport } from '../../app/features/ingest'
 
 // The import itself is faked; the page, the link parsing and the alias state
 // are real. What this asserts is what a user is told, which is the part

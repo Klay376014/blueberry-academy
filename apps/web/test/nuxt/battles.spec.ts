@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { BattleRow } from 'battle-row'
-import { createBattles } from '../../app/lib/battles'
+import { createBattles } from '../../app/shared/api/battles'
 
 /**
  * The real module against a PostgREST chain that records instead of asking.

@@ -21,7 +21,7 @@ import { fileURLToPath } from 'node:url'
 import { Dex } from '@pkmn/dex'
 import { Icons } from '@pkmn/img'
 
-const OUT_DIR = fileURLToPath(new URL('../app/lib/dex/', import.meta.url))
+const OUT_DIR = fileURLToPath(new URL('../app/shared/lib/dex/', import.meta.url))
 
 /**
  * `@pkmn/dex` is the same data that produced the ids in the first place, so
