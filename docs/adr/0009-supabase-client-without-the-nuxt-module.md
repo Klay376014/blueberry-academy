@@ -25,9 +25,14 @@ Workers 免費版的 50 subrequest 與 10ms CPU 上限讓 server 端根本跑不
 
 - `app/plugins/supabase.client.ts` —— 建立唯一的 client，開機時 `getSession()`
   還原 session，並訂閱 `onAuthStateChange`
-- `app/composables/useCurrentUser.ts` —— 用 `useState` 持有目前使用者
-- `app/composables/useAuth.ts` —— app 對認證能做的全部事情（登入、完成登入、登出）
+- `app/shared/composables/useCurrentUser.ts` —— 用 `useState` 持有目前使用者
+- `app/features/identity/composables/useAuth.ts` —— app 對認證能做的全部事情
+  （登入、完成登入、登出）
 - `app/middleware/auth.global.ts` —— 預設全部擋，公開路由用白名單列舉
+
+四個檔案的位置在 #61 的 feature 化之後改了三個（決定與接縫都沒變）：認證動作歸
+`features/identity`，目前使用者因為四個 feature 都要讀而沉在 `shared/`，plugin 與
+middleware 留在 `app/` 根層 —— 為什麼留在那裡見 ADR-0011。
 
 ## 後果
 

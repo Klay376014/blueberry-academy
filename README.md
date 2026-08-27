@@ -28,6 +28,38 @@ The app renders client-side only (`ssr: false`) and builds to a `cloudflare_modu
 Worker bundle in `apps/web/.output/`. The reasoning is recorded in
 `docs/specs/2026-08-16-replay-analytics-design.md` §3 and in `nuxt.config.ts`.
 
+### Inside `apps/web/app/`
+
+Organised by feature rather than by kind of file, so that changing one thing
+means opening one folder:
+
+```
+features/stats/       the dashboard: what was played, counted and ranked
+features/timeline/    one battle, flattened into turns — the drawer
+features/ingest/      raw Showdown replays in: fetched, parsed, stored
+features/identity/    signing in, and the Showdown names bound to a user
+shared/               what more than one feature needs: `api/` (the `battles`
+                      data access layer and Showdown's own shapes), the shadcn
+                      components, session state, the pure display helpers
+pages/ app.vue        Nuxt's own entry points — and the only place where two
+middleware/ plugins/  features are allowed to meet
+```
+
+Each feature owns its components, composables, utils and tests, and offers
+them through one `index.ts`. Two rules hold the seams, and both are executable:
+
+- **A feature may not import another feature.** What two of them need goes to
+  `shared/`; what has to bring two together is a page.
+- **Nothing outside a feature may reach past its `index.ts`.**
+
+`vp check` enforces them per file (`no-restricted-imports`, root
+`vite.config.ts`). `vp test` enforces them over the resolved import graph, and
+over the auto-imported names as well — Nuxt auto-imports have no import
+statement for lint to look at — in `apps/web/test/architecture.spec.ts`.
+
+Adding a fifth feature is a folder, its `index.ts`, and one line in the
+`components` list in `nuxt.config.ts` for the prefix its components take.
+
 ## Recommended IDE Setup
 
 [VS Code](https://code.visualstudio.com/) + [Vue (Official)](https://marketplace.visualstudio.com/items?itemName=Vue.volar) (and disable Vetur).
@@ -70,7 +102,8 @@ Two things to know:
   `TS2307: Cannot find module '../../app/app.vue'`.
 
 Rules that disagree with what the shadcn-vue CLI generates are turned off for
-`apps/web/app/components/ui/**` — see the override in the root `vite.config.ts`.
+`apps/web/app/shared/components/ui/**` — see the override in the root
+`vite.config.ts`.
 
 ## Customize configuration
 
@@ -424,7 +457,7 @@ cd apps/web && pnpm exec wrangler dev --var NUXT_PUBLIC_SUPABASE_URL:… --var N
 ## UI and i18n
 
 Tailwind v4 through `@tailwindcss/vite`, shadcn-vue components copied into
-`apps/web/app/components/ui/` and auto-imported with a `Ui` prefix
+`apps/web/app/shared/components/ui/` and auto-imported with a `Ui` prefix
 (`<UiButton>`), `@nuxtjs/i18n` with English as the default locale. The decisions
 and their evidence are in [ADR-0004](docs/adr/0004-tailwind-v4-through-vite-plugin.md)
 through [ADR-0007](docs/adr/0007-self-hosted-inter.md).
@@ -450,9 +483,9 @@ pnpm --filter web gen:species-names
 ```
 
 It walks `Dex.species.all()` once and writes
-`apps/web/app/lib/dex/species-names.json` (id → official English name) and
+`apps/web/app/shared/lib/dex/species-names.json` (id → official English name) and
 `species-icons.json` (id → slot on Showdown's icon sheet). Read them through
-`speciesName()` and `speciesIcon()` in `apps/web/app/utils/`, which are Nuxt
+`speciesName()` and `speciesIcon()` in `apps/web/app/shared/utils/`, which are Nuxt
 auto-imports; an id neither table knows degrades to the raw id and to the
 sheet's placeholder icon rather than throwing.
 
