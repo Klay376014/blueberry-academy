@@ -26,8 +26,10 @@ const BATCH = 25
 export interface ReattributionReport {
   /** Rows that had no attribution and have one now. */
   attributed: number
-  /** Rows that were attributed before, and differently now. */
+  /** Rows that were attributed before, and to a different side now. */
   reattributed: number
+  /** Rows that were this user's and are spectated again. */
+  unattributed: number
   /** Rows whose `details` nothing could be derived from; left untouched. */
   unattributable: number
   /** Rows worked through before it stopped, written or not. */
@@ -63,6 +65,7 @@ export function useReattribution() {
     const report: ReattributionReport = {
       attributed: 0,
       reattributed: 0,
+      unattributed: 0,
       unattributable: 0,
       processed: 0,
       total: 0,
@@ -101,10 +104,14 @@ export function useReattribution() {
           if (result.status === 'rejected') return
 
           const plan = writes[index]!
-          // Claimed, as against turned over: `my_side` is what "this battle is
-          // mine" means, and the second number is the only sign a user gets
-          // that they bound a name which was never theirs.
-          if (plan.row.my_side === null && plan.next!.my_side !== null) report.attributed += 1
+          const was = plan.row.my_side
+          const now = plan.next!.my_side
+
+          // Three different things to be told apart: a battle claimed, one
+          // that changed hands — the only sign a user gets that they bound a
+          // name which was never theirs — and one handed back to spectated.
+          if (was === null && now !== null) report.attributed += 1
+          else if (was !== null && now === null) report.unattributed += 1
           else report.reattributed += 1
         })
 

@@ -31,6 +31,28 @@ const stopped = ref<ReattributionReport | null>(null)
  */
 const busy = computed(() => !loaded.value || running.value)
 
+/**
+ * What a finished run has to say, chosen by what it actually did rather than
+ * by which button started it: a re-run picks up an unbinding done on another
+ * device, and would otherwise report it as nothing at all.
+ */
+const summaryText = computed(() => {
+  const report = summary.value
+  if (report === null) return null
+
+  if (report.unattributed === 0) return t('settings.aliases.reattributed', report)
+  if (report.attributed === 0 && report.reattributed === 0) {
+    return t('settings.aliases.unbound', report.unattributed)
+  }
+
+  return t('settings.aliases.reattributedWithReturned', report)
+})
+
+/** What removing the name in question would cost, if it is known. */
+const removingCount = computed(() =>
+  removing.value === null ? null : battleCountOf(removing.value),
+)
+
 // Awaited in setup, so the list is on screen the first time it is painted
 // rather than appearing a tick later.
 try {
@@ -98,14 +120,41 @@ async function rerun() {
   await reattributeBattles()
 }
 
-async function unbind(name: string) {
+/**
+ * The name the user has asked to remove, until they say so again.
+ *
+ * The one action in the app that takes a large part of somebody's statistics
+ * away, and "remove a name" is not what that feels like — so the count comes
+ * with the question (#70). It is the number already beside the name; no
+ * second round trip to ask what is about to be lost.
+ */
+const removing = ref<string | null>(null)
+
+/** reka-ui dismisses the dialog itself, on Esc and on a click outside it. */
+function onDialogToggle(isOpen: boolean) {
+  if (!isOpen) removing.value = null
+}
+
+function askToRemove(name: string) {
   clearMessages()
+  removing.value = name
+}
+
+async function unbind() {
+  const name = removing.value
+  removing.value = null
+  if (name === null) return
 
   try {
     await unbindAlias(name)
   } catch {
     writeFailed.value = true
+    return
   }
+
+  // The battles that name claimed are handed back by the same run that claims
+  // them the other way round: attribution is the alias list, re-derived.
+  await reattributeBattles()
 }
 </script>
 
@@ -172,11 +221,11 @@ async function unbind(name: string) {
         {{ t('settings.aliases.reattributing', progress) }}
       </p>
       <p
-        v-else-if="summary"
+        v-else-if="summaryText"
         class="mt-3 text-sm text-muted-foreground"
         data-testid="reattribution-summary"
       >
-        {{ t('settings.aliases.reattributed', summary) }}
+        {{ summaryText }}
       </p>
       <p
         v-else-if="stopped"
@@ -206,7 +255,7 @@ async function unbind(name: string) {
             :aria-label="t('settings.aliases.remove', { name: alias })"
             :disabled="busy"
             data-testid="alias-remove"
-            @click="() => unbind(alias)"
+            @click="() => askToRemove(alias)"
           >
             {{ t('settings.aliases.removeShort') }}
           </UiButton>
@@ -235,5 +284,28 @@ async function unbind(name: string) {
         }}</span>
       </div>
     </section>
+
+    <UiAlertDialog :open="removing !== null" @update:open="onDialogToggle">
+      <UiAlertDialogContent data-testid="unbind-confirm">
+        <UiAlertDialogTitle>
+          {{ t('settings.aliases.removeTitle', { name: removing }) }}
+        </UiAlertDialogTitle>
+        <UiAlertDialogDescription>
+          {{
+            removingCount === null
+              ? t('settings.aliases.removeBodyUnknown')
+              : t('settings.aliases.removeBody', removingCount)
+          }}
+        </UiAlertDialogDescription>
+        <UiAlertDialogFooter>
+          <UiButton variant="ghost" data-testid="unbind-cancel" @click="() => (removing = null)">
+            {{ t('settings.aliases.removeCancel') }}
+          </UiButton>
+          <UiButton variant="destructive" data-testid="unbind-remove" @click="unbind">
+            {{ t('settings.aliases.removeShort') }}
+          </UiButton>
+        </UiAlertDialogFooter>
+      </UiAlertDialogContent>
+    </UiAlertDialog>
   </main>
 </template>

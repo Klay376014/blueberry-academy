@@ -101,6 +101,12 @@
       "battles": "{count} battle | {count} battles",
       "reattribute": "Re-attribute battles",
       "reattributeHint": "Runs the names above over every battle you have imported. Nothing to undo — a run that changes nothing writes nothing.",
+      "removeTitle": "Remove {name}?",
+      "removeBody": "This takes {count} battle out of your statistics. It goes back to being a spectated battle, and binding the name again brings it back exactly as it was. | This takes {count} battles out of your statistics. They go back to being spectated battles, and binding the name again brings them back exactly as they were.",
+      "removeBodyUnknown": "This takes every battle under that name out of your statistics. They go back to being spectated battles, and binding the name again brings them back exactly as they were.",
+      "removeCancel": "Cancel",
+      "unbound": "Done: {count} battle went back to spectated. | Done: {count} battles went back to spectated.",
+      "reattributedWithReturned": "Done: {attributed} battles are now yours, {reattributed} were turned over to a different name, and {unattributed} went back to spectated.",
       "reattributing": "Re-attributing your battles… {processed} / {total}",
       "reattributed": "Done: {attributed} battles are now yours, and {reattributed} were turned over to a different name.",
       "reattributionFailed": "That did not finish. {processed} battles were worked through before it stopped; nothing was undone, and running it again picks up the rest."

@@ -66,7 +66,10 @@ mockNuxtImport('useReattribution', () => () => ({
 }))
 
 function done(report: Record<string, number>) {
-  return { status: 'done', report: { unattributable: 0, processed: 0, total: 0, ...report } }
+  return {
+    status: 'done',
+    report: { unattributed: 0, unattributable: 0, processed: 0, total: 0, ...report },
+  }
 }
 
 async function bind(wrapper: Awaited<ReturnType<typeof mountSuspended>>, name: string) {
@@ -265,5 +268,99 @@ describe('after a run that stopped', () => {
     await retry.trigger('click')
 
     expect(reattribute).toHaveBeenCalledTimes(2)
+  })
+})
+
+/**
+ * The confirmation, which reka-ui teleports out of the wrapper — and the last
+ * one in the document, because an unmounted page from an earlier test leaves
+ * its own behind (the drawer's tests document the same trap).
+ */
+function confirmation() {
+  return [...document.body.querySelectorAll('[data-testid="unbind-confirm"]')].at(-1) ?? null
+}
+
+function pressIn(testid: string) {
+  const buttons = [...document.body.querySelectorAll<HTMLElement>(`[data-testid="${testid}"]`)]
+  buttons.at(-1)?.click()
+}
+
+describe('removing a name', () => {
+  beforeEach(() => {
+    // Teleported nodes outlive the page that made them.
+    for (const stale of document.body.querySelectorAll('[data-testid="unbind-confirm"]')) {
+      stale.remove()
+    }
+    useShowdownAliases().value = ['NotLittleStar']
+    stored().rows = [attributedRow('a', 'NotLittleStar'), attributedRow('b', 'NotLittleStar')]
+  })
+
+  it('asks first, and says how many battles it is about to cost', async () => {
+    // "Unbind a name" and "take 800 battles out of my statistics" are not the
+    // same thing in a user's head, and right now they are the same action.
+    const wrapper = await mountSuspended(App, { route: '/settings' })
+    await vi.waitFor(() => {
+      expect(wrapper.get('[data-testid="alias-battles"]').text()).toContain('2')
+    })
+
+    await wrapper.get('[data-testid="alias-remove"]').trigger('click')
+    await vi.waitFor(() => {
+      expect(confirmation()).not.toBeNull()
+    })
+
+    expect(confirmation()?.textContent).toContain('2')
+    expect(confirmation()?.textContent).toContain('NotLittleStar')
+    // Nothing has happened yet.
+    expect(unbindAlias).not.toHaveBeenCalled()
+    expect(reattribute).not.toHaveBeenCalled()
+  })
+
+  it('changes nothing at all when it is called off', async () => {
+    const wrapper = await mountSuspended(App, { route: '/settings' })
+    await wrapper.get('[data-testid="alias-remove"]').trigger('click')
+    await vi.waitFor(() => {
+      expect(confirmation()).not.toBeNull()
+    })
+
+    pressIn('unbind-cancel')
+    await vi.waitFor(() => {
+      expect(confirmation()).toBeNull()
+    })
+
+    expect(unbindAlias).not.toHaveBeenCalled()
+    expect(reattribute).not.toHaveBeenCalled()
+    expect(useShowdownAliases().value).toEqual(['NotLittleStar'])
+  })
+
+  it('unbinds and re-attributes once it is confirmed', async () => {
+    const wrapper = await mountSuspended(App, { route: '/settings' })
+    await wrapper.get('[data-testid="alias-remove"]').trigger('click')
+    await vi.waitFor(() => {
+      expect(confirmation()).not.toBeNull()
+    })
+
+    pressIn('unbind-remove')
+
+    await vi.waitFor(() => {
+      expect(reattribute).toHaveBeenCalledTimes(1)
+    })
+    expect(unbindAlias).toHaveBeenCalledWith('NotLittleStar')
+  })
+
+  it('says how many battles went back to spectated', async () => {
+    // Not "0 claimed, 812 turned over": turned over means a different name of
+    // the user's own, and these are nobody's now.
+    reattribute.mockResolvedValue(done({ attributed: 0, reattributed: 0, unattributed: 812 }))
+    const wrapper = await mountSuspended(App, { route: '/settings' })
+    await wrapper.get('[data-testid="alias-remove"]').trigger('click')
+    await vi.waitFor(() => {
+      expect(confirmation()).not.toBeNull()
+    })
+
+    pressIn('unbind-remove')
+
+    await vi.waitFor(() => {
+      expect(wrapper.get('[data-testid="reattribution-summary"]').text()).toContain('812')
+    })
   })
 })

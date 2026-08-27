@@ -35,7 +35,11 @@ mockNuxtImport('useProfile', () => () => {
 
       return Promise.resolve('bound' as const)
     },
-    unbindAlias: () => Promise.resolve(),
+    unbindAlias: (name: string) => {
+      list.value = (list.value ?? []).filter((alias) => alias !== name)
+
+      return Promise.resolve()
+    },
   }
 })
 
@@ -119,6 +123,30 @@ describe('binding a Showdown name on the settings page', () => {
     await settle()
 
     expect(stored().attributed).toEqual([])
+  })
+
+  it('hands the battles back when the name is removed, and takes them out of the numbers', async () => {
+    // The reverse direction, without which a name bound by mistake leaves
+    // battles in the statistics that nothing could ever take out.
+    const stats = useStats()
+    const wrapper = await mountSuspended(App, { route: '/settings' })
+    await wrapper.get('[data-testid="alias-input"]').setValue('NotLittleStar')
+    await wrapper.get('[data-testid="alias-form"]').trigger('submit')
+    await settle()
+    expect(stats.battles.value).toHaveLength(1)
+
+    await wrapper.get('[data-testid="alias-remove"]').trigger('click')
+    await vi.waitFor(() => {
+      expect(document.body.querySelector('[data-testid="unbind-confirm"]')).not.toBeNull()
+    })
+    const remove = [...document.body.querySelectorAll<HTMLElement>('[data-testid="unbind-remove"]')]
+    remove.at(-1)?.click()
+    await settle()
+
+    // Spectated again: every attribution column back to null…
+    expect(stored().rows[0]).toMatchObject({ my_side: null, my_username: null, result: null })
+    // …and out of the dashboard, with nobody reloading anything.
+    expect(stats.battles.value).toHaveLength(0)
   })
 
   it('leaves the name the dashboard is filtered by where the user left it', async () => {

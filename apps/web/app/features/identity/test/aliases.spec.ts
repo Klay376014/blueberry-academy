@@ -100,13 +100,21 @@ describe('the Showdown alias settings', () => {
     })
   })
 
-  it('unbinds a name when its remove button is pressed', async () => {
+  it('asks before it unbinds a name, and names the one it asked about', async () => {
+    // Removing a name takes its battles out of the statistics, which is not
+    // what "remove a name" sounds like — so it asks first (#70). What the
+    // question says and what confirming it does are in
+    // `settings-reattribution.spec.ts`.
     useShowdownAliases().value = ['NotLittleStar', 'Bibas Rozkurwiator']
 
     const wrapper = await mountSuspended(App, { route: '/settings' })
     await wrapper.findAll('[data-testid="alias-remove"]')[1]!.trigger('click')
 
-    expect(unbindAlias).toHaveBeenCalledWith('Bibas Rozkurwiator')
+    expect(unbindAlias).not.toHaveBeenCalled()
+    await vi.waitFor(() => {
+      const asked = [...document.body.querySelectorAll('[data-testid="unbind-confirm"]')].at(-1)
+      expect(asked?.textContent).toContain('Bibas Rozkurwiator')
+    })
   })
 
   it('is honest that nobody can verify the account is yours', async () => {
