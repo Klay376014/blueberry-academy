@@ -1,9 +1,14 @@
 // The real paths rather than `#imports`: this file sits outside the Nuxt
 // tsconfig that defines that alias.
-import type { BattleRow } from 'battle-row'
+import type { Attribution, BattleRow } from 'battle-row'
 import type { SideId } from 'replay-parser'
 import { battleDetailsOf, battleRecordOf, endOfDay } from '../../app/shared/api/battles'
-import type { Battles, StatsRow, StoredRecordRow } from '../../app/shared/api/battles'
+import type {
+  AttributableRow,
+  Battles,
+  StatsRow,
+  StoredRecordRow,
+} from '../../app/shared/api/battles'
 
 /**
  * The second adapter behind `Battles`: an in-memory one, so a test about what
@@ -22,7 +27,13 @@ export interface StoredBattle extends StatsRow {
   opponent_username?: string | null
   turn_count?: number | null
   end_reason?: string | null
-  details?: { sides?: Partial<Record<SideId, { bringSignature?: string | null }>> } | null
+  /**
+   * Whatever `details` holds: the drawer reads `bringSignature` off a side and
+   * attribution reads the rest of it, and neither is the fake's to decide.
+   */
+  details?:
+    | ({ sides?: Partial<Record<SideId, Record<string, unknown>>> } & Record<string, unknown>)
+    | null
   parse_error?: string | null
 }
 
@@ -31,6 +42,8 @@ export interface FakeBattles extends Battles {
   rows: StoredBattle[]
   /** The rows `putBattle` was given, in order. */
   written: BattleRow[]
+  /** The attributions `setAttribution` was given, in order. */
+  attributed: { replayId: string; attribution: Attribution }[]
   /** Set to make every read fail the way an unreachable database would. */
   error: Error | null
   /**
@@ -44,6 +57,7 @@ export function fakeBattles(rows: StoredBattle[] = []): FakeBattles {
   const fake: FakeBattles = {
     rows: [...rows],
     written: [],
+    attributed: [],
     error: null,
     reads: [],
 
@@ -58,6 +72,12 @@ export function fakeBattles(rows: StoredBattle[] = []): FakeBattles {
         .sort((a, b) => (a.played_at < b.played_at ? -1 : 1))
 
       return Promise.resolve(matching.map(statsRowOf))
+    },
+
+    attributableRows() {
+      // Spectated rows stay in, the way the real read leaves the `my_side`
+      // filter off: they are the ones a newly bound name may claim.
+      return Promise.resolve(read('attributableRows', undefined).map(attributableRowOf))
     },
 
     battleById(replayId) {
@@ -99,6 +119,21 @@ export function fakeBattles(rows: StoredBattle[] = []): FakeBattles {
 
       return Promise.resolve(row)
     },
+
+    setAttribution(replayId, attribution) {
+      fake.attributed.push({ replayId, attribution })
+
+      const row = fake.rows.find((stored) => stored.replay_id === replayId)
+      // The real module reads the row back and throws when there is none.
+      if (!row) throw new Error(`The attribution of ${replayId} came back with no row.`)
+
+      // Written into the rows themselves, so a second run over the same fake
+      // sees what the first one did — which is how "and now zero writes" is
+      // asserted at all.
+      Object.assign(row, attribution)
+
+      return Promise.resolve()
+    },
   }
 
   function read(method: string, argument: unknown): (StatsRow & StoredRecordRow)[] {
@@ -129,6 +164,23 @@ function filled(row: StoredBattle): StatsRow & StoredRecordRow {
     end_reason: row.end_reason ?? null,
     details: row.details ?? null,
     parse_error: row.parse_error ?? null,
+  }
+}
+
+/** The columns re-attribution reads, and no others. */
+function attributableRowOf(row: StatsRow & StoredRecordRow): AttributableRow {
+  return {
+    replay_id: row.replay_id,
+    details: row.details,
+    my_side: row.my_side,
+    my_username: row.my_username,
+    opponent_username: row.opponent_username,
+    result: row.result,
+    team_signature: row.team_signature,
+    bring_signature: row.bring_signature,
+    bring_complete: row.bring_complete,
+    rating: row.rating,
+    rating_delta: row.rating_delta,
   }
 }
 

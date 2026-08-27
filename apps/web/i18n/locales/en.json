@@ -97,7 +97,10 @@
       "alreadyBound": "{name} is already on your list. Names are compared without case or punctuation, so NotLittleStar and notlittlestar are the same name.",
       "unusable": "That is not a Showdown name — it needs at least one letter or digit.",
       "loadFailed": "We could not read your names, so nothing can be changed here right now. Reload the page to try again.",
-      "failed": "That change did not save."
+      "failed": "That change did not save.",
+      "reattributing": "Re-attributing your battles… {processed} / {total}",
+      "reattributed": "Done: {attributed} battles are now yours, and {reattributed} were turned over to a different name.",
+      "reattributionFailed": "That did not finish. {processed} battles were worked through before it stopped; nothing was undone, and running it again picks up the rest."
     }
   },
   "filters": {

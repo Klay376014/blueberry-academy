@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import type { BattleRow } from 'battle-row'
+import type { Attribution, BattleRow } from 'battle-row'
 import type { SideId } from 'replay-parser'
 
 /**
@@ -30,7 +30,10 @@ import type { SideId } from 'replay-parser'
  * database's own snake_case (`StatsRow`) because the stats layer and its
  * fixtures are written in those names; everything else answers in camelCase.
  * Renaming the stats path would turn this into a rewrite of `battleStats.ts`
- * and every fixture under it.
+ * and every fixture under it. `attributableRows` is snake_case for a third
+ * reason: its columns *are* `battle-row`'s `Attribution`, which is written in
+ * the database's names because that is what it is for (#67), and renaming
+ * them here and back again would be a mapping that could drift.
  *
  * Failures throw. `null` and an absent map entry mean "the read worked and
  * there is no such row" — what to show for a failure is each page's decision,
@@ -68,6 +71,14 @@ const STATS_COLUMNS: string =
 /** Everything the drawer's header and timeline are drawn from. */
 const RECORD_COLUMNS: string =
   'replay_id, played_at, format_id, series_id, result, rating, rating_delta, end_reason, my_side, my_username, opponent_username, turn_count, bring_signature, details, parse_error'
+
+/**
+ * What re-attribution works from: `details`, which is all the derivation
+ * reads, and the current answers, so only a row whose answer changed is
+ * written back (#67).
+ */
+const ATTRIBUTION_COLUMNS: string =
+  'replay_id, details, my_side, my_username, opponent_username, result, team_signature, bring_signature, bring_complete, rating, rating_delta'
 
 /** The little the recent list needs that the stats read leaves out. */
 const DETAIL_COLUMNS: string = 'replay_id, opponent_username, turn_count, my_side, details'
@@ -114,6 +125,13 @@ export interface BattleRecord {
   parseError: string | null
 }
 
+/** One row as re-attribution reads it: its id, its `details`, its answers so far. */
+export interface AttributableRow extends Attribution {
+  replay_id: string
+  /** jsonb, so nothing is known about it here. `attributionOf` checks it. */
+  details: unknown
+}
+
 /** The per-row `details` a list wants once it knows which rows it is showing. */
 export interface BattleDetails {
   opponentUsername: string | null
@@ -127,6 +145,15 @@ export interface Battles {
    * many requests as it takes.
    */
   battlesOf(range: DateRange): Promise<StatsRow[]>
+
+  /**
+   * Every row of this user's, spectated ones included, with what attribution
+   * is derived from and the answers it has now.
+   *
+   * The only read that leaves spectated battles in: they are precisely the
+   * rows a newly bound name may claim (#67).
+   */
+  attributableRows(): Promise<AttributableRow[]>
 
   /** One battle, or `null` if this user has no such row. */
   battleById(replayId: string): Promise<BattleRecord | null>
@@ -147,6 +174,15 @@ export interface Battles {
 
   /** Writes one battle and answers with the row as the database kept it. */
   putBattle(row: BattleRow): Promise<BattleRow>
+
+  /**
+   * Writes the attribution of one row, and nothing else about it.
+   *
+   * Narrow because it has to be: `regulation` is a generated column, so a
+   * whole-row upsert of a row read back out is refused by the database. The
+   * column list is this module's, as every other one is (#67).
+   */
+  setAttribution(replayId: string, attribution: Attribution): Promise<void>
 }
 
 /**
@@ -196,6 +232,27 @@ export function createBattles(client: SupabaseClient, currentUserId: () => strin
         if (error) throw error
 
         const page = (data as unknown as StatsRow[] | null) ?? []
+        collected.push(...page)
+
+        if (page.length < PAGE) break
+      }
+
+      return collected
+    },
+
+    async attributableRows() {
+      const collected: AttributableRow[] = []
+
+      for (let start = 0; ; start += PAGE) {
+        const { data, error } = await scoped(ATTRIBUTION_COLUMNS)
+          // By id rather than by date: the order is nobody's to read anything
+          // into, but a stable one keeps the pages from overlapping.
+          .order('replay_id', { ascending: true })
+          .range(start, start + PAGE - 1)
+
+        if (error) throw error
+
+        const page = (data as unknown as AttributableRow[] | null) ?? []
         collected.push(...page)
 
         if (page.length < PAGE) break
@@ -264,6 +321,34 @@ export function createBattles(client: SupabaseClient, currentUserId: () => strin
       if (!data) throw new Error(`The write of ${row.replay_id} came back with no row.`)
 
       return data as BattleRow
+    },
+
+    async setAttribution(replayId, attribution) {
+      const { data, error } = await client
+        .from('battles')
+        // Spelled out rather than spread: `AttributableRow` widens
+        // `Attribution` with `replay_id` and `details`, and a caller handing
+        // one of those over must not write `details` back as a side effect.
+        .update({
+          my_side: attribution.my_side,
+          my_username: attribution.my_username,
+          opponent_username: attribution.opponent_username,
+          result: attribution.result,
+          team_signature: attribution.team_signature,
+          bring_signature: attribution.bring_signature,
+          bring_complete: attribution.bring_complete,
+          rating: attribution.rating,
+          rating_delta: attribution.rating_delta,
+        })
+        .eq('user_id', currentUserId())
+        .eq('replay_id', replayId)
+        .select('replay_id')
+        .single()
+
+      if (error) throw error
+      // A backfill that counted a row nobody wrote as done would report work
+      // it did not do, and the user would have no way to tell.
+      if (!data) throw new Error(`The attribution of ${replayId} came back with no row.`)
     },
   }
 }

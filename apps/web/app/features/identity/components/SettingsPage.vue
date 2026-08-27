@@ -1,8 +1,12 @@
 <script setup lang="ts">
 import type { BindResult } from '../composables/useProfile'
+import type { ReattributionReport } from '../composables/useReattribution'
 
 const { t } = useI18n()
 const { aliases, loaded, load, bindAlias, unbindAlias } = useProfile()
+const { running, progress, reattribute } = useReattribution()
+
+const emit = defineEmits<{ reattributed: [] }>()
 
 const typed = ref('')
 /** Unique per instance, so the label keeps pointing at its own input. */
@@ -14,6 +18,17 @@ const notice = ref<Exclude<BindResult, 'bound'> | null>(null)
 const rejected = ref('')
 const loadFailed = ref(false)
 const writeFailed = ref(false)
+/** The run that finished, so its two numbers can be shown. */
+const summary = ref<ReattributionReport | null>(null)
+/** The run that did not, and how far it got. */
+const stopped = ref<ReattributionReport | null>(null)
+
+/**
+ * Shut while a re-attribution runs: the alias list is half-applied until it
+ * finishes, and binding a second name on top would interleave two runs over a
+ * write that replaces the whole array.
+ */
+const busy = computed(() => !loaded.value || running.value)
 
 // Awaited in setup, so the list is on screen the first time it is painted
 // rather than appearing a tick later.
@@ -29,6 +44,24 @@ try {
 function clearMessages() {
   notice.value = null
   writeFailed.value = false
+  summary.value = null
+  stopped.value = null
+}
+
+/**
+ * The battles already imported, re-attributed against the list as it now
+ * stands. Reports rather than throws: the alias list is written either way,
+ * and what is left is a run to finish rather than a change to undo.
+ */
+async function reattributeBattles() {
+  const outcome = await reattribute()
+
+  if (outcome.status === 'done') summary.value = outcome.report
+  else stopped.value = outcome.report
+
+  // Whichever it was, rows moved and the dashboard is holding the ones from
+  // before them.
+  emit('reattributed')
 }
 
 async function bind() {
@@ -39,6 +72,7 @@ async function bind() {
     const result = await bindAlias(name)
     if (result === 'bound') {
       typed.value = ''
+      await reattributeBattles()
     } else {
       notice.value = result
       rejected.value = name
@@ -90,7 +124,7 @@ async function unbind(name: string) {
             v-model="typed"
             class="mt-1 h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs transition-colors placeholder:text-muted-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none disabled:opacity-50"
             :placeholder="t('settings.aliases.placeholder')"
-            :disabled="!loaded"
+            :disabled="busy"
             autocapitalize="off"
             autocomplete="off"
             spellcheck="false"
@@ -98,7 +132,7 @@ async function unbind(name: string) {
             @input="clearMessages"
           />
         </div>
-        <UiButton type="submit" :disabled="!loaded" data-testid="alias-bind">
+        <UiButton type="submit" :disabled="busy" data-testid="alias-bind">
           {{ t('settings.aliases.bind') }}
         </UiButton>
       </form>
@@ -114,6 +148,28 @@ async function unbind(name: string) {
         {{ t('settings.aliases.failed') }}
       </p>
 
+      <p
+        v-if="running && progress"
+        class="mt-3 text-sm text-muted-foreground"
+        data-testid="reattribution-progress"
+      >
+        {{ t('settings.aliases.reattributing', progress) }}
+      </p>
+      <p
+        v-else-if="summary"
+        class="mt-3 text-sm text-muted-foreground"
+        data-testid="reattribution-summary"
+      >
+        {{ t('settings.aliases.reattributed', summary) }}
+      </p>
+      <p
+        v-else-if="stopped"
+        class="mt-3 text-sm text-destructive"
+        data-testid="reattribution-error"
+      >
+        {{ t('settings.aliases.reattributionFailed', stopped) }}
+      </p>
+
       <ul v-if="aliases.length" class="mt-6 divide-y divide-border border-y border-border">
         <li
           v-for="alias of aliases"
@@ -125,7 +181,7 @@ async function unbind(name: string) {
             variant="ghost"
             size="sm"
             :aria-label="t('settings.aliases.remove', { name: alias })"
-            :disabled="!loaded"
+            :disabled="busy"
             data-testid="alias-remove"
             @click="() => unbind(alias)"
           >

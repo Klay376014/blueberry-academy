@@ -97,7 +97,10 @@
       "alreadyBound": "{name} 已經在清單裡了。名稱比對時不分大小寫與符號，NotLittleStar 與 notlittlestar 是同一個名稱。",
       "unusable": "這不是 Showdown 名稱 —— 至少要有一個英數字元。",
       "loadFailed": "讀不到你的名稱清單，所以這裡暫時不能變更。重新載入頁面再試一次。",
-      "failed": "這次變更沒有存進去。"
+      "failed": "這次變更沒有存進去。",
+      "reattributing": "正在重新歸戶… {processed} / {total}",
+      "reattributed": "完成：新歸入 {attributed} 場，重新歸屬 {reattributed} 場。",
+      "reattributionFailed": "這次沒有跑完。已處理 {processed} 場，已寫入的不會退回，再跑一次就會接著做完。"
     }
   },
   "filters": {
