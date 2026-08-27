@@ -6,4 +6,6 @@
  */
 export { useAuth } from './composables/useAuth'
 export { useProfile } from './composables/useProfile'
+export { useReattribution } from './composables/useReattribution'
 export type { BindResult } from './composables/useProfile'
+export type { ReattributionOutcome, ReattributionReport } from './composables/useReattribution'

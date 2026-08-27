@@ -31,9 +31,9 @@ function valueOf(calls: Call[], method: string, column: string): unknown {
 
 /** The rows a request with these calls should answer with. */
 function answer(calls: Call[]): Record<string, unknown>[] {
-  const upserted = calls.find(([name]) => name === 'upsert')
+  const written = calls.find(([name]) => name === 'upsert' || name === 'update')
   // An empty `db.rows` stands for the write RLS matched nothing.
-  if (upserted) return db.rows.length ? [upserted[1] as Record<string, unknown>] : []
+  if (written) return db.rows.length ? [written[1] as Record<string, unknown>] : []
 
   const ids = valueOf(calls, 'in', 'replay_id') as string[] | undefined
   const replayId = valueOf(calls, 'eq', 'replay_id') as string | undefined
@@ -76,6 +76,7 @@ function builder() {
     in: record('in'),
     order: record('order'),
     upsert: record('upsert'),
+    update: record('update'),
     range: (from: number, to: number) => {
       calls.push(['range', from, to])
       const { data, error } = settle()
@@ -306,6 +307,92 @@ describe('the lookups PostgREST puts in a query string', () => {
     const found = await battles().detailsOf(['ladder-1', 'never-imported'])
 
     expect([...found.keys()]).toEqual(['ladder-1'])
+  })
+})
+
+describe('reading every row re-attribution has to look at', () => {
+  it('scopes to the user and leaves spectated battles in', async () => {
+    // The opposite of the dashboard read: a spectated battle is exactly the
+    // one a newly bound name may turn into the user's own (#67).
+    db.rows = [stored(), stored({ replay_id: 'spectated-1', my_side: null })]
+
+    const rows = await battles().attributableRows()
+
+    expect(onlyRequest()).toContainEqual(['eq', 'user_id', USER])
+    expect(onlyRequest().some(([name, column]) => name === 'not' && column === 'my_side')).toBe(
+      false,
+    )
+    expect(rows.map((row) => row.replay_id)).toEqual(['ladder-1', 'spectated-1'])
+  })
+
+  it('asks for `details` and the attribution columns it has to compare against', async () => {
+    await battles().attributableRows()
+
+    const select = onlyRequest().find(([name]) => name === 'select')?.[1] as string
+
+    // `details` because attribution is derived from it, and the current values
+    // because only rows whose answer changed are written back.
+    expect(select).toContain('details')
+    for (const column of ['my_side', 'my_username', 'result', 'rating_delta']) {
+      expect(select).toContain(column)
+    }
+  })
+
+  it('pages until a short page says that was all of them', async () => {
+    db.rows = bulk(1001)
+
+    const rows = await battles().attributableRows()
+
+    expect(db.requests).toHaveLength(2)
+    expect(rows).toHaveLength(1001)
+  })
+})
+
+describe('writing an attribution back', () => {
+  const attribution = {
+    my_side: 'p1',
+    my_username: 'NotLittleStar',
+    opponent_username: 'Somebody',
+    result: 'win',
+    team_signature: 'a|b|c|d|e|f',
+    bring_signature: 'a|b|c|d',
+    bring_complete: true,
+    rating: 1500,
+    rating_delta: 12,
+  } as const
+
+  it('sends the attribution columns and nothing else', async () => {
+    await battles().setAttribution('ladder-1', attribution)
+
+    const sent = onlyRequest().find(([name]) => name === 'update')?.[1] as Record<string, unknown>
+
+    // Narrow because it has to be: `regulation` is a generated column, so
+    // reading a whole row back and writing it out again is refused (#67).
+    expect(Object.keys(sent).toSorted()).toEqual(Object.keys(attribution).toSorted())
+  })
+
+  it('reaches one row of this user’s, and reads it back', async () => {
+    await battles().setAttribution('ladder-1', attribution)
+
+    const calls = onlyRequest()
+
+    expect(calls).toContainEqual(['eq', 'user_id', USER])
+    expect(calls).toContainEqual(['eq', 'replay_id', 'ladder-1'])
+    expect(calls.map(([name]) => name)).toContain('single')
+  })
+
+  it('refuses a write that came back with no row at all', async () => {
+    // The row may belong to somebody else, or not exist: either way the
+    // backfill has to stop rather than count it as done.
+    db.rows = []
+
+    await expect(battles().setAttribution('ladder-1', attribution)).rejects.toThrow(/no row/)
+  })
+
+  it('throws when the write is refused', async () => {
+    db.error = new Error('refused')
+
+    await expect(battles().setAttribution('ladder-1', attribution)).rejects.toThrow('refused')
   })
 })
 
