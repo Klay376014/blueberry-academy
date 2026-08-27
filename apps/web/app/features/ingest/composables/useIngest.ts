@@ -2,7 +2,8 @@ import { battleRowOf, unparsedRowOf } from 'battle-row'
 import type { BattleRow } from 'battle-row'
 import { parseReplay } from 'replay-parser'
 import { ShowdownError } from './useShowdown'
-import type { ReplayRecord, ReplayRef, ShowdownFailure } from './useShowdown'
+import type { ShowdownFailure } from './useShowdown'
+import type { ReplayRecord, ReplayRef } from '~/shared/api/showdown'
 
 /**
  * One replay, all the way in: fetch it from Showdown, store the raw log,
@@ -36,10 +37,6 @@ export type IngestFailure =
   | 'store-failed'
   /** The row itself was refused. */
   | 'write-failed'
-
-// Re-exported because the row is what this composable hands back, and its
-// callers should not have to know which package spells it out.
-export type { BattleRow } from 'battle-row'
 
 export type IngestOutcome =
   /** Parsed and written. */

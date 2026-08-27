@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { ShowdownError } from '../../app/composables/useShowdown'
-import page1 from '../fixtures/search-bibasrozkurwiator-page1.json'
-import page2 from '../fixtures/search-bibasrozkurwiator-page2.json'
-import replay from '../../../../packages/replay-parser/test/fixtures/gen9championsvgc2026regmb-2667169457.json'
+import { ShowdownError } from '../composables/useShowdown'
+import page1 from '../../../../test/fixtures/search-bibasrozkurwiator-page1.json'
+import page2 from '../../../../test/fixtures/search-bibasrozkurwiator-page2.json'
+import replay from '../../../../../../packages/replay-parser/test/fixtures/gen9championsvgc2026regmb-2667169457.json'
 
 const ORIGIN = 'https://replay.pokemonshowdown.com'
 

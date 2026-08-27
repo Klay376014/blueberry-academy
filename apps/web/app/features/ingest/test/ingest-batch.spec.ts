@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import supabasePlugin from '../../app/plugins/supabase.client'
-import { signIn } from '../helpers'
-import ladder from '../../../../packages/replay-parser/test/fixtures/gen9championsvgc2026regmb-2667169457.json'
+import supabasePlugin from '../../../plugins/supabase.client'
+import { signIn } from '../../../../test/helpers'
+import ladder from '../../../../../../packages/replay-parser/test/fixtures/gen9championsvgc2026regmb-2667169457.json'
 
 // Same shape as ingest.spec.ts: Showdown answers through the global fetch the
 // real fetch layer calls, Supabase through the client the real plugin

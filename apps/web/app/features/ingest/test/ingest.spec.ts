@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import supabasePlugin from '../../app/plugins/supabase.client'
-import { signIn } from '../helpers'
-import ladder from '../../../../packages/replay-parser/test/fixtures/gen9championsvgc2026regmb-2667169457.json'
+import supabasePlugin from '../../../plugins/supabase.client'
+import { signIn } from '../../../../test/helpers'
+import ladder from '../../../../../../packages/replay-parser/test/fixtures/gen9championsvgc2026regmb-2667169457.json'
 
 // The two things outside the app are faked and nothing else is: Showdown
 // answers through the global fetch that useShowdown really calls, Supabase

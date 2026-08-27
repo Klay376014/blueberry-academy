@@ -1,4 +1,5 @@
 import { toID } from 'replay-parser'
+import type { ReplayList, ReplayListing, ReplayRecord, ReplayRef } from '~/shared/api/showdown'
 
 /**
  * Everything the app does against replay.pokemonshowdown.com: list a player's
@@ -70,45 +71,6 @@ export class ShowdownError extends Error {
     super(message, options)
     this.name = 'ShowdownError'
   }
-}
-
-/** One row of `search.json`, under Showdown's own field names. */
-export interface ReplayListing {
-  id: string
-  /**
-   * A display name — `[Gen 9 Champions] VGC 2026 Reg M-B` — and not a format
-   * id. `battles.format_id` can only be filled from a single replay's
-   * `formatid`, which means after fetchReplay.
-   */
-  format: string
-  players: string[]
-  uploadtime: number
-  rating: number | null
-  /** 0 public / 1 private with a password / 2 private without one / 3 deleted. */
-  private: number
-  password: string | null
-}
-
-/** A single replay: everything a listing has, plus the format id and the log. */
-export interface ReplayRecord extends ReplayListing {
-  formatid: string
-  log: string
-  views?: string
-}
-
-/** Which replay to fetch. A private one is only served with its password. */
-export interface ReplayRef {
-  id: string
-  password?: string | null
-}
-
-export interface ReplayList {
-  replays: ReplayListing[]
-  /**
-   * Whether the search ran out of pages before it ran out of replays: there
-   * is more of this player's history than the list shows.
-   */
-  truncated: boolean
 }
 
 /**
