@@ -1,4 +1,4 @@
-import type { ReplayRef } from '../composables/useShowdown'
+import type { ReplayRef } from '../api/showdown'
 
 const ORIGIN = 'https://replay.pokemonshowdown.com'
 

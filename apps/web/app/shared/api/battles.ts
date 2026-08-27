@@ -1,7 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { BattleRow } from 'battle-row'
 import type { SideId } from 'replay-parser'
-import type { BattleResult, StatsRow } from '../utils/battleStats'
 
 /**
  * Everything the app knows about reading and writing the `battles` table, as
@@ -14,8 +13,10 @@ import type { BattleResult, StatsRow } from '../utils/battleStats'
  * dashboard) and docs/specs/2026-08-20-battle-timeline-design.md §4 (the
  * drawer); the move itself is issue #52.
  *
- * It sits in `lib/` rather than `utils/` because everything in `utils/` is a
- * pure function and this is the app's one piece of I/O over `battles`.
+ * It sits in `shared/lib/` rather than `shared/utils/` because everything in
+ * `utils/` is a pure function and this is the app's one piece of I/O over
+ * `battles` — and in `shared/` rather than in a feature because the dashboard,
+ * the timeline and the importer all read the same table (issue #61).
  *
  * The interface exists for a second reason as well as the first: it is the
  * seam the tests need. The in-memory adapter behind it is
@@ -35,6 +36,23 @@ import type { BattleResult, StatsRow } from '../utils/battleStats'
  * there is no such row" — what to show for a failure is each page's decision,
  * and the drawer, the importer and the dashboard all answer it differently.
  */
+
+export type BattleResult = 'win' | 'loss' | 'tie'
+
+/** A `battles` row as the stats layer reads it, in the database's own names. */
+export interface StatsRow {
+  replay_id: string
+  played_at: string
+  format_id: string
+  series_id: string | null
+  my_username: string | null
+  result: BattleResult | null
+  rating: number | null
+  rating_delta: number | null
+  team_signature: string | null
+  bring_signature: string | null
+  bring_complete: boolean
+}
 
 /**
  * The column lists, each typed as `string` rather than left as the literal it

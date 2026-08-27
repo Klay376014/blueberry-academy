@@ -1,8 +1,8 @@
-import { createBattles } from '../lib/battles'
-import type { Battles } from '../lib/battles'
+import { createBattles } from '../api/battles'
+import type { Battles } from '../api/battles'
 
 /**
- * `app/lib/battles.ts` with this app's client and this session's user already
+ * `app/shared/api/battles.ts` with this app's client and this session's user already
  * bound to it.
  *
  * The user is handed over as a lookup rather than a value: a composable is
