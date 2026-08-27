@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vite-plus/test'
 import { PARSER_VERSION, parseReplay } from 'replay-parser'
 import type { ParsedBattle } from 'replay-parser'
-import { battleRowOf, unparsedRowOf } from '../src/index.ts'
+import { attributionOf, battleRowOf, unparsedRowOf } from '../src/index.ts'
 import ladder from '../../replay-parser/test/fixtures/gen9championsvgc2026regmb-2667169457.json'
 import tie from '../../replay-parser/test/fixtures/gen9ou-2667293085.json'
 
@@ -72,6 +72,27 @@ describe('the row one parsed battle becomes', () => {
     for (const side of ['p1', 'p2'] as const) {
       const row = battleRowOf(battle, { ...OWNER, aliases: [battle[side].username] })
       expect(row.result).toBe('tie')
+    }
+  })
+
+  it('agrees with re-attributing its own stored details', () => {
+    // The whole point of one shared derivation: a row written at import time
+    // and the same row re-attributed later (#67) must never disagree, or a
+    // backfill would rewrite rows nobody changed.
+    for (const aliases of [['DavoPro1214'], ['Bibas Rozkurwiator'], ['SomebodyElse']]) {
+      const row = battleRowOf(parsed(ladder), { ...OWNER, aliases })
+
+      expect(attributionOf(row.details, aliases)).toEqual({
+        my_side: row.my_side,
+        my_username: row.my_username,
+        opponent_username: row.opponent_username,
+        result: row.result,
+        team_signature: row.team_signature,
+        bring_signature: row.bring_signature,
+        bring_complete: row.bring_complete,
+        rating: row.rating,
+        rating_delta: row.rating_delta,
+      })
     }
   })
 

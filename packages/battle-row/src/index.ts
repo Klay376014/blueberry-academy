@@ -1,5 +1,11 @@
-import { PARSER_VERSION, toID } from 'replay-parser'
-import type { ParsedBattle, ParsedSide, ReplayMeta, SideId } from 'replay-parser'
+import { PARSER_VERSION } from 'replay-parser'
+import type { ParsedBattle, ReplayMeta, SideId } from 'replay-parser'
+import { attributionOf } from './attribution.ts'
+
+// Re-attribution's entry point lives here too: it is the same derivation the
+// importer runs, and having one door is the point (#64).
+export { attributionOf } from './attribution.ts'
+export type { Attribution } from './attribution.ts'
 
 /**
  * One parsed battle, as the row the database stores.
@@ -48,30 +54,14 @@ export interface RowOwner {
   logPath: string
 }
 
-/** Which side is "me", if either. A battle matching neither is spectated. */
-function sideOfMine(battle: ParsedBattle, aliases: string[]): SideId | null {
-  const mine = new Set(aliases.map(toID).filter(Boolean))
-
-  // p1 first, so a user who has both players bound gets one answer rather
-  // than an arbitrary one.
-  if (mine.has(battle.p1.userId)) return 'p1'
-  if (mine.has(battle.p2.userId)) return 'p2'
-
-  return null
-}
-
-/** Win, loss or tie from my side, or null when the log declared no winner. */
-function resultFor(side: SideId, winner: ParsedBattle['winner']): BattleRow['result'] {
-  if (winner === null) return null
-  if (winner === 'tie') return 'tie'
-
-  return winner === side ? 'win' : 'loss'
-}
-
 export function battleRowOf(battle: ParsedBattle, owner: RowOwner): BattleRow {
-  const side = sideOfMine(battle, owner.aliases)
-  const mine: ParsedSide | null = side ? battle[side] : null
-  const theirs = side ? battle[side === 'p1' ? 'p2' : 'p1'] : null
+  // Everything the perspectives that are not designed yet will want — and
+  // everything re-attribution reads, which is why it is built first.
+  const details = { winner: battle.winner, sides: { p1: battle.p1, p2: battle.p2 } }
+  const attribution = attributionOf(details, owner.aliases)
+  // Unreachable from here: `details` was just built out of a typed
+  // `ParsedBattle`. The shape check guards rows read back from jsonb.
+  if (!attribution) throw new Error(`could not attribute ${battle.replayId}`)
 
   return {
     user_id: owner.userId,
@@ -82,24 +72,11 @@ export function battleRowOf(battle: ParsedBattle, owner: RowOwner): BattleRow {
     // `|player|` simply has no rating field in a tournament game.
     rated: battle.p1.ratingBefore !== null || battle.p2.ratingBefore !== null,
     game_type: battle.gameType,
-    // My own rating, from my own side. The replay metadata carries one too,
-    // but it is the loser's whichever side that is, so it belongs to neither.
-    rating: mine?.ratingAfter ?? null,
-    rating_delta: mine?.ratingDelta ?? null,
     series_id: battle.seriesId,
-    my_side: side,
-    my_username: mine?.username ?? null,
-    opponent_username: theirs?.username ?? null,
-    result: side ? resultFor(side, battle.winner) : null,
-    // The signatures are mine, so a spectated battle has none. Both sides
-    // are in `details` either way.
-    team_signature: mine?.teamSignature ?? null,
-    bring_signature: mine?.bringSignature ?? null,
-    bring_complete: mine?.bringComplete ?? false,
+    ...attribution,
     turn_count: battle.turnCount,
     end_reason: battle.endReason,
-    // Everything the perspectives that are not designed yet will want.
-    details: { winner: battle.winner, sides: { p1: battle.p1, p2: battle.p2 } },
+    details,
     log_path: owner.logPath,
     parser_version: PARSER_VERSION,
     parse_error: null,
