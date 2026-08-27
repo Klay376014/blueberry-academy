@@ -5,7 +5,7 @@ import type { ReattributionReport } from '../composables/useReattribution'
 const { t } = useI18n()
 const { aliases, loaded, load, bindAlias, unbindAlias } = useProfile()
 const { running, progress, reattribute } = useReattribution()
-const { count, gamesOf } = useAliasCounts()
+const { count, battleCountOf } = useAliasCounts()
 
 const emit = defineEmits<{ reattributed: [] }>()
 
@@ -33,10 +33,6 @@ const busy = computed(() => !loaded.value || running.value)
 
 // Awaited in setup, so the list is on screen the first time it is painted
 // rather than appearing a tick later.
-// Not awaited, and its failure is not the page's: the alias list is what the
-// page is for, and the counts beside it are an answer to a second question.
-void count()
-
 try {
   await load()
 } catch {
@@ -45,6 +41,10 @@ try {
   // wipe the names that are really there.
   loadFailed.value = true
 }
+
+// Not awaited, unlike the list itself: the names are what the page is for and
+// the counts beside them answer a second question.
+void count()
 
 function clearMessages() {
   notice.value = null
@@ -59,16 +59,19 @@ function clearMessages() {
  * and what is left is a run to finish rather than a change to undo.
  */
 async function reattributeBattles() {
-  const outcome = await reattribute()
+  try {
+    const outcome = await reattribute()
 
-  if (outcome.status === 'done') summary.value = outcome.report
-  else stopped.value = outcome.report
+    if (outcome.status === 'done') summary.value = outcome.report
+    else stopped.value = outcome.report
+  } catch {
+    writeFailed.value = true
+    return
+  }
 
-  // Rows moved, so the numbers beside the names are the ones from before.
+  // Whichever it was, rows moved: the counts beside the names and the rows the
+  // dashboard is holding are both the ones from before them.
   await count()
-
-  // Whichever it was, rows moved and the dashboard is holding the ones from
-  // before them.
   emit('reattributed')
 }
 
@@ -90,7 +93,6 @@ async function bind() {
   }
 }
 
-/** The same run, with nothing bound or unbound first. */
 async function rerun() {
   clearMessages()
   await reattributeBattles()
@@ -192,11 +194,11 @@ async function unbind(name: string) {
         >
           <span class="font-medium" data-testid="alias-name">{{ alias }}</span>
           <span
-            v-if="gamesOf(alias) !== null"
+            v-if="battleCountOf(alias) !== null"
             class="ml-auto text-sm text-muted-foreground tabular-nums"
-            data-testid="alias-games"
+            data-testid="alias-battles"
           >
-            {{ t('settings.aliases.games', { games: gamesOf(alias) }) }}
+            {{ t('settings.aliases.battles', battleCountOf(alias) ?? 0) }}
           </span>
           <UiButton
             variant="ghost"

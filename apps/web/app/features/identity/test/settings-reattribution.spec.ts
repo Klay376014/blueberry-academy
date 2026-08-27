@@ -161,30 +161,34 @@ describe('what each bound name has under it', () => {
   it('shows how many battles are filed under each name', async () => {
     // The question the user came to this page with: is there any data under
     // the alt I just bound? And the number #70's confirmation needs.
-    useShowdownAliases().value = ['NotLittleStar', 'Blue Berry']
+    useShowdownAliases().value = ['NotLittleStar', 'Blue Berry', 'Alt']
     stored().rows = [
       attributedRow('a', 'NotLittleStar'),
       // The same name, spelled the way one replay carried it.
       attributedRow('b', 'notlittlestar'),
       attributedRow('c', 'Somebody Else'),
+      attributedRow('d', 'alt'),
     ]
 
     const wrapper = await mountSuspended(App, { route: '/settings' })
     await vi.waitFor(() => {
-      expect(wrapper.findAll('[data-testid="alias-games"]')).toHaveLength(2)
+      expect(wrapper.findAll('[data-testid="alias-battles"]')).toHaveLength(3)
     })
 
-    const shown = wrapper.findAll('[data-testid="alias-games"]').map((el) => el.text())
+    const shown = wrapper.findAll('[data-testid="alias-battles"]').map((el) => el.text())
 
-    expect(shown[0]).toContain('2')
-    expect(shown[1]).toContain('0')
+    expect(shown[0]).toBe('2 battles')
+    expect(shown[1]).toBe('0 battles')
+    // Not "1 battles": a name with a single battle under it is common enough
+    // on an alt, which is what the count is there to answer about.
+    expect(shown[2]).toBe('1 battle')
   })
 
   it('counts again once a run has finished, with no reload', async () => {
     useShowdownAliases().value = ['NotLittleStar']
     const wrapper = await mountSuspended(App, { route: '/settings' })
     await vi.waitFor(() => {
-      expect(wrapper.get('[data-testid="alias-games"]').text()).toContain('0')
+      expect(wrapper.get('[data-testid="alias-battles"]').text()).toContain('0')
     })
 
     // What re-attributing would have done, had it not been mocked out.
@@ -192,7 +196,7 @@ describe('what each bound name has under it', () => {
     await wrapper.get('[data-testid="reattribute"]').trigger('click')
 
     await vi.waitFor(() => {
-      expect(wrapper.get('[data-testid="alias-games"]').text()).toContain('1')
+      expect(wrapper.get('[data-testid="alias-battles"]').text()).toContain('1')
     })
   })
 })

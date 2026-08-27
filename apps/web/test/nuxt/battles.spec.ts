@@ -320,6 +320,9 @@ describe('counting the battles under each Showdown name', () => {
     // A spectated battle is nobody's, so it belongs under no name.
     expect(calls).toContainEqual(['not', 'my_side', 'is', null])
     expect(calls.find(([name]) => name === 'select')?.[1]).toBe('my_username')
+    // Ordered, because `range` over an unordered result is not stable between
+    // requests: pages would overlap or skip and the count would be wrong.
+    expect(calls).toContainEqual(['order', 'replay_id', { ascending: true }])
   })
 
   it('counts the spellings of one name as one name', async () => {

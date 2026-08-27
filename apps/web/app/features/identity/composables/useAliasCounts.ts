@@ -28,9 +28,11 @@ export function useAliasCounts() {
   }
 
   /** Battles under one name in any spelling, or `null` if it is not known. */
-  function gamesOf(alias: string): number | null {
-    return counts.value?.get(toID(alias)) ?? (counts.value ? 0 : null)
+  function battleCountOf(alias: string): number | null {
+    if (counts.value === null) return null
+
+    return counts.value.get(toID(alias)) ?? 0
   }
 
-  return { counts, count, gamesOf }
+  return { count, battleCountOf }
 }

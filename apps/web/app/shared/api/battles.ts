@@ -84,13 +84,14 @@ const ATTRIBUTION_COLUMNS: string =
 /** The little the recent list needs that the stats read leaves out. */
 const DETAIL_COLUMNS: string = 'replay_id, opponent_username, turn_count, my_side, details'
 
-/**
- * Rows per request. PostgREST caps a response at its own default of 1000, so
- * without paging a heavy account arrives silently truncated — and a win rate
- * over the first thousand games, presented as the whole of it, is worse than
- * an error.
- */
+/** Rows per request: PostgREST's own default cap. */
 const PAGE = 1000
+
+/** One page of a paged read, as PostgREST answers it. */
+interface PageOf<T> {
+  data: T[] | null
+  error: unknown
+}
 
 /**
  * Replay ids per `in (…)` lookup. PostgREST puts the list in the query string,
@@ -224,11 +225,36 @@ export function createBattles(client: SupabaseClient, currentUserId: () => strin
     return ((data as unknown as StoredRecordRow[] | null) ?? []).map(battleRecordOf)
   }
 
+  /**
+   * Every row a query matches, in as many requests as it takes.
+   *
+   * PostgREST caps a response at its own default of 1000, so a read without
+   * this arrives silently truncated — and a win rate over the first thousand
+   * games of an account, presented as the whole of it, is worse than an error.
+   *
+   * The caller's query must carry an `order`: `range` over an unordered
+   * result is not stable between requests, so pages can overlap or skip.
+   */
+  async function pages<T>(request: (from: number, to: number) => PromiseLike<PageOf<T>>) {
+    const collected: T[] = []
+
+    for (let start = 0; ; start += PAGE) {
+      const { data, error } = await request(start, start + PAGE - 1)
+
+      if (error) throw error
+
+      const page = data ?? []
+      collected.push(...page)
+
+      if (page.length < PAGE) break
+    }
+
+    return collected
+  }
+
   return {
     async battlesOf(range) {
-      const collected: StatsRow[] = []
-
-      for (let start = 0; ; start += PAGE) {
+      return await pages<StatsRow>((from, to) => {
         let query = scoped(STATS_COLUMNS)
           // Spectated. Not a filter the caller can turn off.
           .not('my_side', 'is', null)
@@ -236,59 +262,40 @@ export function createBattles(client: SupabaseClient, currentUserId: () => strin
         if (range.from) query = query.gte('played_at', range.from)
         if (range.to) query = query.lte('played_at', endOfDay(range.to))
 
-        const { data, error } = await query
-          // Oldest first, so a curve can be drawn straight off the rows.
-          .order('played_at', { ascending: true })
-          .range(start, start + PAGE - 1)
-
-        if (error) throw error
-
-        const page = (data as unknown as StatsRow[] | null) ?? []
-        collected.push(...page)
-
-        if (page.length < PAGE) break
-      }
-
-      return collected
+        return (
+          query
+            // Oldest first, so a curve can be drawn straight off the rows.
+            .order('played_at', { ascending: true })
+            .range(from, to) as unknown as PromiseLike<PageOf<StatsRow>>
+        )
+      })
     },
 
     async attributableRows() {
-      const collected: AttributableRow[] = []
-
-      for (let start = 0; ; start += PAGE) {
-        const { data, error } = await scoped(ATTRIBUTION_COLUMNS)
-          // By id rather than by date: the order is nobody's to read anything
-          // into, but a stable one keeps the pages from overlapping.
-          .order('replay_id', { ascending: true })
-          .range(start, start + PAGE - 1)
-
-        if (error) throw error
-
-        const page = (data as unknown as AttributableRow[] | null) ?? []
-        collected.push(...page)
-
-        if (page.length < PAGE) break
-      }
-
-      return collected
+      return await pages<AttributableRow>(
+        (from, to) =>
+          scoped(ATTRIBUTION_COLUMNS)
+            // By id rather than by date: the order is nobody's to read
+            // anything into, but a stable one keeps the pages apart.
+            .order('replay_id', { ascending: true })
+            .range(from, to) as unknown as PromiseLike<PageOf<AttributableRow>>,
+      )
     },
 
     async nameCounts() {
       const counts = new Map<string, number>()
 
-      for (let start = 0; ; start += PAGE) {
-        const { data, error } = await scoped('my_username')
-          // A spectated battle is nobody's, so it belongs under no name.
-          .not('my_side', 'is', null)
-          .range(start, start + PAGE - 1)
-
-        if (error) throw error
-
-        const page = (data as unknown as NamedRow[] | null) ?? []
-        tallyNames(counts, page)
-
-        if (page.length < PAGE) break
-      }
+      tallyNames(
+        counts,
+        await pages<NamedRow>(
+          (from, to) =>
+            scoped('my_username')
+              // A spectated battle is nobody's, so it belongs under no name.
+              .not('my_side', 'is', null)
+              .order('replay_id', { ascending: true })
+              .range(from, to) as unknown as PromiseLike<PageOf<NamedRow>>,
+        ),
+      )
 
       return counts
     },

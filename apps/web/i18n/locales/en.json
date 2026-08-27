@@ -98,7 +98,7 @@
       "unusable": "That is not a Showdown name — it needs at least one letter or digit.",
       "loadFailed": "We could not read your names, so nothing can be changed here right now. Reload the page to try again.",
       "failed": "That change did not save.",
-      "games": "{games} battles",
+      "battles": "{count} battle | {count} battles",
       "reattribute": "Re-attribute battles",
       "reattributeHint": "Runs the names above over every battle you have imported. Nothing to undo — a run that changes nothing writes nothing.",
       "reattributing": "Re-attributing your battles… {processed} / {total}",

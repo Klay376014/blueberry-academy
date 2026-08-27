@@ -5,7 +5,6 @@
  * what that means.
  */
 export { useAuth } from './composables/useAuth'
-export { useAliasCounts } from './composables/useAliasCounts'
 export { useProfile } from './composables/useProfile'
 export { useReattribution } from './composables/useReattribution'
 export type { BindResult } from './composables/useProfile'
