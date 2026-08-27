@@ -61,13 +61,26 @@ app 共用。在那之前，把 `pages/` 搬進 feature 只會換來一層 layer
   別名清單來自 identity，它做完之後要讓 stats 的列重讀。
 
 那批接線之所以在頁面裡，**正是因為 feature 之間不得互相匯入**。而這裡有一個必須寫
-下來的陷阱：**Nuxt 的自動匯入不產生 import 陳述式**，所以 feature 內部直接呼叫
-`useProfile()` 這種跨 feature 的呼叫，對 lint 規則與架構測試都是隱形的 —— 它們讀的是
-import 指定符，而這一行根本沒有。違規完全成立，檢查完全看不到。
+下來的陷阱：**Nuxt 的自動匯入與元件註冊都不產生 import 陳述式**，所以 feature 內部
+直接呼叫 `useProfile()`、或在 template 裡寫 `<BattleDrawer />`，對 oxlint 是完全隱形
+的 —— 它讀的是 import 指定符，而這兩行根本沒有。違規完全成立，lint 完全看不到。
 
-換句話說：那兩道檢查守得住 `import`，守不住自動匯入。組合層是靠人維持的，唯一的
-補償是它只有 7 支薄殼檔案，而且每一支都短到可以一眼讀完。往 feature 內搬會讓這個
-隱形範圍變大，而非變小。
+`apps/web/test/architecture.spec.ts` 存在的理由就是這個，而不只是把 lint 規則抄一遍：
+
+- 它掃每個 feature 的 `composables/` 與 `utils/` 的匯出名稱，再檢查別的 feature 有沒有
+  用到那些名字（註解先剝除，否則散文裡提到一個名字就會誤報）。
+- 它從 `.nuxt/components.d.ts`（`nuxt prepare` 產出的註冊清單，不是重新推導 Nuxt 的
+  命名規則）取得每個標籤對應的檔案，再掃各 feature 的 `<template>`，攔下跨 feature
+  的元件使用。
+- 附帶守住讓上述兩條有意義的前提：每個 feature 的元件都真的被 `nuxt.config.ts` 註冊
+  （漏註冊是靜默失效，標籤解析不到任何東西）、`~/shared/components` 維持在
+  `components` 陣列最後（ADR-0005 的 NUXT_B3011）、feature 內只有它那四個目錄、
+  `app/` 根層不長出新的技術分層。
+
+**仍然只能靠人的，是「這一支頁面有沒有偷偷長出領域邏輯」。** 這件事不可判定 ——
+`import.vue` 連一行 import 都沒有，全靠自動匯入，任何機械指標（行數上限之類）都只會
+是假的。唯一的補償是組合層只有 7 支薄殼檔案，每一支都短到可以一眼讀完；往 feature
+內搬會讓需要靠人讀的範圍變大，而非變小。
 
 ## 第二個決定：三支 composable 沉到 `shared/`，與 #61 的歸屬表不同
 
