@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import type { TeamStats } from '../../utils/battleStats'
-import { rateFill } from '../../utils/rateFill'
-import { speciesName } from '../../utils/speciesName'
+import type { TeamStats } from '../utils/battleStats'
+import { rateFill } from '../utils/rateFill'
+import { speciesName } from '~/shared/utils/speciesName'
 
 /**
  * Where a team's games went: one segment per complete bring, and a hatched

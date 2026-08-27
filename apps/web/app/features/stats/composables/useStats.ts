@@ -3,7 +3,7 @@ import type { EffectScope } from 'vue'
 import { toID } from 'replay-parser'
 import type { TeamRef } from '../utils/teamRoute'
 import { overallTally, resultUnits, teamStats } from '../utils/battleStats'
-import type { StatsRow } from '../utils/battleStats'
+import type { StatsRow } from '~/shared/api/battles'
 
 /**
  * One filtered read of `battles`, and the aggregates both dashboard sections
@@ -12,7 +12,7 @@ import type { StatsRow } from '../utils/battleStats'
  * The win rate curve needs the individual games anyway, so there is one fetch
  * and the arithmetic happens in `utils/battleStats.ts`. The read itself — the
  * columns, the `user_id` scope, the paging, spectated battles staying out —
- * belongs to `app/lib/battles.ts`.
+ * belongs to `app/shared/api/battles.ts`.
  *
  * The interface is state plus three verbs. When to re-read is this module's
  * business, not a sequence of steps a page has to remember in the right order

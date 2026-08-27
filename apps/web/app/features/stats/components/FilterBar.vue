@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { Aggregate } from '../../utils/battleStats'
+import type { Aggregate } from '../utils/battleStats'
 
 /**
  * The dashboard's global filters, shared by every section that reads

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { overallTally, resultUnits, tallyOf, teamStats } from '../../app/utils/battleStats'
-import type { StatsRow } from '../../app/utils/battleStats'
-import { FORMATS, SIGNATURES, STATS_ROWS } from '../fixtures/stats-rows'
+import { overallTally, resultUnits, tallyOf, teamStats } from '../utils/battleStats'
+import type { StatsRow } from '~/shared/api/battles'
+import { FORMATS, SIGNATURES, STATS_ROWS } from '../../../../test/fixtures/stats-rows'
 
 function team(
   rows: StatsRow[],

@@ -1,4 +1,5 @@
 import { wilsonLowerBound } from './wilson'
+import type { BattleResult, StatsRow } from '~/shared/api/battles'
 
 /**
  * The arithmetic behind both dashboard sections, as pure functions over rows
@@ -6,23 +7,6 @@ import { wilsonLowerBound } from './wilson'
  *
  * See docs/specs/2026-08-16-replay-analytics-design.md §7 and CONTEXT.md.
  */
-
-export type BattleResult = 'win' | 'loss' | 'tie'
-
-/** A `battles` row as the stats layer reads it, in the database's own names. */
-export interface StatsRow {
-  replay_id: string
-  played_at: string
-  format_id: string
-  series_id: string | null
-  my_username: string | null
-  result: BattleResult | null
-  rating: number | null
-  rating_delta: number | null
-  team_signature: string | null
-  bring_signature: string | null
-  bring_complete: boolean
-}
 
 /** Counting by game, or by folding each Bo3 series into one result. */
 export type Aggregate = 'game' | 'series'

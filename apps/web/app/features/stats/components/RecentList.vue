@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { bestOfLabel } from '../../utils/formatLabel'
+import { bestOfLabel } from '~/shared/utils/formatLabel'
 
 /**
  * The games behind the numbers, newest first.
@@ -9,7 +9,9 @@ import { bestOfLabel } from '../../utils/formatLabel'
  * and answering it should not need the drawer open.
  */
 const { recent, hydrate } = useRecentBattles()
-const drawer = useBattleDrawer()
+// Opening a battle is a query parameter, and the timeline is what reads it
+// (issue #61).
+const battleRoute = useBattleRoute()
 
 const { t } = useI18n()
 
@@ -40,12 +42,12 @@ const RESULT_TONE = {
         type="button"
         class="hover:bg-muted/50 focus-visible:ring-ring flex w-full items-center gap-3 border-l-2 px-3 py-2 text-left focus-visible:ring-2 focus-visible:outline-none"
         :class="
-          battle.replayId === drawer.openId.value
+          battle.replayId === battleRoute.openId.value
             ? 'border-l-primary bg-primary/5'
             : 'border-l-transparent'
         "
         data-testid="recent-battle"
-        @click="() => drawer.open(battle.replayId)"
+        @click="() => battleRoute.open(battle.replayId)"
       >
         <span
           class="w-5 shrink-0 text-center font-mono text-lg"

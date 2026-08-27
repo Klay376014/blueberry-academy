@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { resultUnits } from '../../utils/battleStats'
-import type { ResultUnit, StatsRow, Tally } from '../../utils/battleStats'
-import { currentStreak, ratingSeries, slidingWinRate } from '../../utils/winRateTrend'
-import type { SeriesPoint } from '../../utils/winRateTrend'
+import { resultUnits } from '../utils/battleStats'
+import type { ResultUnit, Tally } from '../utils/battleStats'
+import type { StatsRow } from '~/shared/api/battles'
+import { currentStreak, ratingSeries, slidingWinRate } from '../utils/winRateTrend'
+import type { SeriesPoint } from '../utils/winRateTrend'
 
 /**
  * "How have I been doing lately" — the tallies as three numbers, then the two

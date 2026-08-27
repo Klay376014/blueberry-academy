@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import type { TeamStats } from '../../utils/battleStats'
-import { bestOfLabel } from '../../utils/formatLabel'
-import { teamRouteId } from '../../utils/teamRoute'
+import type { TeamStats } from '../utils/battleStats'
+import { bestOfLabel } from '~/shared/utils/formatLabel'
+import { teamRouteId } from '../utils/teamRoute'
 
 /**
  * One registered team, as a link to its detail page.

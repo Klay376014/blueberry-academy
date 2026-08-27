@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { mockNuxtImport } from '@nuxt/test-utils/runtime'
-import { fakeBattles } from '../fakes/battles'
-import { FORMATS, STATS_ROWS } from '../fixtures/stats-rows'
-import { signIn, signOut } from '../helpers'
+import { fakeBattles } from '../../../../test/fakes/battles'
+import { FORMATS, STATS_ROWS } from '../../../../test/fixtures/stats-rows'
+import { signIn, signOut } from '../../../../test/helpers'
 
 /**
  * The extra columns the recent list fetches for the rows it is about to show.

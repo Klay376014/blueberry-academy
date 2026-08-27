@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { wilsonLowerBound } from '../../app/utils/wilson'
+import { wilsonLowerBound } from '../utils/wilson'
 
 describe('the Wilson lower bound', () => {
   it('puts three from three below fourteen from twenty', () => {

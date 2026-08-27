@@ -1,12 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { mountSuspended, mockNuxtImport } from '@nuxt/test-utils/runtime'
-import Dashboard from '../../app/pages/index.vue'
-import TeamDetail from '../../app/pages/teams/[id].vue'
-import { teamRouteId } from '../../app/utils/teamRoute'
-import { fakeBattles } from '../fakes/battles'
-import type { FakeBattles, StoredBattle } from '../fakes/battles'
-import { FORMATS, SIGNATURES, STATS_ROWS } from '../fixtures/stats-rows'
-import { signIn } from '../helpers'
+import Dashboard from '../../../pages/index.vue'
+import TeamDetail from '../../../pages/teams/[id].vue'
+import { teamRouteId } from '../utils/teamRoute'
+import { fakeBattles } from '../../../../test/fakes/battles'
+import type { FakeBattles, StoredBattle } from '../../../../test/fakes/battles'
+import { FORMATS, SIGNATURES, STATS_ROWS } from '../../../../test/fixtures/stats-rows'
+import { signIn } from '../../../../test/helpers'
 
 /**
  * The dashboard and the team detail page, over the in-memory `Battles`

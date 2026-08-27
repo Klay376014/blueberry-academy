@@ -1,5 +1,6 @@
 import { tallyOf } from './battleStats'
-import type { ResultUnit, StatsRow } from './battleStats'
+import type { ResultUnit } from './battleStats'
+import type { StatsRow } from '~/shared/api/battles'
 
 /**
  * The two curves behind "how have I been doing lately", as pure functions over

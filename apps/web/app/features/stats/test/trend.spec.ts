@@ -1,11 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { mockNuxtImport, mountSuspended } from '@nuxt/test-utils/runtime'
-import Dashboard from '../../app/pages/index.vue'
-import { defaultStatsFilters } from '../../app/composables/useStatsFilters'
-import { fakeBattles } from '../fakes/battles'
-import type { FakeBattles, StoredBattle } from '../fakes/battles'
-import { STATS_ROWS } from '../fixtures/stats-rows'
-import { signIn } from '../helpers'
+import Dashboard from '../../../pages/index.vue'
+import { defaultStatsFilters } from '../composables/useStatsFilters'
+import { fakeBattles } from '../../../../test/fakes/battles'
+import type { FakeBattles, StoredBattle } from '../../../../test/fakes/battles'
+import { STATS_ROWS } from '../../../../test/fixtures/stats-rows'
+import { signIn } from '../../../../test/helpers'
 
 /**
  * The recent-form section on the dashboard, over the in-memory `Battles`

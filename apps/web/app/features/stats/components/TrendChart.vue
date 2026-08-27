@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { CurveType } from '@unovis/ts'
 import { VisAxis, VisLine, VisXYContainer } from '@unovis/vue'
-import type { SeriesPoint } from '../../utils/winRateTrend'
+import type { SeriesPoint } from '../utils/winRateTrend'
 
 /**
  * One line over a calendar x-axis, with the gaps left as gaps.

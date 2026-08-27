@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { resultUnits } from '../../app/utils/battleStats'
-import type { BattleResult, ResultUnit, StatsRow } from '../../app/utils/battleStats'
-import { currentStreak, ratingSeries, slidingWinRate } from '../../app/utils/winRateTrend'
-import { STATS_ROWS } from '../fixtures/stats-rows'
+import { resultUnits } from '../utils/battleStats'
+import type { ResultUnit } from '../utils/battleStats'
+import type { BattleResult, StatsRow } from '~/shared/api/battles'
+import { currentStreak, ratingSeries, slidingWinRate } from '../utils/winRateTrend'
+import { STATS_ROWS } from '../../../../test/fixtures/stats-rows'
 
 const DAY = 86_400_000
 

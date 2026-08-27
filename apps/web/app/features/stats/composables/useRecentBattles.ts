@@ -1,5 +1,4 @@
-import type { BattleDetails } from '../lib/battles'
-import type { BattleResult } from '../utils/battleStats'
+import type { BattleDetails, BattleResult } from '~/shared/api/battles'
 
 /**
  * The most recent games under the filters already on screen, with the little
@@ -8,7 +7,7 @@ import type { BattleResult } from '../utils/battleStats'
  * The stats read deliberately leaves `details` out — it is per-row JSON and a
  * heavy account is thousands of rows. So the list takes the ids it is about to
  * show and asks for their extra columns, which is one small request whatever
- * the size of the account (design document §7, and `app/lib/battles.ts`).
+ * the size of the account (design document §7, and `app/shared/api/battles.ts`).
  */
 
 /** Games in the list. Twenty is a screen of scrolling, not a history. */
