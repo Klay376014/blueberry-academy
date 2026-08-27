@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import supabasePlugin from '../../app/plugins/supabase.client'
-import { signIn } from '../helpers'
+import supabasePlugin from '../../../plugins/supabase.client'
+import { signIn } from '../../../../test/helpers'
 
 // Same shape as auth-client.spec.ts: the Supabase client is faked, everything
 // between it and the app -- the plugin, useProfile, the alias state -- is real.

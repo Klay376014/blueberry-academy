@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { mountSuspended, mockNuxtImport } from '@nuxt/test-utils/runtime'
-import App from '../../app/app.vue'
-import { signIn } from '../helpers'
+import App from '../../../app.vue'
+import { signIn } from '../../../../test/helpers'
 
 // Only the trip to Supabase is faked. `aliases` stays the real state the
 // composable writes, so a binding inside a test means what it means in the app.
