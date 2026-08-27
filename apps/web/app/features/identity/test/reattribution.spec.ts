@@ -172,6 +172,62 @@ function refuseWritesAfter(allowed: number) {
   }
 }
 
+describe('re-attributing after a name is unbound', () => {
+  /** The same battle, as it looks once `NotLittleStar` has claimed it. */
+  function claimed() {
+    return spectated({
+      my_side: 'p1',
+      my_username: 'NotLittleStar',
+      opponent_username: 'Somebody',
+      result: 'win',
+      rating: 1500,
+      rating_delta: 12,
+      team_signature: 'a|b|c|d|e|f',
+      bring_signature: 'a|b|c|d',
+      bring_complete: true,
+    })
+  }
+
+  it('hands a battle back to spectated when its name is gone', async () => {
+    // Without the reverse direction, a name bound by mistake — easy in a
+    // trust model that cannot verify ownership — leaves battles in the
+    // user's statistics that nothing could ever take out.
+    useShowdownAliases().value = []
+    fake.value = fakeBattles([claimed()])
+
+    const outcome = await useReattribution().reattribute()
+
+    expect(battles().attributed[0]?.attribution).toEqual({
+      my_side: null,
+      my_username: null,
+      opponent_username: null,
+      result: null,
+      team_signature: null,
+      bring_signature: null,
+      bring_complete: false,
+      rating: null,
+      rating_delta: null,
+    })
+    // Counted apart from a battle that merely changed hands: "turned over"
+    // and "no longer yours" are different things to be told.
+    expect(outcome.report).toMatchObject({ unattributed: 1, reattributed: 0, attributed: 0 })
+  })
+
+  it('restores a battle exactly when the name is bound again', async () => {
+    fake.value = fakeBattles([claimed()])
+    const before = { ...battles().rows[0] }
+
+    useShowdownAliases().value = []
+    await useReattribution().reattribute()
+    expect(battles().rows[0]).toMatchObject({ my_side: null })
+
+    useShowdownAliases().value = ['NotLittleStar']
+    await useReattribution().reattribute()
+
+    expect(battles().rows[0]).toEqual(before)
+  })
+})
+
 describe('a backfill that cannot finish', () => {
   it('stops where it got to and says so, without undoing what it wrote', async () => {
     // Deliberately not a transaction: re-running is idempotent, so a run that

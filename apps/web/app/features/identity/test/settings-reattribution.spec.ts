@@ -4,6 +4,7 @@ import App from '../../../app.vue'
 import { fakeBattles } from '../../../../test/fakes/battles'
 import type { StoredBattle } from '../../../../test/fakes/battles'
 import { signIn } from '../../../../test/helpers'
+import { forgetTeleported, pressTeleported, teleported } from './teleported'
 
 /**
  * What the settings page does with the re-attribution that follows a binding.
@@ -66,7 +67,10 @@ mockNuxtImport('useReattribution', () => () => ({
 }))
 
 function done(report: Record<string, number>) {
-  return { status: 'done', report: { unattributable: 0, processed: 0, total: 0, ...report } }
+  return {
+    status: 'done',
+    report: { unattributed: 0, unattributable: 0, processed: 0, total: 0, ...report },
+  }
 }
 
 async function bind(wrapper: Awaited<ReturnType<typeof mountSuspended>>, name: string) {
@@ -265,5 +269,126 @@ describe('after a run that stopped', () => {
     await retry.trigger('click')
 
     expect(reattribute).toHaveBeenCalledTimes(2)
+  })
+})
+
+/** The confirmation, which reka-ui teleports out of the wrapper. */
+function confirmation() {
+  return teleported('unbind-confirm')
+}
+
+describe('removing a name', () => {
+  beforeEach(() => {
+    // Teleported nodes outlive the page that made them.
+    forgetTeleported('unbind-confirm')
+    useShowdownAliases().value = ['NotLittleStar']
+    stored().rows = [attributedRow('a', 'NotLittleStar'), attributedRow('b', 'NotLittleStar')]
+  })
+
+  it('asks first, and says how many battles it is about to cost', async () => {
+    // "Unbind a name" and "take 800 battles out of my statistics" are not the
+    // same thing in a user's head, and right now they are the same action.
+    const wrapper = await mountSuspended(App, { route: '/settings' })
+    await vi.waitFor(() => {
+      expect(wrapper.get('[data-testid="alias-battles"]').text()).toContain('2')
+    })
+
+    await wrapper.get('[data-testid="alias-remove"]').trigger('click')
+    await vi.waitFor(() => {
+      expect(confirmation()).not.toBeNull()
+    })
+
+    expect(confirmation()?.textContent).toContain('2')
+    expect(confirmation()?.textContent).toContain('NotLittleStar')
+    // Nothing has happened yet.
+    expect(unbindAlias).not.toHaveBeenCalled()
+    expect(reattribute).not.toHaveBeenCalled()
+  })
+
+  it('changes nothing at all when it is called off', async () => {
+    const wrapper = await mountSuspended(App, { route: '/settings' })
+    await wrapper.get('[data-testid="alias-remove"]').trigger('click')
+    await vi.waitFor(() => {
+      expect(confirmation()).not.toBeNull()
+    })
+
+    pressTeleported('unbind-cancel')
+    await vi.waitFor(() => {
+      expect(confirmation()).toBeNull()
+    })
+
+    expect(unbindAlias).not.toHaveBeenCalled()
+    expect(reattribute).not.toHaveBeenCalled()
+    expect(useShowdownAliases().value).toEqual(['NotLittleStar'])
+  })
+
+  it('unbinds and re-attributes once it is confirmed', async () => {
+    const wrapper = await mountSuspended(App, { route: '/settings' })
+    await wrapper.get('[data-testid="alias-remove"]').trigger('click')
+    await vi.waitFor(() => {
+      expect(confirmation()).not.toBeNull()
+    })
+
+    pressTeleported('unbind-remove')
+
+    await vi.waitFor(() => {
+      expect(reattribute).toHaveBeenCalledTimes(1)
+    })
+    expect(unbindAlias).toHaveBeenCalledWith('NotLittleStar')
+  })
+
+  it('says how many battles went back to spectated', async () => {
+    // Not "0 claimed, 812 turned over": turned over means a different name of
+    // the user's own, and these are nobody's now.
+    reattribute.mockResolvedValue(done({ attributed: 0, reattributed: 0, unattributed: 812 }))
+    const wrapper = await mountSuspended(App, { route: '/settings' })
+    await wrapper.get('[data-testid="alias-remove"]').trigger('click')
+    await vi.waitFor(() => {
+      expect(confirmation()).not.toBeNull()
+    })
+
+    pressTeleported('unbind-remove')
+
+    await vi.waitFor(() => {
+      expect(wrapper.get('[data-testid="reattribution-summary"]').text()).toContain('812')
+    })
+  })
+})
+
+describe('asking before the counts have arrived', () => {
+  it('reads the count it is missing rather than asking a question without one', async () => {
+    // The first read is deliberately not awaited, and the remove button is
+    // live as soon as the list is. The number is the whole point of asking.
+    forgetTeleported('unbind-confirm')
+    stored().error = new Error('not yet')
+    useShowdownAliases().value = ['NotLittleStar']
+    stored().rows = [attributedRow('a', 'NotLittleStar')]
+
+    const wrapper = await mountSuspended(App, { route: '/settings' })
+    await vi.waitFor(() => {
+      expect(wrapper.find('[data-testid="alias-battles"]').exists()).toBe(false)
+    })
+
+    stored().error = null
+    await wrapper.get('[data-testid="alias-remove"]').trigger('click')
+
+    await vi.waitFor(() => {
+      expect(confirmation()?.textContent).toContain('1')
+    })
+  })
+
+  it('still asks when the count cannot be read at all', async () => {
+    // Rather than trapping the user with a name they cannot remove: the
+    // question is then about the name without a number in it.
+    forgetTeleported('unbind-confirm')
+    stored().error = new Error('unreachable')
+    useShowdownAliases().value = ['NotLittleStar']
+
+    const wrapper = await mountSuspended(App, { route: '/settings' })
+    await wrapper.get('[data-testid="alias-remove"]').trigger('click')
+
+    await vi.waitFor(() => {
+      expect(confirmation()?.textContent).toContain('NotLittleStar')
+    })
   })
 })

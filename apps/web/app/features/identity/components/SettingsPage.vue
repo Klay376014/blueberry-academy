@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { BindResult } from '../composables/useProfile'
 import type { ReattributionReport } from '../composables/useReattribution'
+import { summaryKeyOf } from '../composables/useReattribution'
 
 const { t } = useI18n()
 const { aliases, loaded, load, bindAlias, unbindAlias } = useProfile()
@@ -19,10 +20,20 @@ const notice = ref<Exclude<BindResult, 'bound'> | null>(null)
 const rejected = ref('')
 const loadFailed = ref(false)
 const writeFailed = ref(false)
-/** The run that finished, so its two numbers can be shown. */
+/** The run that finished, so what it did can be reported. */
 const summary = ref<ReattributionReport | null>(null)
 /** The run that did not, and how far it got. */
 const stopped = ref<ReattributionReport | null>(null)
+
+/**
+ * The name the user has asked to remove, until they say so again.
+ *
+ * Removing one is the single action in the app that takes a large part of
+ * somebody's statistics away, and "remove a name" is not what that feels like
+ * — so the count comes with the question (#70), and it is the number already
+ * beside the name rather than a second trip to ask what is about to be lost.
+ */
+const removing = ref<string | null>(null)
 
 /**
  * Shut while a re-attribution runs: the alias list is half-applied until it
@@ -30,6 +41,24 @@ const stopped = ref<ReattributionReport | null>(null)
  * write that replaces the whole array.
  */
 const busy = computed(() => !loaded.value || running.value)
+
+/** What a finished run has to say, in this locale. */
+const summaryText = computed(() => {
+  const report = summary.value
+  if (report === null) return null
+
+  const key = summaryKeyOf(report)
+
+  // The one with a plural form needs the number as the count, not as a name.
+  return key === 'unbound'
+    ? t(`settings.aliases.${key}`, report.unattributed)
+    : t(`settings.aliases.${key}`, report)
+})
+
+/** What removing the name in question would cost, if it is known. */
+const removingCount = computed(() =>
+  removing.value === null ? null : battleCountOf(removing.value),
+)
 
 // Awaited in setup, so the list is on screen the first time it is painted
 // rather than appearing a tick later.
@@ -98,14 +127,48 @@ async function rerun() {
   await reattributeBattles()
 }
 
+/**
+ * The confirm button's handler, holding the name the dialog was opened for.
+ *
+ * The primitive closes the dialog as the button is pressed, so a handler that
+ * read `removing` when it ran would find it already cleared.
+ */
+const confirmRemoval = computed(() => {
+  const name = removing.value
+
+  return name === null ? () => {} : () => unbind(name)
+})
+
+/** reka-ui dismisses the dialog itself, on Esc and on a click outside it. */
+function onDialogToggle(isOpen: boolean) {
+  if (!isOpen) removing.value = null
+}
+
+async function askToRemove(name: string) {
+  // The question has to carry the number, and the first read of it is not
+  // awaited anywhere — so if it has not landed, ask for it now rather than
+  // opening a confirmation that cannot say what it will cost.
+  if (battleCountOf(name) === null) await count()
+
+  removing.value = name
+}
+
 async function unbind(name: string) {
+  removing.value = null
+  // Cleared here rather than when the question was asked: calling the question
+  // off must leave the page exactly as it was, the last run's report included.
   clearMessages()
 
   try {
     await unbindAlias(name)
   } catch {
     writeFailed.value = true
+    return
   }
+
+  // The battles that name claimed are handed back by the same run that claims
+  // them the other way round: attribution is the alias list, re-derived.
+  await reattributeBattles()
 }
 </script>
 
@@ -172,11 +235,11 @@ async function unbind(name: string) {
         {{ t('settings.aliases.reattributing', progress) }}
       </p>
       <p
-        v-else-if="summary"
+        v-else-if="summaryText"
         class="mt-3 text-sm text-muted-foreground"
         data-testid="reattribution-summary"
       >
-        {{ t('settings.aliases.reattributed', summary) }}
+        {{ summaryText }}
       </p>
       <p
         v-else-if="stopped"
@@ -206,7 +269,7 @@ async function unbind(name: string) {
             :aria-label="t('settings.aliases.remove', { name: alias })"
             :disabled="busy"
             data-testid="alias-remove"
-            @click="() => unbind(alias)"
+            @click="() => askToRemove(alias)"
           >
             {{ t('settings.aliases.removeShort') }}
           </UiButton>
@@ -235,5 +298,32 @@ async function unbind(name: string) {
         }}</span>
       </div>
     </section>
+
+    <UiAlertDialog :open="removing !== null" @update:open="onDialogToggle">
+      <UiAlertDialogContent data-testid="unbind-confirm">
+        <UiAlertDialogTitle>
+          {{ t('settings.aliases.removeTitle', { name: removing }) }}
+        </UiAlertDialogTitle>
+        <UiAlertDialogDescription>
+          {{
+            removingCount === null
+              ? t('settings.aliases.removeBodyUnknown')
+              : t('settings.aliases.removeBody', removingCount)
+          }}
+        </UiAlertDialogDescription>
+        <UiAlertDialogFooter>
+          <UiAlertDialogCancel data-testid="unbind-cancel">
+            {{ t('settings.aliases.removeCancel') }}
+          </UiAlertDialogCancel>
+          <UiAlertDialogAction
+            variant="destructive"
+            data-testid="unbind-remove"
+            @click="confirmRemoval"
+          >
+            {{ t('settings.aliases.removeShort') }}
+          </UiAlertDialogAction>
+        </UiAlertDialogFooter>
+      </UiAlertDialogContent>
+    </UiAlertDialog>
   </main>
 </template>

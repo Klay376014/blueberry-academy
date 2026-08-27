@@ -101,6 +101,12 @@
       "battles": "{count} 場",
       "reattribute": "重新歸戶",
       "reattributeHint": "拿上面這份名單，把你匯入過的每一場重新歸屬一次。沒有東西要復原 —— 沒有變動就不會寫入。",
+      "removeTitle": "移除 {name}？",
+      "removeBody": "這會把 {count} 場移出你的統計，退回旁觀場次。重新綁定這個名稱就會完全復原。",
+      "removeBodyUnknown": "這會把這個名稱底下的場次全部移出你的統計，退回旁觀場次。重新綁定這個名稱就會完全復原。",
+      "removeCancel": "取消",
+      "unbound": "完成：退回旁觀 {count} 場。",
+      "reattributedWithReturned": "完成：新歸入 {attributed} 場，重新歸屬 {reattributed} 場，退回旁觀 {unattributed} 場。",
       "reattributing": "正在重新歸戶… {processed} / {total}",
       "reattributed": "完成：新歸入 {attributed} 場，重新歸屬 {reattributed} 場。",
       "reattributionFailed": "這次沒有跑完。已處理 {processed} 場，已寫入的不會退回，再跑一次就會接著做完。"

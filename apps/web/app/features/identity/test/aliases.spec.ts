@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { mountSuspended, mockNuxtImport } from '@nuxt/test-utils/runtime'
 import App from '../../../app.vue'
 import { signIn } from '../../../../test/helpers'
+import { teleported } from './teleported'
 
 // Only the trip to Supabase is faked. `aliases` stays the real state the
 // composable writes, so a binding inside a test means what it means in the app.
@@ -100,13 +101,20 @@ describe('the Showdown alias settings', () => {
     })
   })
 
-  it('unbinds a name when its remove button is pressed', async () => {
+  it('asks before it unbinds a name, and names the one it asked about', async () => {
+    // Removing a name takes its battles out of the statistics, which is not
+    // what "remove a name" sounds like — so it asks first (#70). What the
+    // question says and what confirming it does are in
+    // `settings-reattribution.spec.ts`.
     useShowdownAliases().value = ['NotLittleStar', 'Bibas Rozkurwiator']
 
     const wrapper = await mountSuspended(App, { route: '/settings' })
     await wrapper.findAll('[data-testid="alias-remove"]')[1]!.trigger('click')
 
-    expect(unbindAlias).toHaveBeenCalledWith('Bibas Rozkurwiator')
+    expect(unbindAlias).not.toHaveBeenCalled()
+    await vi.waitFor(() => {
+      expect(teleported('unbind-confirm')?.textContent).toContain('Bibas Rozkurwiator')
+    })
   })
 
   it('is honest that nobody can verify the account is yours', async () => {
