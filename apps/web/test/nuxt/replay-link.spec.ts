@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { parseReplayLink, replayUrl } from '../../app/utils/replayLink'
+import { parseReplayLink, replayUrl } from '../../app/shared/utils/replayLink'
 
 describe('reading a pasted replay link', () => {
   it('takes the address straight out of the browser bar', () => {

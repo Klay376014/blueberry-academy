@@ -2,9 +2,8 @@
 // tsconfig that defines that alias.
 import type { BattleRow } from 'battle-row'
 import type { SideId } from 'replay-parser'
-import { battleDetailsOf, battleRecordOf, endOfDay } from '../../app/lib/battles'
-import type { Battles, StoredRecordRow } from '../../app/lib/battles'
-import type { StatsRow } from '../../app/utils/battleStats'
+import { battleDetailsOf, battleRecordOf, endOfDay } from '../../app/shared/api/battles'
+import type { Battles, StatsRow, StoredRecordRow } from '../../app/shared/api/battles'
 
 /**
  * The second adapter behind `Battles`: an in-memory one, so a test about what

@@ -1,4 +1,4 @@
-import type { StatsRow } from '../../app/utils/battleStats'
+import type { StatsRow } from '../../app/shared/api/battles'
 
 /**
  * One account's battles, shaped to carry every rule the stats layer has to get

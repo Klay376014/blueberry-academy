@@ -20,7 +20,7 @@ describe('shadcn-vue components', () => {
     const locales = wrapper.get('[data-testid="locale-switcher"]')
 
     // `outline`/`sm` come from buttonVariants, so their presence proves the
-    // cva + tailwind-merge chain in @/lib/utils is wired up.
+    // cva + tailwind-merge chain in @/shared/lib/utils is wired up.
     expect(locales.classes()).toContain('border')
     expect(locales.classes()).toContain('h-8')
   })

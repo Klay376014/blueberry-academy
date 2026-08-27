@@ -12,6 +12,10 @@ import ladder from '../../../../packages/replay-parser/test/fixtures/gen9champio
  * The recent battles list and the battle drawer, over the in-memory `Battles`
  * adapter and the real timeline parser, with Storage faked.
  *
+ * An app-level test rather than a feature's: the list is `features/stats`, the
+ * drawer is `features/timeline`, and `pages/index.vue` is where the two meet
+ * (issue #61).
+ *
  * What is asserted is what a reader is shown and what the address bar says: the
  * drawer state lives in `?battle=`, so the link is shareable and the back
  * button closes it (design document §4, decision T1).
