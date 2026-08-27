@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import supabasePlugin from '../../app/plugins/supabase.client'
-import { signIn, signOut } from '../helpers'
-import ladder from '../../../../packages/replay-parser/test/fixtures/gen9championsvgc2026regmb-2667169457.json'
+import supabasePlugin from '../../../plugins/supabase.client'
+import { signIn, signOut } from '../../../../test/helpers'
+import ladder from '../../../../../../packages/replay-parser/test/fixtures/gen9championsvgc2026regmb-2667169457.json'
 
 // Only Supabase is faked, and only its Storage half: what is under test is the
 // round trip from a stored object back to the log string `parseTimeline` reads,

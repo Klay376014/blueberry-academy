@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Flag } from '@lucide/vue'
-import type { DrawerBattle } from '../../composables/useBattleDrawer'
+import type { DrawerBattle } from '../composables/useBattleDrawer'
 
 /**
  * How the game ended, at the end of the turns.

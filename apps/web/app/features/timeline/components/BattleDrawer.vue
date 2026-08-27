@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { ExternalLink, X } from '@lucide/vue'
-import { Sheet, SheetContent, SheetDescription, SheetTitle } from '../ui/sheet'
-import { bestOfLabel } from '../../utils/formatLabel'
-import { replayUrl } from '../../utils/replayLink'
+import { Sheet, SheetContent, SheetDescription, SheetTitle } from '~/shared/components/ui/sheet'
+import { bestOfLabel } from '~/shared/utils/formatLabel'
+import { replayUrl } from '~/shared/utils/replayLink'
 
 /**
  * One game, flattened: every turn on one page rather than one action at a time.

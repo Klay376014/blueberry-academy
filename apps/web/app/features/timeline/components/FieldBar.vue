@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { toID } from 'replay-parser'
 import type { SideId } from 'replay-parser'
-import type { FieldSnapshot } from '../../utils/battleField'
-import { speciesName } from '../../utils/speciesName'
+import type { FieldSnapshot } from '../utils/battleField'
+import { speciesName } from '~/shared/utils/speciesName'
 
 /**
  * How the field stood at the end of one turn: who was out, on how much HP, and

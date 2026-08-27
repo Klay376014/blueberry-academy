@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { FieldSlot } from '../../utils/battleField'
+import type { FieldSlot } from '../utils/battleField'
 
 /**
  * What a Pokémon is carrying right now: its condition, the stat stages it is

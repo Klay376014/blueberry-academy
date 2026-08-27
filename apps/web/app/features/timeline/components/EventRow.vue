@@ -2,8 +2,8 @@
 import { ArrowRightLeft, Gem, HeartPulse, Skull, Sparkles, Zap } from '@lucide/vue'
 import { toID } from 'replay-parser'
 import type { SideId } from 'replay-parser'
-import type { TimelineRow } from '../../utils/timelineRows'
-import { speciesName } from '../../utils/speciesName'
+import type { TimelineRow } from '../utils/timelineRows'
+import { speciesName } from '~/shared/utils/speciesName'
 
 /**
  * One thing that happened, on one line.

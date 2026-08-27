@@ -1,7 +1,7 @@
 import { parseTimeline } from 'replay-parser'
 import type { BattleTimeline } from 'replay-parser'
 import { fieldSnapshots } from '../utils/battleField'
-import type { BattleRecord } from '../lib/battles'
+import type { BattleRecord } from '~/shared/api/battles'
 
 /**
  * Which battle the drawer is showing, and everything it shows about it.
@@ -19,7 +19,7 @@ import type { BattleRecord } from '../lib/battles'
  * What the drawer's header and timeline are drawn from.
  *
  * The name the components use for a row of `battles`; the shape belongs to
- * `app/lib/battles.ts`, which is what reads it.
+ * `app/shared/api/battles.ts`, which is what reads it.
  */
 export type DrawerBattle = BattleRecord
 
@@ -34,8 +34,9 @@ export type DrawerFailure =
 
 export function useBattleDrawer() {
   const storedBattles = useBattles()
-  const route = useRoute()
-  const router = useRouter()
+  // The address is `shared/composables/useBattleRoute.ts`'s: the recent list
+  // opens battles too, and it is not the timeline's to reach into.
+  const { openId, open, close } = useBattleRoute()
   const { loadLog, error: logError } = useBattleLog()
 
   const battle = useState<DrawerBattle | null>('drawer-battle', () => null)
@@ -45,24 +46,7 @@ export function useBattleDrawer() {
   const loading = useState('drawer-loading', () => false)
   const failure = useState<DrawerFailure | null>('drawer-failure', () => null)
 
-  /** The battle the address says is open, if it says one is. */
-  const openId = computed(() => {
-    const asked = route.query.battle
-
-    return typeof asked === 'string' && asked ? asked : null
-  })
-
   const snapshots = computed(() => (timeline.value ? fieldSnapshots(timeline.value) : []))
-
-  function open(replayId: string): void {
-    void router.push({ query: { ...route.query, battle: replayId } })
-  }
-
-  function close(): void {
-    const { battle: _open, ...rest } = route.query
-
-    void router.push({ query: rest })
-  }
 
   /**
    * The battle currently being read. Two things need it: a second call for the

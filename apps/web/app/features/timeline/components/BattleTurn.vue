@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { ChevronDown } from '@lucide/vue'
 import type { SideId, TimelineTurn } from 'replay-parser'
-import type { FieldSnapshot } from '../../utils/battleField'
-import { rowsOf, sidelinedCount } from '../../utils/timelineRows'
+import type { FieldSnapshot } from '../utils/battleField'
+import { rowsOf, sidelinedCount } from '../utils/timelineRows'
 
 /**
  * One turn: how the field stood at the end of it, and the main line of what

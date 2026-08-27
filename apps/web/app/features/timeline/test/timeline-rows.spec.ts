@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { parseTimeline } from 'replay-parser'
 import type { TimelineTurn } from 'replay-parser'
-import { rowsOf, sidelinedCount } from '../../app/utils/timelineRows'
+import { rowsOf, sidelinedCount } from '../utils/timelineRows'
 
 function turnsOf(lines: string[]): TimelineTurn[] {
   return parseTimeline(

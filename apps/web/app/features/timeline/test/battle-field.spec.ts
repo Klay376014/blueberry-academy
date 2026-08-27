@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { parseTimeline } from 'replay-parser'
-import { fieldSnapshots } from '../../app/utils/battleField'
-import ladderReplay from '../../../../packages/replay-parser/test/fixtures/gen9championsvgc2026regmb-2667169457.json'
+import { fieldSnapshots } from '../utils/battleField'
+import ladderReplay from '../../../../../../packages/replay-parser/test/fixtures/gen9championsvgc2026regmb-2667169457.json'
 
 /**
  * A doubles log with one Pokémon a side already out, so each test adds only the
