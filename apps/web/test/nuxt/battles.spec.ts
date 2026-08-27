@@ -310,6 +310,47 @@ describe('the lookups PostgREST puts in a query string', () => {
   })
 })
 
+describe('counting the battles under each Showdown name', () => {
+  it('scopes to the user, leaves spectated battles out, and reads one column', async () => {
+    await battles().nameCounts()
+
+    const calls = onlyRequest()
+
+    expect(calls).toContainEqual(['eq', 'user_id', USER])
+    // A spectated battle is nobody's, so it belongs under no name.
+    expect(calls).toContainEqual(['not', 'my_side', 'is', null])
+    expect(calls.find(([name]) => name === 'select')?.[1]).toBe('my_username')
+    // Ordered, because `range` over an unordered result is not stable between
+    // requests: pages would overlap or skip and the count would be wrong.
+    expect(calls).toContainEqual(['order', 'replay_id', { ascending: true }])
+  })
+
+  it('counts the spellings of one name as one name', async () => {
+    // CONTEXT.md, 身分: identity comparison is `toID()` throughout, and
+    // PostgREST cannot be asked for that — so it is counted here.
+    db.rows = [
+      stored({ replay_id: 'a', my_username: 'NotLittleStar' }),
+      stored({ replay_id: 'b', my_username: 'not little star' }),
+      stored({ replay_id: 'c', my_username: 'Somebody' }),
+      stored({ replay_id: 'd', my_username: null }),
+    ]
+
+    const counts = await battles().nameCounts()
+
+    expect(counts.get('notlittlestar')).toBe(2)
+    expect(counts.get('somebody')).toBe(1)
+  })
+
+  it('pages until a short page says that was all of them', async () => {
+    db.rows = bulk(1001)
+
+    const counts = await battles().nameCounts()
+
+    expect(db.requests).toHaveLength(2)
+    expect(counts.get('notlittlestar')).toBe(1001)
+  })
+})
+
 describe('reading every row re-attribution has to look at', () => {
   it('scopes to the user and leaves spectated battles in', async () => {
     // The opposite of the dashboard read: a spectated battle is exactly the

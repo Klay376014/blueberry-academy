@@ -5,6 +5,7 @@ import type { ReattributionReport } from '../composables/useReattribution'
 const { t } = useI18n()
 const { aliases, loaded, load, bindAlias, unbindAlias } = useProfile()
 const { running, progress, reattribute } = useReattribution()
+const { count, battleCountOf } = useAliasCounts()
 
 const emit = defineEmits<{ reattributed: [] }>()
 
@@ -41,6 +42,10 @@ try {
   loadFailed.value = true
 }
 
+// Not awaited, unlike the list itself: the names are what the page is for and
+// the counts beside them answer a second question.
+void count()
+
 function clearMessages() {
   notice.value = null
   writeFailed.value = false
@@ -54,13 +59,19 @@ function clearMessages() {
  * and what is left is a run to finish rather than a change to undo.
  */
 async function reattributeBattles() {
-  const outcome = await reattribute()
+  try {
+    const outcome = await reattribute()
 
-  if (outcome.status === 'done') summary.value = outcome.report
-  else stopped.value = outcome.report
+    if (outcome.status === 'done') summary.value = outcome.report
+    else stopped.value = outcome.report
+  } catch {
+    writeFailed.value = true
+    return
+  }
 
-  // Whichever it was, rows moved and the dashboard is holding the ones from
-  // before them.
+  // Whichever it was, rows moved: the counts beside the names and the rows the
+  // dashboard is holding are both the ones from before them.
+  await count()
   emit('reattributed')
 }
 
@@ -80,6 +91,11 @@ async function bind() {
   } catch {
     writeFailed.value = true
   }
+}
+
+async function rerun() {
+  clearMessages()
+  await reattributeBattles()
 }
 
 async function unbind(name: string) {
@@ -177,6 +193,13 @@ async function unbind(name: string) {
           class="flex items-center justify-between gap-4 py-2"
         >
           <span class="font-medium" data-testid="alias-name">{{ alias }}</span>
+          <span
+            v-if="battleCountOf(alias) !== null"
+            class="ml-auto text-sm text-muted-foreground tabular-nums"
+            data-testid="alias-battles"
+          >
+            {{ t('settings.aliases.battles', battleCountOf(alias) ?? 0) }}
+          </span>
           <UiButton
             variant="ghost"
             size="sm"
@@ -192,6 +215,25 @@ async function unbind(name: string) {
       <p v-else-if="loaded" class="mt-6 text-sm text-muted-foreground" data-testid="alias-empty">
         {{ t('settings.aliases.empty') }}
       </p>
+
+      <!-- Always here to press: attribution is derived from the list as it
+           now stands, so re-running it is idempotent — and it is the only way
+           back from a run that stopped, or from a list changed on another
+           device. -->
+      <div class="mt-6 flex items-center gap-3">
+        <UiButton
+          variant="outline"
+          size="sm"
+          :disabled="busy"
+          data-testid="reattribute"
+          @click="rerun"
+        >
+          {{ t('settings.aliases.reattribute') }}
+        </UiButton>
+        <span class="text-sm text-muted-foreground">{{
+          t('settings.aliases.reattributeHint')
+        }}</span>
+      </div>
     </section>
   </main>
 </template>

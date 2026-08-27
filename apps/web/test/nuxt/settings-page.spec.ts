@@ -104,6 +104,23 @@ describe('binding a Showdown name on the settings page', () => {
     expect(stats.battles.value).toHaveLength(1)
   })
 
+  it('writes nothing at all when a re-run has nothing to change', async () => {
+    // The button is safe to press at any time, which is only true because a
+    // run that changes nothing writes nothing.
+    useShowdownAliases().value = ['NotLittleStar']
+    const wrapper = await mountSuspended(App, { route: '/settings' })
+
+    await wrapper.get('[data-testid="reattribute"]').trigger('click')
+    await settle()
+    expect(stored().attributed).toHaveLength(1)
+
+    stored().attributed.length = 0
+    await wrapper.get('[data-testid="reattribute"]').trigger('click')
+    await settle()
+
+    expect(stored().attributed).toEqual([])
+  })
+
   it('leaves the name the dashboard is filtered by where the user left it', async () => {
     // Binding a name is not a request to go and look at it: the filter the
     // user chose stays chosen, and nothing pops up asking them to move it.
