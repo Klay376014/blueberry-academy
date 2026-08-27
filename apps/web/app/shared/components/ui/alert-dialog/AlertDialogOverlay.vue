@@ -20,5 +20,7 @@ const delegatedProps = reactiveOmit(props, 'class')
       )
     "
     v-bind="delegatedProps"
-  />
+  >
+    <slot />
+  </AlertDialogOverlay>
 </template>

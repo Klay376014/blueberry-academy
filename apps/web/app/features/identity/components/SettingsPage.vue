@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { BindResult } from '../composables/useProfile'
 import type { ReattributionReport } from '../composables/useReattribution'
+import { summaryKeyOf } from '../composables/useReattribution'
 
 const { t } = useI18n()
 const { aliases, loaded, load, bindAlias, unbindAlias } = useProfile()
@@ -19,10 +20,20 @@ const notice = ref<Exclude<BindResult, 'bound'> | null>(null)
 const rejected = ref('')
 const loadFailed = ref(false)
 const writeFailed = ref(false)
-/** The run that finished, so its two numbers can be shown. */
+/** The run that finished, so what it did can be reported. */
 const summary = ref<ReattributionReport | null>(null)
 /** The run that did not, and how far it got. */
 const stopped = ref<ReattributionReport | null>(null)
+
+/**
+ * The name the user has asked to remove, until they say so again.
+ *
+ * Removing one is the single action in the app that takes a large part of
+ * somebody's statistics away, and "remove a name" is not what that feels like
+ * — so the count comes with the question (#70), and it is the number already
+ * beside the name rather than a second trip to ask what is about to be lost.
+ */
+const removing = ref<string | null>(null)
 
 /**
  * Shut while a re-attribution runs: the alias list is half-applied until it
@@ -31,21 +42,17 @@ const stopped = ref<ReattributionReport | null>(null)
  */
 const busy = computed(() => !loaded.value || running.value)
 
-/**
- * What a finished run has to say, chosen by what it actually did rather than
- * by which button started it: a re-run picks up an unbinding done on another
- * device, and would otherwise report it as nothing at all.
- */
+/** What a finished run has to say, in this locale. */
 const summaryText = computed(() => {
   const report = summary.value
   if (report === null) return null
 
-  if (report.unattributed === 0) return t('settings.aliases.reattributed', report)
-  if (report.attributed === 0 && report.reattributed === 0) {
-    return t('settings.aliases.unbound', report.unattributed)
-  }
+  const key = summaryKeyOf(report)
 
-  return t('settings.aliases.reattributedWithReturned', report)
+  // The one with a plural form needs the number as the count, not as a name.
+  return key === 'unbound'
+    ? t(`settings.aliases.${key}`, report.unattributed)
+    : t(`settings.aliases.${key}`, report)
 })
 
 /** What removing the name in question would cost, if it is known. */
@@ -121,29 +128,36 @@ async function rerun() {
 }
 
 /**
- * The name the user has asked to remove, until they say so again.
+ * The confirm button's handler, holding the name the dialog was opened for.
  *
- * The one action in the app that takes a large part of somebody's statistics
- * away, and "remove a name" is not what that feels like — so the count comes
- * with the question (#70). It is the number already beside the name; no
- * second round trip to ask what is about to be lost.
+ * The primitive closes the dialog as the button is pressed, so a handler that
+ * read `removing` when it ran would find it already cleared.
  */
-const removing = ref<string | null>(null)
+const confirmRemoval = computed(() => {
+  const name = removing.value
+
+  return name === null ? () => {} : () => unbind(name)
+})
 
 /** reka-ui dismisses the dialog itself, on Esc and on a click outside it. */
 function onDialogToggle(isOpen: boolean) {
   if (!isOpen) removing.value = null
 }
 
-function askToRemove(name: string) {
-  clearMessages()
+async function askToRemove(name: string) {
+  // The question has to carry the number, and the first read of it is not
+  // awaited anywhere — so if it has not landed, ask for it now rather than
+  // opening a confirmation that cannot say what it will cost.
+  if (battleCountOf(name) === null) await count()
+
   removing.value = name
 }
 
-async function unbind() {
-  const name = removing.value
+async function unbind(name: string) {
   removing.value = null
-  if (name === null) return
+  // Cleared here rather than when the question was asked: calling the question
+  // off must leave the page exactly as it was, the last run's report included.
+  clearMessages()
 
   try {
     await unbindAlias(name)
@@ -298,12 +312,16 @@ async function unbind() {
           }}
         </UiAlertDialogDescription>
         <UiAlertDialogFooter>
-          <UiButton variant="ghost" data-testid="unbind-cancel" @click="() => (removing = null)">
+          <UiAlertDialogCancel data-testid="unbind-cancel">
             {{ t('settings.aliases.removeCancel') }}
-          </UiButton>
-          <UiButton variant="destructive" data-testid="unbind-remove" @click="unbind">
+          </UiAlertDialogCancel>
+          <UiAlertDialogAction
+            variant="destructive"
+            data-testid="unbind-remove"
+            @click="confirmRemoval"
+          >
             {{ t('settings.aliases.removeShort') }}
-          </UiButton>
+          </UiAlertDialogAction>
         </UiAlertDialogFooter>
       </UiAlertDialogContent>
     </UiAlertDialog>

@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { mountSuspended, mockNuxtImport } from '@nuxt/test-utils/runtime'
 import App from '../../../app.vue'
 import { signIn } from '../../../../test/helpers'
+import { teleported } from './teleported'
 
 // Only the trip to Supabase is faked. `aliases` stays the real state the
 // composable writes, so a binding inside a test means what it means in the app.
@@ -112,8 +113,7 @@ describe('the Showdown alias settings', () => {
 
     expect(unbindAlias).not.toHaveBeenCalled()
     await vi.waitFor(() => {
-      const asked = [...document.body.querySelectorAll('[data-testid="unbind-confirm"]')].at(-1)
-      expect(asked?.textContent).toContain('Bibas Rozkurwiator')
+      expect(teleported('unbind-confirm')?.textContent).toContain('Bibas Rozkurwiator')
     })
   })
 

@@ -6,10 +6,10 @@ import { AlertDialogContent, AlertDialogPortal, useForwardPropsEmits } from 'rek
 import { cn } from '@/shared/lib/utils'
 import AlertDialogOverlay from './AlertDialogOverlay.vue'
 
+defineOptions({ inheritAttrs: false })
+
 const props = defineProps<AlertDialogContentProps & { class?: HTMLAttributes['class'] }>()
 const emits = defineEmits<AlertDialogContentEmits>()
-
-defineOptions({ inheritAttrs: false })
 
 const forwarded = useForwardPropsEmits(reactiveOmit(props, 'class'), emits)
 </script>
@@ -21,7 +21,7 @@ const forwarded = useForwardPropsEmits(reactiveOmit(props, 'class'), emits)
       data-slot="alert-dialog-content"
       :class="
         cn(
-          'bg-background data-[state=open]:animate-in data-[state=closed]:animate-out fixed top-1/2 left-1/2 z-50 grid w-full max-w-lg -translate-x-1/2 -translate-y-1/2 gap-4 rounded-lg border p-6 shadow-lg',
+          'bg-background data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 duration-200 fixed top-1/2 left-1/2 z-50 grid w-full max-w-lg -translate-x-1/2 -translate-y-1/2 gap-4 rounded-lg border p-6 shadow-lg',
           props.class,
         )
       "

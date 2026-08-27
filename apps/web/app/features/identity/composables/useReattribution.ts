@@ -37,6 +37,23 @@ export interface ReattributionReport {
   total: number
 }
 
+/**
+ * Which of the three sentences a finished run has earned, by what it did
+ * rather than by which button started it: a re-run picks up an unbinding made
+ * on another device, and reporting that as nothing at all would be wrong.
+ *
+ * The key alone — the words are the page's business, the arithmetic is this
+ * module's.
+ */
+export function summaryKeyOf(
+  report: ReattributionReport,
+): 'reattributed' | 'unbound' | 'reattributedWithReturned' {
+  if (report.unattributed === 0) return 'reattributed'
+  if (report.attributed === 0 && report.reattributed === 0) return 'unbound'
+
+  return 'reattributedWithReturned'
+}
+
 export type ReattributionOutcome =
   | { status: 'done'; report: ReattributionReport }
   /**

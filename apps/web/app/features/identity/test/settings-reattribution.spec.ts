@@ -4,6 +4,7 @@ import App from '../../../app.vue'
 import { fakeBattles } from '../../../../test/fakes/battles'
 import type { StoredBattle } from '../../../../test/fakes/battles'
 import { signIn } from '../../../../test/helpers'
+import { forgetTeleported, pressTeleported, teleported } from './teleported'
 
 /**
  * What the settings page does with the re-attribution that follows a binding.
@@ -271,26 +272,15 @@ describe('after a run that stopped', () => {
   })
 })
 
-/**
- * The confirmation, which reka-ui teleports out of the wrapper — and the last
- * one in the document, because an unmounted page from an earlier test leaves
- * its own behind (the drawer's tests document the same trap).
- */
+/** The confirmation, which reka-ui teleports out of the wrapper. */
 function confirmation() {
-  return [...document.body.querySelectorAll('[data-testid="unbind-confirm"]')].at(-1) ?? null
-}
-
-function pressIn(testid: string) {
-  const buttons = [...document.body.querySelectorAll<HTMLElement>(`[data-testid="${testid}"]`)]
-  buttons.at(-1)?.click()
+  return teleported('unbind-confirm')
 }
 
 describe('removing a name', () => {
   beforeEach(() => {
     // Teleported nodes outlive the page that made them.
-    for (const stale of document.body.querySelectorAll('[data-testid="unbind-confirm"]')) {
-      stale.remove()
-    }
+    forgetTeleported('unbind-confirm')
     useShowdownAliases().value = ['NotLittleStar']
     stored().rows = [attributedRow('a', 'NotLittleStar'), attributedRow('b', 'NotLittleStar')]
   })
@@ -322,7 +312,7 @@ describe('removing a name', () => {
       expect(confirmation()).not.toBeNull()
     })
 
-    pressIn('unbind-cancel')
+    pressTeleported('unbind-cancel')
     await vi.waitFor(() => {
       expect(confirmation()).toBeNull()
     })
@@ -339,7 +329,7 @@ describe('removing a name', () => {
       expect(confirmation()).not.toBeNull()
     })
 
-    pressIn('unbind-remove')
+    pressTeleported('unbind-remove')
 
     await vi.waitFor(() => {
       expect(reattribute).toHaveBeenCalledTimes(1)
@@ -357,10 +347,48 @@ describe('removing a name', () => {
       expect(confirmation()).not.toBeNull()
     })
 
-    pressIn('unbind-remove')
+    pressTeleported('unbind-remove')
 
     await vi.waitFor(() => {
       expect(wrapper.get('[data-testid="reattribution-summary"]').text()).toContain('812')
+    })
+  })
+})
+
+describe('asking before the counts have arrived', () => {
+  it('reads the count it is missing rather than asking a question without one', async () => {
+    // The first read is deliberately not awaited, and the remove button is
+    // live as soon as the list is. The number is the whole point of asking.
+    forgetTeleported('unbind-confirm')
+    stored().error = new Error('not yet')
+    useShowdownAliases().value = ['NotLittleStar']
+    stored().rows = [attributedRow('a', 'NotLittleStar')]
+
+    const wrapper = await mountSuspended(App, { route: '/settings' })
+    await vi.waitFor(() => {
+      expect(wrapper.find('[data-testid="alias-battles"]').exists()).toBe(false)
+    })
+
+    stored().error = null
+    await wrapper.get('[data-testid="alias-remove"]').trigger('click')
+
+    await vi.waitFor(() => {
+      expect(confirmation()?.textContent).toContain('1')
+    })
+  })
+
+  it('still asks when the count cannot be read at all', async () => {
+    // Rather than trapping the user with a name they cannot remove: the
+    // question is then about the name without a number in it.
+    forgetTeleported('unbind-confirm')
+    stored().error = new Error('unreachable')
+    useShowdownAliases().value = ['NotLittleStar']
+
+    const wrapper = await mountSuspended(App, { route: '/settings' })
+    await wrapper.get('[data-testid="alias-remove"]').trigger('click')
+
+    await vi.waitFor(() => {
+      expect(confirmation()?.textContent).toContain('NotLittleStar')
     })
   })
 })
