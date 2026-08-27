@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Attribution, BattleRow } from 'battle-row'
+import { toID } from 'replay-parser'
 import type { SideId } from 'replay-parser'
 
 /**
@@ -155,6 +156,17 @@ export interface Battles {
    */
   attributableRows(): Promise<AttributableRow[]>
 
+  /**
+   * How many battles are attributed to each Showdown name, keyed by the
+   * name's `toID()` form.
+   *
+   * Counted here rather than asked of the database: identity comparison is
+   * `toID()` throughout (CONTEXT.md, 身分) and PostgREST has no such
+   * normalisation, so `Blue Berry` and `blueberry` would come back as two
+   * names.
+   */
+  nameCounts(): Promise<Map<string, number>>
+
   /** One battle, or `null` if this user has no such row. */
   battleById(replayId: string): Promise<BattleRecord | null>
 
@@ -261,6 +273,26 @@ export function createBattles(client: SupabaseClient, currentUserId: () => strin
       return collected
     },
 
+    async nameCounts() {
+      const counts = new Map<string, number>()
+
+      for (let start = 0; ; start += PAGE) {
+        const { data, error } = await scoped('my_username')
+          // A spectated battle is nobody's, so it belongs under no name.
+          .not('my_side', 'is', null)
+          .range(start, start + PAGE - 1)
+
+        if (error) throw error
+
+        const page = (data as unknown as NamedRow[] | null) ?? []
+        tallyNames(counts, page)
+
+        if (page.length < PAGE) break
+      }
+
+      return counts
+    },
+
     async battleById(replayId) {
       const [found] = await recordsWhere('replay_id', replayId)
 
@@ -350,6 +382,25 @@ export function createBattles(client: SupabaseClient, currentUserId: () => strin
       // it did not do, and the user would have no way to tell.
       if (!data) throw new Error(`The attribution of ${replayId} came back with no row.`)
     },
+  }
+}
+
+/** A stored row as `nameCounts` reads it. */
+export interface NamedRow {
+  my_username: string | null
+}
+
+/**
+ * Battles per Showdown name, keyed by the name's `toID()` form.
+ *
+ * Exported, like the two mappings below, for the in-memory adapter: one
+ * derivation and two adapters, rather than a fake that quietly counts
+ * differently from the module it stands in for.
+ */
+export function tallyNames(counts: Map<string, number>, rows: NamedRow[]): void {
+  for (const row of rows) {
+    const id = toID(row.my_username ?? '')
+    if (id) counts.set(id, (counts.get(id) ?? 0) + 1)
   }
 }
 

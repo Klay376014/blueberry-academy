@@ -2,7 +2,7 @@
 // tsconfig that defines that alias.
 import type { Attribution, BattleRow } from 'battle-row'
 import type { SideId } from 'replay-parser'
-import { battleDetailsOf, battleRecordOf, endOfDay } from '../../app/shared/api/battles'
+import { battleDetailsOf, battleRecordOf, endOfDay, tallyNames } from '../../app/shared/api/battles'
 import type {
   AttributableRow,
   Battles,
@@ -78,6 +78,18 @@ export function fakeBattles(rows: StoredBattle[] = []): FakeBattles {
       // Spectated rows stay in, the way the real read leaves the `my_side`
       // filter off: they are the ones a newly bound name may claim.
       return Promise.resolve(read('attributableRows', undefined).map(attributableRowOf))
+    },
+
+    nameCounts() {
+      const counts = new Map<string, number>()
+      // Spectated rows left out, the way the real query's `.not(…)` leaves
+      // them out: a battle that is nobody's belongs under no name.
+      tallyNames(
+        counts,
+        read('nameCounts', undefined).filter((row) => row.my_side !== null),
+      )
+
+      return Promise.resolve(counts)
     },
 
     battleById(replayId) {

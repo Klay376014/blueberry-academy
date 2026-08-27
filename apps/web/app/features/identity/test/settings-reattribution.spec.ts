@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { mountSuspended, mockNuxtImport } from '@nuxt/test-utils/runtime'
 import App from '../../../app.vue'
+import { fakeBattles } from '../../../../test/fakes/battles'
+import type { StoredBattle } from '../../../../test/fakes/battles'
 import { signIn } from '../../../../test/helpers'
 
 /**
@@ -31,6 +33,32 @@ mockNuxtImport('useProfile', () => () => {
   }
 })
 
+const { battles } = vi.hoisted(() => ({ battles: { value: null as unknown } }))
+
+mockNuxtImport('useBattles', () => () => battles.value as never)
+
+function stored() {
+  return battles.value as ReturnType<typeof fakeBattles>
+}
+
+/** A row already attributed to one name, so it can be counted under it. */
+function attributedRow(replayId: string, username: string): StoredBattle {
+  return {
+    replay_id: replayId,
+    played_at: '2026-08-01T10:00:00Z',
+    format_id: 'gen9championsvgc2026regmb',
+    series_id: null,
+    my_side: 'p1',
+    my_username: username,
+    result: 'win',
+    rating: null,
+    rating_delta: null,
+    team_signature: 'a|b|c|d|e|f',
+    bring_signature: 'a|b|c|d',
+    bring_complete: true,
+  }
+}
+
 mockNuxtImport('useReattribution', () => () => ({
   running: toRef(running, 'value'),
   progress: toRef(progress, 'value'),
@@ -48,6 +76,7 @@ async function bind(wrapper: Awaited<ReturnType<typeof mountSuspended>>, name: s
 
 beforeEach(() => {
   signIn()
+  battles.value = fakeBattles()
   useShowdownAliases().value = []
   running.value = false
   progress.value = null
@@ -125,5 +154,112 @@ describe('binding a name and the battles already imported', () => {
     expect(wrapper.get('[data-testid="reattribution-error"]').text()).toContain('25')
     // And the form is usable again, so the user has somewhere to try from.
     expect(wrapper.get('[data-testid="alias-input"]').attributes('disabled')).toBeUndefined()
+  })
+})
+
+describe('what each bound name has under it', () => {
+  it('shows how many battles are filed under each name', async () => {
+    // The question the user came to this page with: is there any data under
+    // the alt I just bound? And the number #70's confirmation needs.
+    useShowdownAliases().value = ['NotLittleStar', 'Blue Berry']
+    stored().rows = [
+      attributedRow('a', 'NotLittleStar'),
+      // The same name, spelled the way one replay carried it.
+      attributedRow('b', 'notlittlestar'),
+      attributedRow('c', 'Somebody Else'),
+    ]
+
+    const wrapper = await mountSuspended(App, { route: '/settings' })
+    await vi.waitFor(() => {
+      expect(wrapper.findAll('[data-testid="alias-games"]')).toHaveLength(2)
+    })
+
+    const shown = wrapper.findAll('[data-testid="alias-games"]').map((el) => el.text())
+
+    expect(shown[0]).toContain('2')
+    expect(shown[1]).toContain('0')
+  })
+
+  it('counts again once a run has finished, with no reload', async () => {
+    useShowdownAliases().value = ['NotLittleStar']
+    const wrapper = await mountSuspended(App, { route: '/settings' })
+    await vi.waitFor(() => {
+      expect(wrapper.get('[data-testid="alias-games"]').text()).toContain('0')
+    })
+
+    // What re-attributing would have done, had it not been mocked out.
+    stored().rows = [attributedRow('a', 'NotLittleStar')]
+    await wrapper.get('[data-testid="reattribute"]').trigger('click')
+
+    await vi.waitFor(() => {
+      expect(wrapper.get('[data-testid="alias-games"]').text()).toContain('1')
+    })
+  })
+})
+
+describe('the re-attribute button', () => {
+  it('re-runs the attribution without touching the alias list', async () => {
+    // The way out of a run that stopped: the name is already bound, so the
+    // bind button is no help, and the user has nothing else to press.
+    useShowdownAliases().value = ['NotLittleStar']
+    const wrapper = await mountSuspended(App, { route: '/settings' })
+
+    await wrapper.get('[data-testid="reattribute"]').trigger('click')
+
+    expect(reattribute).toHaveBeenCalledTimes(1)
+    expect(bindAlias).not.toHaveBeenCalled()
+    expect(unbindAlias).not.toHaveBeenCalled()
+    expect(useShowdownAliases().value).toEqual(['NotLittleStar'])
+  })
+
+  it('reports what the run did, the same way binding does', async () => {
+    reattribute.mockResolvedValue(done({ attributed: 7, reattributed: 1 }))
+    const wrapper = await mountSuspended(App, { route: '/settings' })
+
+    await wrapper.get('[data-testid="reattribute"]').trigger('click')
+    await vi.waitFor(() => {
+      expect(wrapper.get('[data-testid="reattribution-summary"]').text()).toContain('7')
+    })
+  })
+
+  it('is shut while a run is going, like the rest of the form', async () => {
+    running.value = true
+    const wrapper = await mountSuspended(App, { route: '/settings' })
+
+    expect(wrapper.get('[data-testid="reattribute"]').attributes('disabled')).toBeDefined()
+  })
+
+  it('is there to press with no names bound at all', async () => {
+    // Not a no-op: a name unbound on another device leaves battles here still
+    // attributed to it, and this is what hands them back.
+    useShowdownAliases().value = []
+    const wrapper = await mountSuspended(App, { route: '/settings' })
+
+    expect(wrapper.get('[data-testid="reattribute"]').attributes('disabled')).toBeUndefined()
+  })
+})
+
+describe('after a run that stopped', () => {
+  it('leaves the way to retry on the screen the failure is on', async () => {
+    // No automatic retry: a run stops on the network or on permissions, and
+    // both give the same answer three times. The user decides.
+    reattribute.mockResolvedValue({
+      status: 'stopped',
+      report: { attributed: 4, reattributed: 0, unattributable: 0, processed: 25, total: 812 },
+    })
+    useShowdownAliases().value = ['NotLittleStar']
+    const wrapper = await mountSuspended(App, { route: '/settings' })
+
+    await wrapper.get('[data-testid="reattribute"]').trigger('click')
+    await vi.waitFor(() => {
+      expect(wrapper.find('[data-testid="reattribution-error"]').exists()).toBe(true)
+    })
+    expect(reattribute).toHaveBeenCalledTimes(1)
+
+    const retry = wrapper.get('[data-testid="reattribute"]')
+    expect(retry.attributes('disabled')).toBeUndefined()
+    await retry.trigger('click')
+
+    expect(reattribute).toHaveBeenCalledTimes(2)
   })
 })
