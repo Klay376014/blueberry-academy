@@ -190,6 +190,8 @@
       "you": "我方",
       "opponent": "對方",
       "unknownOpponent": "未知對手",
+      "unknownPlayer": "未知玩家",
+      "won": "勝",
       "lead": "先發",
       "turn": "第 {number} 回合",
       "game": "第 {number} 局",

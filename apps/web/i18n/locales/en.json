@@ -190,6 +190,8 @@
       "you": "You",
       "opponent": "Opp",
       "unknownOpponent": "Unknown opponent",
+      "unknownPlayer": "Unknown player",
+      "won": "Won",
       "lead": "Lead",
       "turn": "Turn {number}",
       "game": "Game {number}",

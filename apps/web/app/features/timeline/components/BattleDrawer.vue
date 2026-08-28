@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { ExternalLink, X } from '@lucide/vue'
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from '~/shared/components/ui/sheet'
+import { drawerSides } from '../utils/drawerSides'
+import type { DrawerSide } from '../utils/drawerSides'
 import { bestOfLabel } from '~/shared/utils/formatLabel'
 import { replayUrl } from '~/shared/utils/replayLink'
 
@@ -50,6 +52,28 @@ function closeDrawer() {
 
 const isOpen = computed(() => openId.value !== null)
 
+/**
+ * The two players, in the order the header draws them. One header for both
+ * kinds of battle: see `utils/drawerSides.ts` for why it is not two.
+ */
+const sides = computed(() => (battle.value ? drawerSides(battle.value) : null))
+
+/**
+ * A side's name, or what to call it when the row has none.
+ *
+ * The fallback is where the two kinds of battle differ: a battle of mine has a
+ * "you" and an "opponent" to fall back on, a spectated one has neither — both
+ * players are somebody else, so neither column can be named after the reader.
+ */
+function nameOf(side: DrawerSide | undefined, mine: string): string {
+  if (side?.name) return side.name
+
+  return t(sides.value?.attributed === false ? 'battle.drawer.unknownPlayer' : mine)
+}
+
+const leftName = computed(() => nameOf(sides.value?.left, 'battle.drawer.you'))
+const rightName = computed(() => nameOf(sides.value?.right, 'battle.drawer.unknownOpponent'))
+
 /** The other games of this series, oldest first, only when there is a series. */
 const games = computed(() => (series.value.length > 1 ? series.value : []))
 
@@ -83,9 +107,9 @@ const RESULT_TONE = {
               {{ battle ? `· ${battle.formatId}` : '' }}
             </span>
             <SheetTitle class="truncate text-base">
-              {{ battle?.myUsername ?? t('battle.drawer.you') }}
+              {{ leftName }}
               <span class="text-muted-foreground">{{ t('battle.drawer.versus') }}</span>
-              {{ battle?.opponentUsername ?? t('battle.drawer.unknownOpponent') }}
+              {{ rightName }}
             </SheetTitle>
             <SheetDescription class="sr-only">{{ t('battle.drawer.about') }}</SheetDescription>
           </div>
@@ -97,6 +121,17 @@ const RESULT_TONE = {
               :class="RESULT_TONE[battle.result]"
             >
               {{ t(`battle.result.${battle.result}`) }}
+            </span>
+            <!-- A spectated battle has no `result`: that column is win or loss
+                 relative to a "me" this battle has none of. A draw is the one
+                 verdict that reads the same from either side, so it is the
+                 badge's own word rather than a second one. -->
+            <span
+              v-else-if="sides?.tie"
+              class="rounded border px-2 py-0.5 font-mono text-[10px] tracking-widest uppercase"
+              :class="RESULT_TONE.tie"
+            >
+              {{ t('battle.result.tie') }}
             </span>
             <a
               v-if="battle"
@@ -121,12 +156,32 @@ const RESULT_TONE = {
           </div>
         </div>
 
-        <div v-if="battle" class="flex flex-wrap items-center gap-2">
-          <SpeciesParty :signature="battle.myBring" :size="24" />
+        <!-- The winner is marked on this row rather than beside the name it
+             belongs to: the title truncates, and on a phone two ordinary
+             Showdown names already fill it — the mark would be the first thing
+             the ellipsis ate, and for a spectated battle it is the only thing
+             on screen that says who won. This row wraps instead of clipping,
+             and it is in the same left-to-right order as the names above it. -->
+        <div v-if="battle && sides" class="flex flex-wrap items-center gap-2">
+          <SpeciesParty :signature="sides.left.bring" :size="24" />
+          <span
+            v-if="sides.left.won"
+            class="text-primary font-mono text-[10px] tracking-widest uppercase"
+            data-testid="side-won"
+          >
+            {{ t('battle.drawer.won') }}
+          </span>
           <span class="text-muted-foreground font-mono text-[10px]">
             {{ t('battle.drawer.versus') }}
           </span>
-          <SpeciesParty :signature="battle.opponentBring" :size="24" />
+          <SpeciesParty :signature="sides.right.bring" :size="24" />
+          <span
+            v-if="sides.right.won"
+            class="text-primary font-mono text-[10px] tracking-widest uppercase"
+            data-testid="side-won"
+          >
+            {{ t('battle.drawer.won') }}
+          </span>
           <span class="text-muted-foreground ml-auto font-mono text-[10px] tracking-widest">
             {{ bestOfLabel(battle.formatId) }}
             <template v-if="battle.turnCount !== null">

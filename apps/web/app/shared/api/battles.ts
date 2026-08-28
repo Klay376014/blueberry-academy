@@ -123,8 +123,25 @@ export interface BattleRecord {
   turnCount: number | null
   myBring: string | null
   opponentBring: string | null
+  /**
+   * Both sides as the parse left them, with no "me" in it.
+   *
+   * The attribution fields above are a function of the alias list and are all
+   * null for a spectated battle (CONTEXT.md, Spectated); these are not, so a
+   * battle nobody here played can still be read as p1 against p2 (#63).
+   */
+  sides: Record<SideId, BattleSide>
+  /** Which side won, `tie`, or null when the log declared neither. */
+  winner: SideId | 'tie' | null
   /** Why the import could not read this log, when it could not. */
   parseError: string | null
+}
+
+/** One side of a battle, named as the log names it rather than as mine or theirs. */
+export interface BattleSide {
+  username: string | null
+  /** The Pokémon that appeared, as a bring signature. */
+  bring: string | null
 }
 
 /** One row as re-attribution reads it: its id, its `details`, its answers so far. */
@@ -428,9 +445,18 @@ function* chunked(ids: string[]): Generator<string[]> {
   }
 }
 
-/** The opponent's own side of a battle, as `details` keeps it. */
+/**
+ * The part of `details` the drawer reads: both sides, and who won.
+ *
+ * jsonb, so every field is optional here on purpose — a row written by an
+ * older parser has fewer of them, and that is a battle to draw with what it
+ * has rather than one to reject. `battle-row`'s `attributionOf` checks the
+ * same column far more strictly, because what it reads is written back into
+ * columns.
+ */
 interface StoredSides {
-  sides?: Partial<Record<SideId, { bringSignature?: string | null }>>
+  winner?: unknown
+  sides?: Partial<Record<SideId, { username?: unknown; bringSignature?: unknown }>>
 }
 
 /** A stored row as `detailsOf` reads it. */
@@ -456,25 +482,53 @@ export interface StoredRecordRow extends StoredDetailRow {
   parse_error: string | null
 }
 
+/** A string field of a stored side, or null for anything jsonb happens to hold. */
+function textOf(value: unknown): string | null {
+  return typeof value === 'string' && value !== '' ? value : null
+}
+
+/** Both sides of a stored row, read neutrally. The one derivation of them. */
+function sidesOf(row: StoredDetailRow): Record<SideId, BattleSide> {
+  const sideOf = (side: SideId): BattleSide => ({
+    username: textOf(row.details?.sides?.[side]?.username),
+    bring: textOf(row.details?.sides?.[side]?.bringSignature),
+  })
+
+  return { p1: sideOf('p1'), p2: sideOf('p2') }
+}
+
 /**
  * Which side is the opponent's is only knowable from `my_side`; a spectated
  * battle has no side of mine and therefore no opponent either.
+ *
+ * Given the sides rather than reading `details` again, so the opponent's bring
+ * and the neutral p1/p2 view are the same derivation rather than two that
+ * agree today (#63).
  */
-function opponentBringOf(row: StoredDetailRow): string | null {
+function opponentBringOf(row: StoredDetailRow, sides: Record<SideId, BattleSide>): string | null {
   const theirs = row.my_side === 'p1' ? 'p2' : row.my_side === 'p2' ? 'p1' : null
 
-  return (theirs && row.details?.sides?.[theirs]?.bringSignature) || null
+  return theirs ? sides[theirs].bring : null
+}
+
+/** Who the log said won, or null for anything that is not one of its answers. */
+function winnerOf(row: StoredRecordRow): SideId | 'tie' | null {
+  const { winner } = row.details ?? {}
+
+  return winner === 'p1' || winner === 'p2' || winner === 'tie' ? winner : null
 }
 
 export function battleDetailsOf(row: StoredDetailRow): BattleDetails {
   return {
     opponentUsername: row.opponent_username,
     turnCount: row.turn_count,
-    opponentBring: opponentBringOf(row),
+    opponentBring: opponentBringOf(row, sidesOf(row)),
   }
 }
 
 export function battleRecordOf(row: StoredRecordRow): BattleRecord {
+  const sides = sidesOf(row)
+
   return {
     replayId: row.replay_id,
     playedAt: row.played_at,
@@ -489,7 +543,9 @@ export function battleRecordOf(row: StoredRecordRow): BattleRecord {
     opponentUsername: row.opponent_username,
     turnCount: row.turn_count,
     myBring: row.bring_signature,
-    opponentBring: opponentBringOf(row),
+    opponentBring: opponentBringOf(row, sides),
+    sides,
+    winner: winnerOf(row),
     parseError: row.parse_error,
   }
 }
