@@ -513,6 +513,124 @@ describe('the drawer', () => {
     expect(drawer().querySelector('[data-testid="battle-missing"]')).not.toBeNull()
   })
 
+  it('shows a battle of mine as me against the opponent, and marks no side', async () => {
+    // The other half of the spectated tests below: an attributed battle keeps
+    // exactly the header it had, result badge and all (#63).
+    await openDrawer()
+
+    const header = drawer().querySelector('header')!
+
+    expect(header.textContent).toContain('notlittlestar')
+    expect(header.textContent).toContain('opponent-ladder-6')
+    expect(header.querySelector('[data-testid="side-won"]')).toBeNull()
+  })
+
+  it('names the reader when the row has no name for me, the way it always has', async () => {
+    amend('ladder-6', { my_username: null })
+
+    await openDrawer()
+
+    expect(drawer().querySelector('header')?.textContent).toContain('You')
+  })
+
+  /** The same row once no alias of the reader's claims either player. */
+  function spectate(replayId: string, winner: 'p1' | 'p2' | 'tie' | null = 'p2') {
+    amend(replayId, {
+      my_side: null,
+      my_username: null,
+      opponent_username: null,
+      result: null,
+      rating: null,
+      rating_delta: null,
+      bring_signature: null,
+      details: {
+        winner,
+        sides: {
+          p1: { username: 'Alice', bringSignature: 'pikachu|eevee' },
+          p2: { username: 'Bob', bringSignature: 'snorlax|gengar' },
+        },
+      },
+    })
+  }
+
+  it('reads a spectated battle as p1 against p2, with both brings drawn', async () => {
+    spectate('ladder-6')
+
+    await openDrawer()
+
+    const header = drawer().querySelector('header')!
+
+    expect(header.textContent).toContain('Alice')
+    expect(header.textContent).toContain('Bob')
+    // Neither of the words that assume a "me" in the battle.
+    expect(header.textContent).not.toContain('You')
+    expect(header.textContent).not.toContain('Unknown opponent')
+
+    const parties = [...header.querySelectorAll('span[role="img"]')].map((party) =>
+      party.getAttribute('aria-label'),
+    )
+
+    expect(parties).toHaveLength(2)
+    expect(parties[0]).toContain('Pikachu')
+    expect(parties[1]).toContain('Snorlax')
+
+    // And the reason the drawer is open at all: the turns are drawn for a
+    // battle with no side of mine the same as for one with.
+    expect(drawer().querySelectorAll('[data-testid="timeline-turn"]')).toHaveLength(16)
+  })
+
+  /**
+   * The two parties and the winner's mark, in the order the header draws them.
+   * Which side is marked is the whole point, so the assertion is positional
+   * rather than "a mark exists somewhere".
+   */
+  function markedOrder(): string[] {
+    const header = drawer().querySelector('header')!
+
+    return [...header.querySelectorAll('span[role="img"], [data-testid="side-won"]')].map(
+      (element) => element.getAttribute('data-testid') ?? 'party',
+    )
+  }
+
+  it('marks p2 as the winner when the log says p2 won', async () => {
+    spectate('ladder-6', 'p2')
+
+    await openDrawer()
+
+    expect(markedOrder()).toEqual(['party', 'party', 'side-won'])
+
+    const mark = drawer().querySelector('[data-testid="side-won"]')
+    // Neutral wording: win and loss are relative to a "me" this battle has none of.
+    expect(mark?.textContent).not.toMatch(/Win|Loss/)
+  })
+
+  it('marks p1 instead when the log says p1 won', async () => {
+    spectate('ladder-6', 'p1')
+
+    await openDrawer()
+
+    expect(markedOrder()).toEqual(['party', 'side-won', 'party'])
+  })
+
+  it('marks no side when the log declared no winner', async () => {
+    spectate('ladder-6', null)
+
+    await openDrawer()
+
+    expect(drawer().querySelector('[data-testid="side-won"]')).toBeNull()
+  })
+
+  it('says a spectated draw was a draw', async () => {
+    spectate('ladder-6', 'tie')
+
+    await openDrawer()
+
+    const header = drawer().querySelector('header')!
+
+    expect(header.querySelector('[data-testid="side-won"]')).toBeNull()
+    expect(header.textContent).toContain('Tie')
+  })
+
   it('closes when the address loses the battle, which is what the back button does', async () => {
     // The whole reason the state is a query parameter: going back takes the
     // parameter off and the drawer follows, rather than leaving the dashboard.

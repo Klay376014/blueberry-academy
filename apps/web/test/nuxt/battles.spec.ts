@@ -126,7 +126,13 @@ function stored(overrides: Record<string, unknown> = {}): Record<string, unknown
     team_signature: 'a|b|c|d|e|f',
     bring_signature: 'a|b|c|d',
     bring_complete: true,
-    details: { sides: { p1: { bringSignature: 'a|b|c|d' }, p2: { bringSignature: 'w|x|y|z' } } },
+    details: {
+      winner: 'p1',
+      sides: {
+        p1: { username: 'NotLittleStar', bringSignature: 'a|b|c|d' },
+        p2: { username: 'Somebody', bringSignature: 'w|x|y|z' },
+      },
+    },
     parse_error: null,
     ...overrides,
   }
@@ -256,6 +262,41 @@ describe('one battle, and its series', () => {
     const record = await battles().battleById('ladder-1')
 
     expect(record?.opponentBring).toBeNull()
+  })
+
+  it('reads both sides and the winner off `details`, with no side of mine', async () => {
+    // A spectated row: the attribution columns are all null and `details` is
+    // untouched, because it is the parse rather than the alias list (#63).
+    db.rows = [
+      stored({
+        my_side: null,
+        my_username: null,
+        opponent_username: null,
+        result: null,
+        bring_signature: null,
+      }),
+    ]
+
+    const record = await battles().battleById('ladder-1')
+
+    expect(record?.sides).toEqual({
+      p1: { username: 'NotLittleStar', bring: 'a|b|c|d' },
+      p2: { username: 'Somebody', bring: 'w|x|y|z' },
+    })
+    expect(record?.winner).toBe('p1')
+  })
+
+  it('leaves the neutral fields null for a row whose `details` predates them', async () => {
+    // jsonb: an older row simply has less in it, and that is not a failure.
+    db.rows = [stored({ details: {} })]
+
+    const record = await battles().battleById('ladder-1')
+
+    expect(record?.sides).toEqual({
+      p1: { username: null, bring: null },
+      p2: { username: null, bring: null },
+    })
+    expect(record?.winner).toBeNull()
   })
 
   it('reads a series oldest first', async () => {
