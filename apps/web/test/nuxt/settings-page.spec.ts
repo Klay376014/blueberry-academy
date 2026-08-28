@@ -86,6 +86,8 @@ beforeEach(() => {
   useState('stats-rows').value = null
   useState('stats-read-key').value = null
   useState('stats-reading').value = null
+  useState('spectated-rows').value = null
+  useState('spectated-reading').value = null
 })
 
 describe('binding a Showdown name on the settings page', () => {
@@ -106,6 +108,21 @@ describe('binding a Showdown name on the settings page', () => {
     expect(stats.identityOptions.value).toEqual(['notlittlestar'])
     // …and the battle is in the numbers, without anybody reloading anything.
     expect(stats.battles.value).toHaveLength(1)
+  })
+
+  it('takes the claimed battle out of the spectated list at the same time', async () => {
+    // Attribution is the alias list re-derived (ADR-0012), so binding a name
+    // moves rows across the spectated line — in this direction, out of it.
+    const spectated = useSpectatedBattles()
+    await spectated.whenLoaded()
+    expect(spectated.battles.value).toHaveLength(1)
+
+    const wrapper = await mountSuspended(App, { route: '/settings' })
+    await wrapper.get('[data-testid="alias-input"]').setValue('NotLittleStar')
+    await wrapper.get('[data-testid="alias-form"]').trigger('submit')
+    await settle()
+
+    expect(spectated.battles.value).toHaveLength(0)
   })
 
   it('writes nothing at all when a re-run has nothing to change', async () => {

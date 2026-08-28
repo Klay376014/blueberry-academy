@@ -185,6 +185,17 @@ export interface Battles {
    */
   nameCounts(): Promise<Map<string, number>>
 
+  /**
+   * Every spectated battle, newest first, in as many requests as it takes.
+   *
+   * The mirror image of `battlesOf`: that read excludes them because a battle
+   * nobody here played is nobody's statistic, and this one is about nothing
+   * else. It takes no range, because the filters the dashboard carries are all
+   * meaningless here — there is no "me" to pick an identity for, the format is
+   * somebody else's, and the dates are there to bound a curve (#66).
+   */
+  spectatedBattles(): Promise<BattleRecord[]>
+
   /** One battle, or `null` if this user has no such row. */
   battleById(replayId: string): Promise<BattleRecord | null>
 
@@ -315,6 +326,30 @@ export function createBattles(client: SupabaseClient, currentUserId: () => strin
       )
 
       return counts
+    },
+
+    async spectatedBattles() {
+      const rows = await pages<StoredRecordRow>(
+        (from, to) =>
+          scoped(RECORD_COLUMNS)
+            // `is`, not `eq`: null is not a value PostgREST compares with.
+            .is('my_side', null)
+            // A row the parser could not read has no side of mine either, and
+            // it is not a battle between two strangers: `unparsedRowOf` stores
+            // it with an empty `details`, so there are no two players in it to
+            // show. Spectated is defined by the two players (CONTEXT.md).
+            .is('parse_error', null)
+            // Newest first — the opposite of the stats read, which is ordered
+            // for a curve. This one is read as a list, from the top.
+            .order('played_at', { ascending: false })
+            // The tie-break `played_at` needs to page safely: a bulk import
+            // shares one upload second, and rows either side of a page
+            // boundary would otherwise repeat or vanish.
+            .order('replay_id', { ascending: false })
+            .range(from, to) as unknown as PromiseLike<PageOf<StoredRecordRow>>,
+      )
+
+      return rows.map(battleRecordOf)
     },
 
     async battleById(replayId) {

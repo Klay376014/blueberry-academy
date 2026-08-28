@@ -42,6 +42,16 @@ const PER_USER_STATE = [
   'drawer-failure',
   'drawer-reading',
 
+  // The battles this account watched rather than played, and how far down
+  // them somebody had asked to see. `spectated-reader` is left out for the
+  // reason `stats-reader` is: it is a generation counter, and putting it back
+  // to zero would let a superseded read match a fresh one and write after all.
+  'spectated-rows',
+  'spectated-shown',
+  'spectated-loading',
+  'spectated-error',
+  'spectated-reading',
+
   // Opponent names and brings for the rows the recent list is showing.
   'recent-battle-extras',
   'recent-battles-loading',
