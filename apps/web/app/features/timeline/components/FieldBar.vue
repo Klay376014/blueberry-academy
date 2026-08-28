@@ -51,7 +51,7 @@ function label(side: SideId) {
         <SpeciesIcon
           :id="toID(pokemon.species)"
           :label="speciesName(toID(pokemon.species))"
-          :size="26"
+          :size="39"
         />
         <span
           class="font-mono text-[11px] tabular-nums"

@@ -14,11 +14,18 @@ import { ICON_HEIGHT, ICON_SHEET_URL, ICON_WIDTH, speciesIcon } from '../utils/s
  * the sprite instead of shrinking it.
  */
 const props = withDefaults(defineProps<{ id: string; size?: number; label?: string }>(), {
-  size: 24,
+  size: 36,
   label: undefined,
 })
 
 const scale = computed(() => props.size / ICON_WIDTH)
+
+/**
+ * Nearest-neighbour only where it helps. Below native size it drops whole rows
+ * of pixels — the outline and colour blocks that name the Pokémon go with them —
+ * so anything smaller than the sheet's own 40×30 is smoothed instead.
+ */
+const rendering = computed(() => (scale.value >= 1 ? 'pixelated' : 'auto'))
 const slot = computed(() => speciesIcon(props.id))
 </script>
 
@@ -32,8 +39,9 @@ const slot = computed(() => speciesIcon(props.id))
     :title="label"
   >
     <span
-      class="block [image-rendering:pixelated]"
+      class="block"
       :style="{
+        imageRendering: rendering,
         width: `${ICON_WIDTH}px`,
         height: `${ICON_HEIGHT}px`,
         backgroundImage: `url(${ICON_SHEET_URL})`,

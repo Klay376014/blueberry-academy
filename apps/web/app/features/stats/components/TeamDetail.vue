@@ -108,7 +108,7 @@ const next = computed(() => stepTo(1))
 
         <article class="flex flex-col gap-5 rounded-lg border border-border bg-card p-4">
           <header class="flex flex-wrap items-center gap-3">
-            <SpeciesParty :signature="team.signature" :size="32" />
+            <SpeciesParty :signature="team.signature" :size="48" />
             <span
               class="rounded bg-secondary px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground"
             >
@@ -154,7 +154,7 @@ const next = computed(() => stepTo(1))
               data-testid="bring"
             >
               <div class="flex flex-wrap items-center justify-between gap-2">
-                <SpeciesParty :signature="bring.signature" :size="26" />
+                <SpeciesParty :signature="bring.signature" :size="39" />
                 <span class="font-mono tabular-nums">
                   {{ bring.tally.wins }}–{{ bring.tally.losses }}
                 </span>
