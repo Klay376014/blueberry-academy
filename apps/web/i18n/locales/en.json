@@ -238,5 +238,11 @@
         "immune": "no effect"
       }
     }
+  },
+  "spectated": {
+    "title": "Spectated battles",
+    "note": "The filters above do not apply here: neither player of these battles is you.",
+    "more": "Load more",
+    "failed": "The spectated battles could not be read. Try again in a moment."
   }
 }

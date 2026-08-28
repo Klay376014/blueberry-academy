@@ -116,6 +116,8 @@ apps/web/                        Nuxt (ssr: false)
                                  抓 → 存 raw → 解析 → upsert（用 battle-row 對應）
   app/features/stats/composables/useStats.ts
                                  查詢與統計
+  app/features/spectated/composables/useSpectatedBattles.ts
+                                 旁觀場次清單（自成一讀，不吃儀表板的篩選）
   app/shared/api/                Supabase 資料存取與 Showdown 的外部型別
   server/api/                    MVP 幾乎為空，保留給升級付費版後
 

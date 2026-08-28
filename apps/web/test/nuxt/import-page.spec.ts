@@ -121,6 +121,8 @@ describe('the import page', () => {
     stored().rows = []
     useState('stats-rows').value = null
     useState('stats-reading').value = null
+    useState('spectated-rows').value = null
+    useState('spectated-reading').value = null
     useShowdownAliases().value = ['DavoPro1214']
     load.mockReset().mockResolvedValue(undefined)
     importMany.mockReset().mockResolvedValue(report([imported()]))
@@ -146,6 +148,31 @@ describe('the import page', () => {
     await settle()
 
     expect(stats.battles.value.length).toBeGreaterThan(0)
+  })
+
+  it('re-reads the spectated battles too, which a batch can add', async () => {
+    // An imported replay whose two players are both strangers lands in the
+    // spectated section, which is session state this route never touched (#66).
+    const spectated = useSpectatedBattles()
+    await spectated.whenLoaded()
+    expect(spectated.battles.value).toHaveLength(0)
+
+    const wrapper = await mountSuspended(App, { route: '/import' })
+    stored().rows = [
+      {
+        ...STATS_ROWS[0]!,
+        replay_id: 'watched-1',
+        my_side: null,
+        my_username: null,
+        result: null,
+        details: { winner: 'p1', sides: { p1: { username: 'Alice' }, p2: { username: 'Bob' } } },
+      },
+    ]
+
+    await paste(wrapper, LINK)
+    await settle()
+
+    expect(spectated.battles.value.map((battle) => battle.replayId)).toEqual(['watched-1'])
   })
 
   it('imports the replay a pasted link points at', async () => {

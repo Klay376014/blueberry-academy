@@ -92,6 +92,17 @@ export function fakeBattles(rows: StoredBattle[] = []): FakeBattles {
       return Promise.resolve(counts)
     },
 
+    spectatedBattles() {
+      const watched = read('spectatedBattles', undefined)
+        // The way the real query's two `.is(…)` filters leave everything else
+        // out: this read is about the battles nobody here played, and a row
+        // the parser could not read is not one of those.
+        .filter((row) => row.my_side === null && row.parse_error == null)
+        .sort((a, b) => (a.played_at < b.played_at ? 1 : -1))
+
+      return Promise.resolve(watched.map(battleRecordOf))
+    },
+
     battleById(replayId) {
       const found = read('battleById', replayId).find((row) => row.replay_id === replayId)
 

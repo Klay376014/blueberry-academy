@@ -35,6 +35,7 @@ export default defineNuxtConfig({
     { path: '~/features/timeline/components', prefix: 'Battle', extensions: ['vue'] },
     { path: '~/features/identity/components', prefix: 'Identity', extensions: ['vue'] },
     { path: '~/features/ingest/components', prefix: 'Ingest', extensions: ['vue'] },
+    { path: '~/features/spectated/components', prefix: 'Spectated', extensions: ['vue'] },
     { path: '~/shared/components', extensions: ['vue'] },
   ],
 

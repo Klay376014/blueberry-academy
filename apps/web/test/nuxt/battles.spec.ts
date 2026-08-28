@@ -41,6 +41,8 @@ function answer(calls: Call[]): Record<string, unknown>[] {
   const from = valueOf(calls, 'gte', 'played_at') as string | undefined
   const to = valueOf(calls, 'lte', 'played_at') as string | undefined
   const noSpectators = calls.some(([name, column]) => name === 'not' && column === 'my_side')
+  const spectatedOnly = calls.some(([name, column]) => name === 'is' && column === 'my_side')
+  const parsedOnly = calls.some(([name, column]) => name === 'is' && column === 'parse_error')
 
   return db.rows.filter((row) => {
     if (ids && !ids.includes(row.replay_id as string)) return false
@@ -49,6 +51,8 @@ function answer(calls: Call[]): Record<string, unknown>[] {
     if (from && (row.played_at as string) < from) return false
     if (to && (row.played_at as string) > to) return false
     if (noSpectators && row.my_side === null) return false
+    if (spectatedOnly && row.my_side !== null) return false
+    if (parsedOnly && row.parse_error != null) return false
 
     return true
   })
@@ -70,6 +74,7 @@ function builder() {
   const chain = {
     select: record('select'),
     eq: record('eq'),
+    is: record('is'),
     not: record('not'),
     gte: record('gte'),
     lte: record('lte'),
@@ -308,6 +313,70 @@ describe('one battle, and its series', () => {
     await battles().gamesOfSeries('s1')
 
     expect(onlyRequest()).toContainEqual(['order', 'played_at', { ascending: true }])
+  })
+})
+
+describe('reading the battles nobody here played', () => {
+  it('scopes to the user, and leaves nothing but spectated battles in', async () => {
+    db.rows = [stored(), stored({ replay_id: 'watched', my_side: null })]
+
+    const found = await battles().spectatedBattles()
+
+    expect(found.map((row) => row.replayId)).toEqual(['watched'])
+    expect(onlyRequest()).toContainEqual(['eq', 'user_id', USER])
+    expect(onlyRequest()).toContainEqual(['is', 'my_side', null])
+  })
+
+  it('asks for the columns a row of the list is drawn from, `details` among them', async () => {
+    await battles().spectatedBattles()
+
+    const [, columns] = onlyRequest().find(([name]) => name === 'select')!
+
+    // Both sides and the winner live in `details`; the attribution columns are
+    // all null for a battle nobody here played (#66).
+    for (const column of ['played_at', 'format_id', 'turn_count', 'details']) {
+      expect(columns).toContain(column)
+    }
+  })
+
+  it('leaves out a row the parser could not read, which is not a spectated one', async () => {
+    // `unparsedRowOf` stores `my_side` null too, but a log that could not be
+    // read is not a battle between two strangers — CONTEXT.md defines
+    // spectated by the two players, and that row has none.
+    db.rows = [
+      stored({ replay_id: 'watched', my_side: null }),
+      stored({ replay_id: 'unreadable', my_side: null, details: {}, parse_error: 'bad log' }),
+    ]
+
+    const found = await battles().spectatedBattles()
+
+    expect(found.map((row) => row.replayId)).toEqual(['watched'])
+    expect(onlyRequest()).toContainEqual(['is', 'parse_error', null])
+  })
+
+  it('breaks a tie on the replay id, so the pages cannot overlap or skip', async () => {
+    // `played_at` is not unique: a bulk import shares an upload second, and
+    // PostgREST offers no tie-break of its own.
+    await battles().spectatedBattles()
+
+    expect(onlyRequest()).toContainEqual(['order', 'replay_id', { ascending: false }])
+  })
+
+  it('reads newest first, because that is the end of the list a reader wants', async () => {
+    await battles().spectatedBattles()
+
+    expect(onlyRequest()).toContainEqual(['order', 'played_at', { ascending: false }])
+  })
+
+  it('pages until a short page says that was all of them', async () => {
+    // Silent truncation would present somebody's first thousand spectated
+    // battles as the whole of them.
+    db.rows = bulk(1200).map((row) => ({ ...row, my_side: null }))
+
+    const found = await battles().spectatedBattles()
+
+    expect(found).toHaveLength(1200)
+    expect(db.requests).toHaveLength(2)
   })
 })
 
