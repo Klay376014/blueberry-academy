@@ -15,7 +15,18 @@ import { bestOfLabel } from '~/shared/utils/formatLabel'
  * there is no "me" here, so both sides are named and the winner is marked
  * neutrally.
  */
-const { visible, battles, hasMore, showMore, error, whenLoaded } = useSpectatedBattles()
+const {
+  visible,
+  battles,
+  matches,
+  noMatches,
+  query,
+  search,
+  hasMore,
+  showMore,
+  error,
+  whenLoaded,
+} = useSpectatedBattles()
 // Opening a battle is a query parameter, and the timeline is what reads it
 // (issue #61).
 const battleRoute = useBattleRoute()
@@ -45,9 +56,28 @@ const day = (playedAt: string) => new Date(playedAt).toLocaleDateString()
     :aria-label="t('spectated.title')"
     data-testid="spectated"
   >
-    <div class="flex items-baseline justify-between gap-3">
+    <div class="flex flex-wrap items-baseline justify-between gap-3">
       <h2 class="text-xl font-semibold tracking-tight">{{ t('spectated.title') }}</h2>
-      <p class="text-muted-foreground font-mono text-xs tabular-nums">{{ battles.length }}</p>
+
+      <div class="flex items-baseline gap-3">
+        <!-- Beside the heading, because it searches this section and nothing
+             else: the list above it is the reader's own battles and has its
+             own filters. -->
+        <input
+          :value="query"
+          type="search"
+          class="border-border bg-background focus-visible:ring-ring w-48 rounded-md border px-2 py-1 text-sm focus-visible:ring-2 focus-visible:outline-none"
+          :placeholder="t('spectated.search')"
+          :aria-label="t('spectated.search')"
+          data-testid="spectated-search"
+          @input="(event) => search((event.target as HTMLInputElement).value)"
+        />
+        <!-- Announced, because it and the message below are the only things
+             that answer "did what I typed do anything". -->
+        <p class="text-muted-foreground font-mono text-xs tabular-nums" aria-live="polite">
+          {{ matches.length }}
+        </p>
+      </div>
     </div>
 
     <!-- Said out loud, because the filters are directly above this and a
@@ -57,7 +87,13 @@ const day = (playedAt: string) => new Date(playedAt).toLocaleDateString()
       {{ t('spectated.note') }}
     </p>
 
-    <div class="border-border divide-border divide-y overflow-hidden rounded-lg border">
+    <!-- Nothing to frame when a search found nothing: an empty bordered box
+         above the message would read as a list that failed to draw. -->
+    <div
+      v-if="visible.length"
+      class="border-border divide-border divide-y overflow-hidden rounded-lg border"
+      data-testid="spectated-list"
+    >
       <button
         v-for="battle of visible"
         :key="battle.replayId"
@@ -113,6 +149,18 @@ const day = (playedAt: string) => new Date(playedAt).toLocaleDateString()
         </span>
       </button>
     </div>
+
+    <!-- Said in the reader's own words, so it cannot be read as "this account
+         has watched no battles" — which is the state where this whole section
+         is absent. -->
+    <p
+      v-if="noMatches"
+      class="text-muted-foreground text-sm"
+      aria-live="polite"
+      data-testid="spectated-no-matches"
+    >
+      {{ t('spectated.noMatches', { query }) }}
+    </p>
 
     <!-- Every spectated battle is already in memory; this is about how many
          DOM nodes are drawn at once, not about what was read. -->

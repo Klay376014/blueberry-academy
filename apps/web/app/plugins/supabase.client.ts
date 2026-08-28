@@ -48,6 +48,7 @@ const PER_USER_STATE = [
   // to zero would let a superseded read match a fresh one and write after all.
   'spectated-rows',
   'spectated-shown',
+  'spectated-query',
   'spectated-loading',
   'spectated-error',
   'spectated-reading',

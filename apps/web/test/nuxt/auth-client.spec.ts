@@ -59,6 +59,7 @@ describe('the Supabase plugin', () => {
         'recent-battle-extras',
         'spectated-rows',
         'spectated-shown',
+        'spectated-query',
         'battle-logs',
       ],
       { reset: true },
@@ -103,6 +104,7 @@ describe('the Supabase plugin', () => {
     ])
     useState<unknown>('spectated-rows', () => null).value = [{ replayId: `${username}-watched` }]
     useState<unknown>('spectated-shown', () => null).value = 40
+    useState<unknown>('spectated-query', () => '').value = username
   }
 
   /** What the plugin left behind, by the key the composable reads it under. */
@@ -117,6 +119,7 @@ describe('the Supabase plugin', () => {
       logs: useState<Map<string, unknown>>('battle-logs', () => new Map()).value,
       spectated: useState<unknown>('spectated-rows', () => null).value,
       shown: useState<unknown>('spectated-shown', () => null).value,
+      query: useState<unknown>('spectated-query', () => '').value,
     }
   }
 
@@ -154,6 +157,9 @@ describe('the Supabase plugin', () => {
     // played, and how far down the list somebody had scrolled is theirs too.
     expect(left.spectated).toBeNull()
     expect(left.shown).toBeNull()
+    // What somebody typed is theirs too, and it would otherwise sit in the
+    // next person's box hiding most of their list.
+    expect(left.query).toBe('')
   })
 
   it('puts "nothing read yet" back, rather than nothing at all', async () => {

@@ -148,6 +148,7 @@ beforeEach(() => {
   useState('spectated-shown').value = null
   useState('spectated-error').value = null
   useState('spectated-reading').value = null
+  useState('spectated-query').value = ''
   useState('drawer-battle').value = null
   useState('drawer-reading').value = null
   goTo({})
@@ -284,5 +285,127 @@ describe('the spectated section', () => {
     const page = await mountHome()
 
     expect(page.find('[data-testid="spectated-more"]').exists()).toBe(false)
+  })
+})
+
+describe('searching the spectated section by player', () => {
+  /** Two watched battles, one of them under a name worth searching for. */
+  function twoWatched() {
+    return [
+      watched('watched-1', '2026-08-20T10:00:00Z'),
+      {
+        ...watched('watched-2', '2026-08-21T10:00:00Z'),
+        details: {
+          winner: 'p1',
+          sides: {
+            p1: { username: 'Blue Berry', bringSignature: 'pikachu|eevee' },
+            p2: { username: 'Carol', bringSignature: 'snorlax|gengar' },
+          },
+        },
+      },
+    ]
+  }
+
+  async function search(page: Awaited<ReturnType<typeof mountSuspended>>, text: string) {
+    await page.find('[data-testid="spectated-search"]').setValue(text)
+    await page.vm.$nextTick()
+  }
+
+  it('narrows the list to the battles that player is in', async () => {
+    fake().rows = twoWatched()
+    const page = await mountHome()
+    expect(rows(page)).toHaveLength(2)
+
+    await search(page, 'blueberry')
+
+    expect(rows(page)).toHaveLength(1)
+    expect(rows(page)[0]!.text()).toContain('Blue Berry')
+  })
+
+  it('finds a name however it was spaced and capitalised', async () => {
+    fake().rows = twoWatched()
+    const page = await mountHome()
+
+    await search(page, 'BLUE-berry')
+
+    expect(rows(page)).toHaveLength(1)
+  })
+
+  it('finds a name by the middle of it', async () => {
+    fake().rows = twoWatched()
+    const page = await mountHome()
+
+    await search(page, 'ue Ber')
+
+    expect(rows(page)).toHaveLength(1)
+  })
+
+  it('says a search found nothing, in words that are not "you have watched none"', async () => {
+    fake().rows = twoWatched()
+    const page = await mountHome()
+
+    await search(page, 'nobody')
+
+    expect(rows(page)).toHaveLength(0)
+    const empty = page.find('[data-testid="spectated-no-matches"]')
+    expect(empty.exists()).toBe(true)
+    expect(empty.text()).toContain('nobody')
+    // The box stays, or there is no way back from a search that found nothing.
+    expect(page.find('[data-testid="spectated-search"]').exists()).toBe(true)
+  })
+
+  it('says so for a search no Showdown name could match, rather than ignoring it', async () => {
+    // `toID` keeps `[a-z0-9]` only, so a search written in Chinese normalises
+    // away. Showing the whole list would read as a box that does nothing.
+    fake().rows = twoWatched()
+    const page = await mountHome()
+
+    await search(page, '小藍莓')
+
+    expect(rows(page)).toHaveLength(0)
+    expect(page.find('[data-testid="spectated-no-matches"]').text()).toContain('小藍莓')
+  })
+
+  it('draws no empty list frame over a search that found nothing', async () => {
+    fake().rows = twoWatched()
+    const page = await mountHome()
+
+    expect(page.find('[data-testid="spectated-list"]').exists()).toBe(true)
+
+    await search(page, 'nobody')
+
+    expect(page.find('[data-testid="spectated-list"]').exists()).toBe(false)
+  })
+
+  it('gives them all back when the box is emptied', async () => {
+    fake().rows = twoWatched()
+    const page = await mountHome()
+
+    await search(page, 'blueberry')
+    await search(page, '')
+
+    expect(rows(page)).toHaveLength(2)
+  })
+
+  it('keeps the search out of the address bar', async () => {
+    // A link to one battle is worth sharing; half a name is not.
+    fake().rows = twoWatched()
+    const page = await mountHome()
+    push.mockClear()
+
+    await search(page, 'blueberry')
+
+    expect(push).not.toHaveBeenCalled()
+  })
+
+  it('leaves the rest of the page alone', async () => {
+    fake().rows = [...STATS_ROWS.map(played), ...twoWatched()]
+    const page = await mountHome()
+    const before = page.findAll('[data-testid="recent-battle"]').length
+    expect(before).toBeGreaterThan(0)
+
+    await search(page, 'blueberry')
+
+    expect(page.findAll('[data-testid="recent-battle"]')).toHaveLength(before)
   })
 })

@@ -79,6 +79,7 @@ beforeEach(() => {
   useState('spectated-error').value = null
   useState('spectated-reading').value = null
   useState('spectated-reader').value = 0
+  useState('spectated-query').value = ''
 })
 
 describe('reading them', () => {
@@ -196,5 +197,105 @@ describe('how many are on screen', () => {
     await spectated.refresh()
 
     expect(spectated.visible.value).toHaveLength(20)
+  })
+})
+
+describe('searching by player', () => {
+  beforeEach(() => {
+    fake.value = fakeBattles([
+      { ...watched('w1', day(1)) },
+      {
+        ...watched('w2', day(2)),
+        details: {
+          winner: 'p1',
+          sides: {
+            p1: { username: 'Blue Berry', bringSignature: 'a|b' },
+            p2: { username: 'Somebody', bringSignature: 'c|d' },
+          },
+        },
+      },
+    ])
+  })
+
+  it('narrows the list to the battles that player is in', async () => {
+    const spectated = useSpectatedBattles()
+    await spectated.whenLoaded()
+
+    spectated.search('blueberry')
+
+    expect(spectated.matches.value.map((battle) => battle.replayId)).toEqual(['w2'])
+    expect(spectated.visible.value.map((battle) => battle.replayId)).toEqual(['w2'])
+  })
+
+  it('leaves the battles themselves alone, so clearing the box brings them back', async () => {
+    const spectated = useSpectatedBattles()
+    await spectated.whenLoaded()
+
+    spectated.search('blueberry')
+    spectated.search('')
+
+    expect(spectated.matches.value).toHaveLength(2)
+    expect(spectated.battles.value).toHaveLength(2)
+  })
+
+  it('searches every battle that was read, not only the ones on screen', async () => {
+    // The section draws twenty at a time; the search is not a search of those
+    // twenty.
+    fake.value = fakeBattles([
+      ...Array.from({ length: 25 }, (_, index) => watched(`w${index}`, day(index + 1))),
+      {
+        ...watched('wanted', '2026-07-01T10:00:00Z'),
+        details: {
+          winner: null,
+          sides: {
+            p1: { username: 'Blue Berry', bringSignature: 'a|b' },
+            p2: { username: 'Somebody', bringSignature: 'c|d' },
+          },
+        },
+      },
+    ])
+
+    const spectated = useSpectatedBattles()
+    await spectated.whenLoaded()
+    // The oldest of twenty-six, so it is off the first screenful.
+    expect(spectated.visible.value.map((battle) => battle.replayId)).not.toContain('wanted')
+
+    spectated.search('blueberry')
+
+    expect(spectated.matches.value.map((battle) => battle.replayId)).toEqual(['wanted'])
+  })
+
+  it('goes back to the first screenful when the search changes', async () => {
+    fake.value = fakeBattles(
+      Array.from({ length: 25 }, (_, index) => watched(`w${index}`, day(index + 1))),
+    )
+
+    const spectated = useSpectatedBattles()
+    await spectated.whenLoaded()
+    spectated.showMore()
+    expect(spectated.visible.value).toHaveLength(25)
+
+    spectated.search('alice')
+
+    expect(spectated.visible.value.length).toBeLessThanOrEqual(20)
+  })
+
+  it('tells a search that found nothing apart from having watched nothing', async () => {
+    const spectated = useSpectatedBattles()
+    await spectated.whenLoaded()
+
+    spectated.search('nobody at all')
+
+    expect(spectated.matches.value).toEqual([])
+    expect(spectated.noMatches.value).toBe(true)
+    // Still true: this account has watched battles, they are just not these.
+    expect(spectated.battles.value).toHaveLength(2)
+  })
+
+  it('is not a search that found nothing when nothing was typed', async () => {
+    const spectated = useSpectatedBattles()
+    await spectated.whenLoaded()
+
+    expect(spectated.noMatches.value).toBe(false)
   })
 })
