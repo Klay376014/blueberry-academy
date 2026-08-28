@@ -1,4 +1,4 @@
-# ADR-0011：`pages/` 與 `middleware/` 留在 `app/`，當作唯一的組合層
+# ADR-0013：`pages/` 與 `middleware/` 留在 `app/`，當作唯一的組合層
 
 - 狀態：Accepted
 - 日期：2026-08-27

@@ -407,7 +407,7 @@ describe('the shape of app/', () => {
 
   it('keeps app/ to the composition layer, the features and shared', () => {
     // Nuxt owns `pages`, `middleware`, `plugins`, `assets` and `app.vue` and
-    // scans nowhere else for them (ADR-0011). A new directory here is a new
+    // scans nowhere else for them (ADR-0013). A new directory here is a new
     // technical layer, which is what this structure exists to stop.
     const ALLOWED = ['app.vue', 'assets', 'features', 'middleware', 'pages', 'plugins', 'shared']
 

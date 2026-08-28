@@ -16,7 +16,7 @@
 
 三條全中的例子：`vue-shims.d.ts`（看起來像該刪的殘留，刪了會壞，ADR-0003）；
 `pages/` 留在 `app/` 而不搬進 feature（看起來像沒搬完，搬了會靜默 404，
-[ADR-0011](0011-pages-and-middleware-stay-outside-features.md)）。
+[ADR-0013](0013-pages-and-middleware-stay-outside-features.md)）。
 一條都不中的例子：CSS 選擇器從 `#app` 改成 `#__nuxt`（讀 code 就懂，沒人會想改回去）。
 
 寧可少寫。每張票做完問一次「有沒有跨票的決定」，沒有就沒有。

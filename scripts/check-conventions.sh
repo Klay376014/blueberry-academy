@@ -16,7 +16,8 @@ case $# in
   # Empty rev means `git show ":$f"` — the index, not what is on disk.
   rev=''
   hint='Fix the above, or commit with --no-verify if you are certain.'
-  changed_files() { git diff --cached --name-only --diff-filter=ACM; }
+  changed_files() { git diff --cached --name-only --diff-filter=ACMR; }
+  adr_files() { git ls-files ':(top)docs/adr/*.md'; }
   ;;
 2)
   base=$1
@@ -24,7 +25,8 @@ case $# in
   rev=$head
   hint='Fix the above and push again.'
   # Three dots, not two: somebody else's merge is not this branch's diff.
-  changed_files() { git diff --name-only --diff-filter=ACM "$base...$head"; }
+  changed_files() { git diff --name-only --diff-filter=ACMR "$base...$head"; }
+  adr_files() { git ls-tree -r --name-only "$head" -- ':(top)docs/adr'; }
   ;;
 *)
   echo "usage: check-conventions.sh [<base-ref> <head-ref>]" >&2
@@ -39,6 +41,9 @@ trap 'rm -f "$violations" "$warnings"' EXIT
 # Read line by line rather than word-split, so a path containing spaces stays
 # one entry. The loop body runs in a subshell (it is on the right of a pipe), so
 # findings go to files rather than to a variable.
+# `R` is in the filter as well as `ACM`: a rename is how an ADR gets renumbered
+# onto a taken number, and `--name-only` reports a rename by its destination, so
+# every rule below still reads the path the content now lives at.
 changed_files | while IFS= read -r f; do
   case "$f" in
   apps/web/*)
@@ -56,6 +61,21 @@ changed_files | while IFS= read -r f; do
     # thing that drags them into a bundle.
     if git show "$rev:$f" | grep -nE "from '[^']*maintenance-scripts|from '[^']*\.\./scripts/" >/dev/null; then
       echo "✖ $f: apps/web/ must not import from scripts/ — those are local maintenance scripts and are never deployed." >>"$violations"
+    fi
+    ;;
+  esac
+
+  case "$f" in
+  docs/adr/[0-9][0-9][0-9][0-9]-*.md)
+    # docs/adr/README.md: 編號遞增不重用. The number is how the rest of the repo
+    # refers to a decision -- a bare "ADR-NNNN" in prose has no link to
+    # disambiguate -- so two files sharing one makes every such reference
+    # ambiguous. Counted over the whole directory at this revision, because the
+    # collision is only visible next to the file that was already there —
+    # `:(top)` on that listing so it says the same thing from a subdirectory.
+    number=$(basename "$f" | cut -c1-4)
+    if [ "$(adr_files | sed 's|.*/||' | grep -c "^$number-")" -gt 1 ]; then
+      echo "✖ $f: ADR number $number is already taken — docs/adr/ numbers increase and are never reused." >>"$violations"
     fi
     ;;
   esac

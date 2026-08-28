@@ -32,7 +32,7 @@ Workers 免費版的 50 subrequest 與 10ms CPU 上限讓 server 端根本跑不
 
 四個檔案的位置在 #61 的 feature 化之後改了三個（決定與接縫都沒變）：認證動作歸
 `features/identity`，目前使用者因為四個 feature 都要讀而沉在 `shared/`，plugin 與
-middleware 留在 `app/` 根層 —— 為什麼留在那裡見 ADR-0011。
+middleware 留在 `app/` 根層 —— 為什麼留在那裡見 ADR-0013。
 
 ## 後果
 

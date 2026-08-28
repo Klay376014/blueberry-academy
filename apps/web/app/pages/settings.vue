@@ -13,7 +13,7 @@ function onReattributed() {
   <!--
     Binding a name is `features/identity`; the dashboard it invalidates is
     `features/stats`. Two features meet here because a page is the only place
-    they may (ADR-0011).
+    they may (ADR-0013).
   -->
   <IdentitySettingsPage @reattributed="onReattributed" />
 </template>
