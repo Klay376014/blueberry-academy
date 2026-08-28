@@ -109,7 +109,7 @@ packages/battle-row/             ParsedBattle → battles 列的對應（純 TS�
   src/index.ts                   battleRowOf / unparsedRowOf、BattleRow
 
 apps/web/                        Nuxt (ssr: false)
-  app/pages/                     頁面薄殼；跨 feature 的組合只在這裡（ADR-0011）
+  app/pages/                     頁面薄殼；跨 feature 的組合只在這裡（ADR-0013）
   app/features/ingest/composables/useShowdown.ts
                                  抓取（分頁、並發上限、退避重試）
   app/features/ingest/composables/useIngest.ts
