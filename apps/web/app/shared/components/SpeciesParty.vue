@@ -9,7 +9,7 @@ import { speciesName } from '../utils/speciesName'
  * stay English: a species name is an identifier, not copy (design document §3).
  */
 const props = withDefaults(defineProps<{ signature: string | null; size?: number }>(), {
-  size: 24,
+  size: 36,
 })
 
 const ids = computed(() => (props.signature ?? '').split('|').filter(Boolean))

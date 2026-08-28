@@ -58,7 +58,7 @@ const message = computed(() => {
        against its accent, plus a wash of each so a row reads as one side's at a
        glance rather than by looking at the rail. -->
   <div
-    class="grid grid-cols-[14px_28px_1fr] items-center gap-2 rounded-sm border-l-2 py-0.5 pr-1.5 pl-2"
+    class="grid grid-cols-[14px_40px_1fr] items-center gap-2 rounded-sm border-l-2 py-0.5 pr-1.5 pl-2"
     :class="
       row.side === null
         ? 'border-l-transparent'
@@ -75,7 +75,7 @@ const message = computed(() => {
       v-if="row.species"
       :id="toID(row.species)"
       :label="speciesName(toID(row.species))"
-      :size="26"
+      :size="40"
     />
     <span v-else />
 
@@ -91,7 +91,7 @@ const message = computed(() => {
           :key="`${target}-${index}`"
           :id="toID(target)"
           :label="speciesName(toID(target))"
-          :size="row.mark === 'switch' ? 26 : 20"
+          :size="row.mark === 'switch' ? 40 : 30"
         />
       </template>
 

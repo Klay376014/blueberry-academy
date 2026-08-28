@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest'
+import { mountSuspended } from '@nuxt/test-utils/runtime'
+import SpeciesParty from '../../app/shared/components/SpeciesParty.vue'
 import { speciesName } from '../../app/shared/utils/speciesName'
 import { speciesIcon } from '../../app/shared/utils/speciesIcon'
 import names from '../../app/shared/lib/dex/species-names.json'
@@ -162,5 +164,23 @@ describe('the display layer wiring', () => {
 
     expect(auto('hooh')).toBe('Ho-Oh')
     expect(autoIcon('hooh')).toEqual({ left: -400, top: -600 })
+  })
+})
+
+describe('SpeciesParty', () => {
+  it('names each icon in a hover tooltip', async () => {
+    // The group carries one aria-label for screen readers, so the per-icon
+    // name exists only as `title` — and it reaches the icon as a fallthrough
+    // attribute, which nothing in SpeciesIcon's own props declares. A stray
+    // `title` binding added there would silently take these tooltips away.
+    const wrapper = await mountSuspended(SpeciesParty, {
+      props: { signature: 'pikachu|garchomp' },
+    })
+
+    expect(wrapper.attributes('aria-label')).toBe('Pikachu, Garchomp')
+    expect(wrapper.findAll('[title]').map((icon) => icon.attributes('title'))).toEqual([
+      'Pikachu',
+      'Garchomp',
+    ])
   })
 })

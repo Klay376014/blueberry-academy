@@ -74,7 +74,7 @@ const strongest = computed(() => teams.value[0])
           {{ t('summary.strongest') }}
         </span>
         <div class="mt-1 flex flex-wrap items-center justify-between gap-3">
-          <SpeciesParty :signature="strongest.signature" :size="22" />
+          <SpeciesParty :signature="strongest.signature" :size="33" />
           <span class="font-mono text-lg tabular-nums">
             {{ strongest.tally.wins }}–{{ strongest.tally.losses }}
           </span>

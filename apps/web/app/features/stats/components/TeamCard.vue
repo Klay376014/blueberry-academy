@@ -39,7 +39,7 @@ const to = computed(() =>
     data-testid="team-card"
   >
     <div class="flex items-center justify-between gap-2">
-      <SpeciesParty :signature="team.signature" :size="dense ? 20 : 24" />
+      <SpeciesParty :signature="team.signature" :size="dense ? 30 : 36" />
       <span class="rounded bg-secondary px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
         {{ bestOfLabel(team.formatId) }}
       </span>
