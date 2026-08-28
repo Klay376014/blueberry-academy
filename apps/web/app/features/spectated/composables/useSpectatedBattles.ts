@@ -1,3 +1,4 @@
+import { battlesMatching } from '../utils/playerSearch'
 import type { BattleRecord } from '~/shared/api/battles'
 
 /**
@@ -47,10 +48,38 @@ export function useSpectatedBattles() {
    */
   const reader = useState('spectated-reader', () => 0)
 
+  /**
+   * What was typed into the search box. State rather than the address, unlike
+   * the open battle: a link to one battle is worth sharing and half a name is
+   * not, and putting both on one URL would make "the reader opened a battle
+   * from a search and pressed back" a question with no good answer (#68).
+   */
+  const query = useState('spectated-query', () => '')
+
   const loaded = computed(() => rows.value !== null)
   const battles = computed(() => rows.value ?? [])
-  const visible = computed(() => battles.value.slice(0, shown.value ?? SCREENFUL))
-  const hasMore = computed(() => battles.value.length > (shown.value ?? SCREENFUL))
+
+  /**
+   * The battles the search admits — all of them when nothing is typed. Over
+   * every row that was read, not over the screenful being drawn: the reader is
+   * looking for a battle they remember, and it is very likely an old one.
+   */
+  const matches = computed(() => battlesMatching(battles.value, query.value))
+
+  const visible = computed(() => matches.value.slice(0, shown.value ?? SCREENFUL))
+  const hasMore = computed(() => matches.value.length > (shown.value ?? SCREENFUL))
+
+  /** A search that found nothing, which is not the same as having watched nothing. */
+  const noMatches = computed(() => matches.value.length === 0 && battles.value.length > 0)
+
+  /**
+   * Search for a player. Back to the first screenful, because "load more" was
+   * about a different list.
+   */
+  function search(text: string): void {
+    query.value = text
+    shown.value = SCREENFUL
+  }
 
   /** One more screenful. The rows are already here; this is about DOM nodes. */
   function showMore(): void {
@@ -133,5 +162,19 @@ export function useSpectatedBattles() {
     return startReading()
   }
 
-  return { battles, visible, hasMore, showMore, loading, error, loaded, whenLoaded, refresh }
+  return {
+    battles,
+    matches,
+    noMatches,
+    query,
+    search,
+    visible,
+    hasMore,
+    showMore,
+    loading,
+    error,
+    loaded,
+    whenLoaded,
+    refresh,
+  }
 }
