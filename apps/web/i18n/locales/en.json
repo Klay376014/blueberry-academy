@@ -180,7 +180,9 @@
     "recent": {
       "title": "Recent battles",
       "turns": "{count} turns",
-      "empty": "No battles match these filters yet."
+      "empty": "No battles match these filters yet.",
+      "seriesScore": "{wins}–{losses}",
+      "seriesLabel": "Series against {opponent}, {count} games"
     },
     "drawer": {
       "about": "Every turn of this game, as a list.",

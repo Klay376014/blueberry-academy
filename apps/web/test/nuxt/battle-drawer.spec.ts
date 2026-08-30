@@ -684,12 +684,90 @@ describe('the format filter', () => {
     useStatsFilters().value = { ...useStatsFilters().value, formatId: FORMATS.EVENT }
     await settle()
 
-    // Annotated because `mountSuspended` hands back an untyped wrapper here.
-    const after = page
-      .findAll('[data-testid="recent-battle"]')
-      .map((row: { text: () => string }) => row.text())
+    // The format is on the row for a lone game and on the card's header for a
+    // series, since a series says it once for its three games.
+    const after = [...page.element.querySelectorAll('[data-testid="recent-battle"]')].map(
+      (row: Element) => (row.closest('[data-testid="series-card"]') ?? row).textContent ?? '',
+    )
 
     expect(after.length).not.toBe(before)
     expect(after.every((text: string) => text.includes('BO3'))).toBe(true)
+  })
+})
+
+describe('a Bo3 in the list', () => {
+  /** The dashboard with the Bo3 format chosen, which is where series exist. */
+  async function series() {
+    useStatsFilters().value = { ...useStatsFilters().value, formatId: FORMATS.EVENT }
+    const page = await mountDashboard()
+    await settle()
+
+    return page
+  }
+
+  function cards(page: Awaited<ReturnType<typeof mountDashboard>>) {
+    return [...page.element.querySelectorAll('[data-testid="series-card"]')]
+  }
+
+  it('draws the games of one series under one header', async () => {
+    const page = await series()
+
+    // series-1 has three games and series-2 two of a Bo3; both are cards.
+    const games = cards(page).map(
+      (card) => card.querySelectorAll('[data-testid="recent-battle"]').length,
+    )
+
+    expect(games).toEqual([2, 3])
+  })
+
+  it('says the opponent once for the whole series, not once per game', async () => {
+    const page = await series()
+    const card = cards(page).at(-1)!
+
+    // Every game of the fixture series has its own opponent-<replay id>, so a
+    // header that repeated them would show three names rather than one.
+    expect([...card.textContent!.matchAll(/opponent-series-1/g)]).toHaveLength(1)
+  })
+
+  it('scores the series by the games it can see, without calling a winner', async () => {
+    const page = await series()
+
+    // series-1 is 2-1 and series-2 is 1-1: what is held, never "you won it".
+    expect(cards(page).map((card) => card.textContent!.match(/\d–\d/)?.[0])).toEqual(['1–1', '2–1'])
+  })
+
+  it('numbers the games from the one played first', async () => {
+    const page = await series()
+    const rows = [...cards(page).at(-1)!.querySelectorAll('[data-testid="recent-battle"]')]
+
+    expect(rows.map((row) => row.textContent!.includes('Game 1'))).toEqual([true, false, false])
+
+    // Game 1 is the game played first — the drawer's switcher, which reads
+    // `gamesOfSeries()` in played_at order, calls the same game by the same
+    // number. The row itself no longer carries a name to check, so the game it
+    // opens is what says which one it is.
+    rows[0]!.dispatchEvent(new Event('click', { bubbles: true }))
+    await settle()
+
+    expect(push).toHaveBeenCalledWith(expect.objectContaining({ query: { battle: 'series-1-g1' } }))
+  })
+
+  it('opens the game that was clicked, not the series', async () => {
+    const page = await series()
+    const second = cards(page).at(-1)!.querySelectorAll('[data-testid="recent-battle"]')[1]!
+
+    second.dispatchEvent(new Event('click', { bubbles: true }))
+    await settle()
+
+    expect(push).toHaveBeenCalledWith(expect.objectContaining({ query: { battle: 'series-1-g2' } }))
+  })
+
+  it('leaves a game that is on its own as a plain row', async () => {
+    // The ladder format has no series at all, so nothing there is a card.
+    const page = await mountDashboard()
+    await settle()
+
+    expect(cards(page)).toHaveLength(0)
+    expect(page.findAll('[data-testid="recent-battle"]').length).toBeGreaterThan(1)
   })
 })
