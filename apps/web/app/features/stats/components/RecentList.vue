@@ -93,11 +93,15 @@ const RESULT_TONE = {
               </span>
 
               <span class="flex flex-wrap items-center gap-1">
-                <SpeciesParty :signature="battle.myBring" :size="33" />
+                <SpeciesParty :signature="battle.myTeam" :bring="battle.myBring" :size="33" />
                 <span class="text-muted-foreground px-1 font-mono text-[10px]">
                   {{ t('battle.drawer.versus') }}
                 </span>
-                <SpeciesParty :signature="battle.opponentBring" :size="33" />
+                <SpeciesParty
+                  :signature="battle.opponentTeam"
+                  :bring="battle.opponentBring"
+                  :size="33"
+                />
               </span>
             </span>
 

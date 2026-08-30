@@ -23,8 +23,8 @@ function battle(replayId: string, p1: string | null, p2: string | null): BattleR
     myBring: null,
     opponentBring: null,
     sides: {
-      p1: { username: p1, bring: null },
-      p2: { username: p2, bring: null },
+      p1: { username: p1, bring: null, team: null },
+      p2: { username: p2, bring: null, team: null },
     },
     winner: null,
     parseError: null,

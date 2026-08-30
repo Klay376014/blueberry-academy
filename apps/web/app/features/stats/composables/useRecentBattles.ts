@@ -21,10 +21,14 @@ export interface RecentBattle {
   result: BattleResult | null
   ratingDelta: number | null
   myBring: string | null
+  /** The six I registered, so the two that stayed home can be drawn faded. */
+  myTeam: string | null
   opponentUsername: string | null
   turnCount: number | null
   /** Null until the extra columns for this row have arrived. */
   opponentBring: string | null
+  /** Theirs, from the same columns and null until they arrive. */
+  opponentTeam: string | null
 }
 
 export function useRecentBattles() {
@@ -89,9 +93,11 @@ export function useRecentBattles() {
         result: row.result,
         ratingDelta: row.rating_delta,
         myBring: row.bring_signature,
+        myTeam: row.team_signature,
         opponentUsername: extra?.opponentUsername ?? null,
         turnCount: extra?.turnCount ?? null,
         opponentBring: extra?.opponentBring ?? null,
+        opponentTeam: extra?.opponentTeam ?? null,
       }
     }),
   )

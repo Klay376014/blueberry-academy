@@ -134,8 +134,8 @@ function stored(overrides: Record<string, unknown> = {}): Record<string, unknown
     details: {
       winner: 'p1',
       sides: {
-        p1: { username: 'NotLittleStar', bringSignature: 'a|b|c|d' },
-        p2: { username: 'Somebody', bringSignature: 'w|x|y|z' },
+        p1: { username: 'NotLittleStar', bringSignature: 'a|b|c|d', teamSignature: 'a|b|c|d|e|f' },
+        p2: { username: 'Somebody', bringSignature: 'w|x|y|z', teamSignature: 'u|v|w|x|y|z' },
       },
     },
     parse_error: null,
@@ -261,6 +261,15 @@ describe('one battle, and its series', () => {
     expect(record?.opponentBring).toBe('w|x|y|z')
   })
 
+  it('works out the opponent’s registered six the same way', async () => {
+    // Six-into-four: which two the opponent left at home is only visible
+    // against their six, and it has been in `details` since both sides were
+    // first kept — this is the first read of it.
+    const record = await battles().battleById('ladder-1')
+
+    expect(record?.sides.p2.team).toBe('u|v|w|x|y|z')
+  })
+
   it('has no opponent for a battle with no side of mine', async () => {
     db.rows = [stored({ my_side: null })]
 
@@ -285,8 +294,8 @@ describe('one battle, and its series', () => {
     const record = await battles().battleById('ladder-1')
 
     expect(record?.sides).toEqual({
-      p1: { username: 'NotLittleStar', bring: 'a|b|c|d' },
-      p2: { username: 'Somebody', bring: 'w|x|y|z' },
+      p1: { username: 'NotLittleStar', bring: 'a|b|c|d', team: 'a|b|c|d|e|f' },
+      p2: { username: 'Somebody', bring: 'w|x|y|z', team: 'u|v|w|x|y|z' },
     })
     expect(record?.winner).toBe('p1')
   })
@@ -298,8 +307,8 @@ describe('one battle, and its series', () => {
     const record = await battles().battleById('ladder-1')
 
     expect(record?.sides).toEqual({
-      p1: { username: null, bring: null },
-      p2: { username: null, bring: null },
+      p1: { username: null, bring: null, team: null },
+      p2: { username: null, bring: null, team: null },
     })
     expect(record?.winner).toBeNull()
   })

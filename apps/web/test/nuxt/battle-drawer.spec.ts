@@ -39,7 +39,17 @@ function withExtras(row: StoredBattle): StoredBattle {
     my_side: 'p1',
     opponent_username: `opponent-${row.replay_id}`,
     turn_count: 12,
-    details: { sides: { p1: { bringSignature: 'a|b' }, p2: { bringSignature: 'c|d' } } },
+    details: {
+      sides: {
+        // The row's own columns, so `details` and the attribution agree the way
+        // a real row's do — the drawer reads my bring off the column and my six
+        // off `details`, and a fixture that disagreed with itself would draw a
+        // side of ten.
+        p1: { bringSignature: row.bring_signature, teamSignature: row.team_signature },
+        // Theirs is only ever in `details`: four registered, two seen.
+        p2: { bringSignature: 'c|d', teamSignature: 'c|d|w|x' },
+      },
+    },
     ...row,
   }
 }
@@ -778,5 +788,72 @@ describe('a Bo3 in the list', () => {
 
     expect(cards(page)).toHaveLength(0)
     expect(page.findAll('[data-testid="recent-battle"]').length).toBeGreaterThan(1)
+  })
+})
+
+describe('the registered six on a row', () => {
+  /** Every Pokémon a party drew, and whether it was marked as absent. */
+  function party(element: Element, index: number) {
+    const parties = [...element.querySelectorAll('span[role="img"]')]
+    const chosen = parties[index]!
+
+    return {
+      label: chosen.getAttribute('aria-label') ?? '',
+      drawn: chosen.querySelectorAll('span[title]').length,
+      absent: chosen.querySelectorAll('[data-absent]').length,
+    }
+  }
+
+  it('draws the whole of each side, with the ones that never appeared marked', async () => {
+    const page = await mountDashboard()
+    await settle()
+
+    const row = page.element.querySelector('[data-testid="recent-battle"]')!
+
+    // Mine comes from the `team_signature` column — the fixture registers six
+    // and brought four. Theirs comes from `details`, where the fixture keeps a
+    // four-strong team that brought two. Two absent on each side either way.
+    expect(party(row, 0)).toMatchObject({ drawn: 6, absent: 2 })
+    expect(party(row, 1)).toMatchObject({ drawn: 4, absent: 2 })
+  })
+
+  it('says which ones did not appear in words, not only by fading them', async () => {
+    // Fading is a visual signal and cannot be the only one.
+    const page = await mountDashboard()
+    await settle()
+
+    const row = page.element.querySelector('[data-testid="recent-battle"]')!
+
+    expect(party(row, 0).label).toContain('did not appear')
+  })
+
+  it('draws the bring alone on a row whose details predate the six', async () => {
+    // jsonb: an older row simply has less in it. The opponent then reads as it
+    // did before this existed, rather than as a side with nobody on it.
+    fake().rows = fake().rows.map((row) => ({
+      ...row,
+      details: { sides: { p1: { bringSignature: 'a|b' }, p2: { bringSignature: 'c|d' } } },
+    }))
+
+    const page = await mountDashboard()
+    await settle()
+
+    const row = page.element.querySelector('[data-testid="recent-battle"]')!
+
+    expect(party(row, 1)).toMatchObject({ drawn: 2, absent: 0 })
+  })
+
+  it('draws both sides in the drawer header too', async () => {
+    goTo({ battle: 'ladder-6' })
+    await mountDashboard()
+    await waitFor(() => !useState('drawer-loading').value, 'the drawer to settle')
+    await settle()
+
+    const header = document.body.querySelector('[data-testid="battle-drawer"] header')!
+
+    // Mine: the fixture's six, four of them seen. Theirs: four registered,
+    // two seen.
+    expect(party(header, 0)).toMatchObject({ drawn: 6, absent: 2 })
+    expect(party(header, 1)).toMatchObject({ drawn: 4, absent: 2 })
   })
 })

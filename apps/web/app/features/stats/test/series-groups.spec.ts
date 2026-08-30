@@ -16,9 +16,11 @@ function game(over: Partial<RecentBattle> & { replayId: string }): RecentBattle 
     result: 'win',
     ratingDelta: null,
     myBring: 'a|b|c|d',
+    myTeam: 'a|b|c|d|e|f',
     opponentUsername: 'XwingVGC',
     turnCount: 12,
     opponentBring: 'e|f|g|h',
+    opponentTeam: 'e|f|g|h|i|j',
     ...over,
   }
 }
