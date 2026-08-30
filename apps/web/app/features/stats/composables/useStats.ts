@@ -2,7 +2,7 @@ import { effectScope } from 'vue'
 import type { EffectScope } from 'vue'
 import { toID } from 'replay-parser'
 import type { TeamRef } from '../utils/teamRoute'
-import { overallTally, resultUnits, teamStats } from '../utils/battleStats'
+import { aggregateFor, overallTally, resultUnits, teamStats } from '../utils/battleStats'
 import type { StatsRow } from '~/shared/api/battles'
 
 /**
@@ -307,14 +307,20 @@ export function useStats() {
     adoptFormat(team?.formatId)
   }
 
-  /** Games or series, in the order they were played — the curve's x-axis. */
-  const units = computed(() => resultUnits(battles.value, filters.value.aggregate))
+  /**
+   * Games or series, decided by the format rather than by the reader: a Bo3
+   * format is counted per series and a ladder format per game (`aggregateFor`).
+   */
+  const aggregate = computed(() => aggregateFor(filters.value.formatId))
 
-  const overall = computed(() => overallTally(battles.value, filters.value.aggregate))
+  /** Games or series, in the order they were played — the curve's x-axis. */
+  const units = computed(() => resultUnits(battles.value, aggregate.value))
+
+  const overall = computed(() => overallTally(battles.value, aggregate.value))
 
   const teams = computed(() =>
     teamStats(battles.value, {
-      aggregate: filters.value.aggregate,
+      aggregate: aggregate.value,
       includeIncompleteBrings: filters.value.includeIncompleteBrings,
     }),
   )
@@ -322,6 +328,7 @@ export function useStats() {
   return {
     filters,
     battles,
+    aggregate,
     units,
     overall,
     teams,

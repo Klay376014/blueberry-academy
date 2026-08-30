@@ -1,5 +1,3 @@
-import type { Aggregate } from '../utils/battleStats'
-
 /**
  * The dashboard's global filters, shared by both sections rather than one set
  * each — see docs/specs/2026-08-16-replay-analytics-design.md §7.
@@ -36,8 +34,6 @@ export interface StatsFilters {
   from: string | null
   to: string | null
 
-  aggregate: Aggregate
-
   /** Whether bring groupings admit games where a pick never appeared. */
   includeIncompleteBrings: boolean
 }
@@ -48,7 +44,6 @@ export function defaultStatsFilters(): StatsFilters {
     formatId: null,
     from: null,
     to: null,
-    aggregate: 'game',
     includeIncompleteBrings: false,
   }
 }

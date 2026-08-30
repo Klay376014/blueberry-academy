@@ -145,6 +145,28 @@ describe('the dashboard', () => {
     expect(page.findAll('[data-testid="filter-format"] option')).toHaveLength(2)
   })
 
+  it('says series where the number it shows is a series count', async () => {
+    // The card's sample size is the team's tally, which is series under a Bo3
+    // format. "1 games" beside a team that played three would be a lie of the
+    // same kind the summary tile was fixed for.
+    const page = await mountSuspended(Dashboard)
+    await pickFormat(page, FORMATS.EVENT)
+
+    const text = page.findAll('[data-testid="team-card"]').map((card) => card.text())
+
+    expect(text.every((entry) => /\d+ series/.test(entry))).toBe(true)
+    for (const entry of text) expect(entry).not.toMatch(/\d+ games/)
+  })
+
+  it('does not ask which unit to count in, having already been told', async () => {
+    // The format settles it: a ladder Bo1 format and its Bo3 counterpart are
+    // different formats, so choosing one chooses the unit.
+    const page = await mountSuspended(Dashboard)
+
+    expect(page.find('[data-testid="filter-by-game"]').exists()).toBe(false)
+    expect(page.find('[data-testid="filter-by-series"]').exists()).toBe(false)
+  })
+
   it('names Pokémon in English, from the generated table rather than a locale', async () => {
     const page = await mountSuspended(Dashboard)
 

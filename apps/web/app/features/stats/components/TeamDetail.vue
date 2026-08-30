@@ -15,7 +15,7 @@ const { t } = useI18n()
 const route = useRoute()
 const localePath = useLocalePath()
 
-const { teams, loading, error, loaded, whenLoaded, focusTeam } = useStats()
+const { teams, aggregate: unit, loading, error, loaded, whenLoaded, focusTeam } = useStats()
 
 await whenLoaded()
 
@@ -120,7 +120,7 @@ const next = computed(() => stepTo(1))
           <dl class="grid grid-cols-2 gap-3">
             <div class="rounded-md border border-border p-2">
               <dt class="font-mono text-[10px] tracking-wider text-muted-foreground uppercase">
-                {{ t('teams.games') }}
+                {{ t(unit === 'series' ? 'teams.seriesCount' : 'teams.games') }}
               </dt>
               <dd class="font-mono text-2xl tabular-nums" data-testid="team-games">
                 {{ team.tally.games }}

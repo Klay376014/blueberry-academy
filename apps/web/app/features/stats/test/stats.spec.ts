@@ -303,18 +303,21 @@ describe('the global filters', () => {
     expect(battles().reads).toHaveLength(1)
   })
 
-  it('re-counts without re-reading when the aggregation is switched', async () => {
-    const { filters, whenLoaded, overall } = useStats()
+  it('re-counts without re-reading when the format changes the unit', async () => {
+    const { filters, whenLoaded, overall, aggregate } = useStats()
     await whenLoaded()
 
-    // The Bo3 event, which is where the series are: three games of one series
-    // and two of another.
-    filters.value = { ...filters.value, formatId: FORMATS.EVENT }
-    expect(overall.value).toMatchObject({ games: 5, wins: 3, losses: 2 })
+    // The ladder format is Bo1, so it is counted per game.
+    filters.value = { ...filters.value, formatId: FORMATS.LADDER }
+    expect(aggregate.value).toBe('game')
 
-    filters.value = { ...filters.value, aggregate: 'series' }
+    // The Bo3 event, which is where the series are: three games of one series
+    // and two of another. Choosing it is what switches the unit — there is no
+    // separate control, because the format already answers the question.
+    filters.value = { ...filters.value, formatId: FORMATS.EVENT }
 
     // The 2-1 is one win; the series held in part is a tie.
+    expect(aggregate.value).toBe('series')
     expect(overall.value).toMatchObject({ games: 2, wins: 1, ties: 1 })
     expect(battles().reads).toHaveLength(1)
   })
@@ -344,9 +347,9 @@ describe('the global filters', () => {
     const second = useStats()
 
     await first.whenLoaded()
-    first.filters.value = { ...first.filters.value, aggregate: 'series' }
+    first.filters.value = { ...first.filters.value, formatId: FORMATS.EVENT }
 
-    expect(second.filters.value.aggregate).toBe('series')
+    expect(second.filters.value.formatId).toBe(FORMATS.EVENT)
     expect(second.overall.value).toEqual(first.overall.value)
     expect(second.battles.value).toHaveLength(first.battles.value.length)
   })

@@ -1,4 +1,4 @@
-import type { BattleDetails, BattleResult } from '~/shared/api/battles'
+import type { BattleDetails, BattleResult, StatsRow } from '~/shared/api/battles'
 
 /**
  * The most recent games under the filters already on screen, with the little
@@ -30,34 +30,48 @@ export interface RecentBattle {
 export function useRecentBattles() {
   const user = useCurrentUser()
   const storedBattles = useBattles()
-  const { battles } = useStats()
+  const { battles, aggregate } = useStats()
 
   const extras = useState<Map<string, BattleDetails>>('recent-battle-extras', () => new Map())
   const loading = useState('recent-battles-loading', () => false)
   const error = useState<Error | null>('recent-battles-error', () => null)
 
   /**
-   * The filtered games, newest first. The stats read hands them over oldest
-   * first.
+   * The filtered games, newest first, in as many as the limit allows. The
+   * stats read hands them over oldest first.
    *
-   * The limit never cuts a series in half. The list numbers a series' games by
-   * their position in it, and so does the drawer — but the drawer reads the
-   * whole series from the database, so a list holding only the last two games
-   * of a Bo3 would call one of them game 1 while the drawer it opens calls the
-   * same replay game 2. Finishing the series costs nothing: these rows are
-   * already in memory.
+   * The limit counts what the format is counted in — twenty series under a
+   * Bo3, twenty games on the ladder — so a Bo3 account sees as many opponents
+   * as a ladder one does rather than a third as many.
+   *
+   * A unit is a run of adjacent rows, so two series played interleaved would
+   * count as three rather than two. Ordered by `played_at`, that takes playing
+   * two Bo3s at once, and the list would draw them as three cards either way.
+   *
+   * Either way it stops between series and never inside one. The list numbers
+   * a series' games by their position in it, and so does the drawer — but the
+   * drawer reads the whole series from the database, so a list holding only
+   * the last two games of a Bo3 would call one of them game 1 while the drawer
+   * it opens calls the same replay game 2.
    */
   const newest = computed(() => {
     const ordered = battles.value.toSorted((a, b) => (a.played_at < b.played_at ? 1 : -1))
-    const shown = ordered.slice(0, LIMIT)
-    const last = shown.at(-1)
+    const shown: StatsRow[] = []
+    let counted = 0
 
-    if (last?.series_id == null) return shown
+    for (const row of ordered) {
+      const continues = row.series_id !== null && shown.at(-1)?.series_id === row.series_id
 
-    // Ordered by played_at, so the rest of that series is what comes next.
-    for (const row of ordered.slice(LIMIT)) {
-      if (row.series_id !== last.series_id) break
+      if (!continues) {
+        if (counted >= LIMIT) break
+        counted += 1
+      }
+
       shown.push(row)
+      // A game under a format counted per game is a unit of its own; under a
+      // Bo3 format the whole series is the one unit, so it is only counted
+      // where the run starts.
+      if (aggregate.value === 'game' && continues) counted += 1
     }
 
     return shown

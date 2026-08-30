@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { aggregateFor } from '../utils/battleStats'
 import type { TeamStats } from '../utils/battleStats'
 import { bestOfLabel } from '~/shared/utils/formatLabel'
 import { teamRouteId } from '../utils/teamRoute'
@@ -18,6 +19,13 @@ const props = defineProps<{ team: TeamStats; dense?: boolean; current?: boolean 
 
 const { t } = useI18n()
 const localePath = useLocalePath()
+
+// The tally is series under a Bo3 format, so the sample size has to say which
+// it is counting. Read off the team's own format rather than passed in: the
+// format is what decides the unit.
+const sample = computed(() =>
+  aggregateFor(props.team.formatId) === 'series' ? 'teams.sampleSeries' : 'teams.sample',
+)
 
 const ranking = computed(() =>
   t('teams.ranking', { score: Math.round(props.team.tally.score * 100) }),
@@ -50,7 +58,7 @@ const to = computed(() =>
         {{ team.tally.wins }}–{{ team.tally.losses }}
       </span>
       <span class="font-mono text-xs text-muted-foreground tabular-nums">
-        {{ t('teams.sample', { games: team.tally.games }) }}
+        {{ t(sample, { games: team.tally.games }) }}
       </span>
     </div>
 

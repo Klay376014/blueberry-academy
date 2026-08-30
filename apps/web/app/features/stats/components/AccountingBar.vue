@@ -17,14 +17,16 @@ const props = defineProps<{ team: TeamStats }>()
 
 const { t } = useI18n()
 
+// Against the team's games rather than its tally: the tally is series under a
+// Bo3 format, and the brings below are always games.
 const unfiled = computed(
-  () => props.team.tally.games - props.team.brings.reduce((sum, b) => sum + b.tally.games, 0),
+  () => props.team.gamesPlayed - props.team.brings.reduce((sum, b) => sum + b.tally.games, 0),
 )
 
 const segments = computed(() =>
   props.team.brings.map((bring) => ({
     signature: bring.signature,
-    width: (bring.tally.games / props.team.tally.games) * 100,
+    width: (bring.tally.games / props.team.gamesPlayed) * 100,
     fill: rateFill(bring.tally.winRate),
     label: t('teams.segment', {
       bring: bring.signature.split('|').map(speciesName).join(', '),
@@ -48,7 +50,7 @@ const segments = computed(() =>
       <div
         v-if="unfiled > 0"
         class="bg-unfiled-hatch h-full"
-        :style="{ width: `${(unfiled / team.tally.games) * 100}%` }"
+        :style="{ width: `${(unfiled / team.gamesPlayed) * 100}%` }"
         :title="t('teams.unfiledShort', { games: unfiled })"
         data-testid="unfiled-slice"
       />

@@ -156,10 +156,10 @@ describe('the recent form section', () => {
   it('counts a run by game even when the page is counting series', async () => {
     const page = await mountSuspended(Dashboard)
 
+    // A Bo3 format, which is counted per series — the streak is not.
     useStatsFilters().value = {
       ...useStatsFilters().value,
       formatId: 'gen9championsvgc2026regmbbo3',
-      aggregate: 'series',
     }
     await nextTick()
 

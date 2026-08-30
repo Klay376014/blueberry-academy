@@ -204,3 +204,53 @@ describe('where the twenty games stop', () => {
     expect(useRecentBattles().recent.value).toHaveLength(20)
   })
 })
+
+describe('what twenty means under a Bo3 format', () => {
+  /** Twenty-two two-game series in the Bo3 format. */
+  function seriesRuns() {
+    return Array.from({ length: 22 }, (_, index) => index).flatMap((index) => [
+      {
+        ...WITH_DETAILS[0]!,
+        replay_id: `s${index}-g1`,
+        played_at: `2026-08-${String(index + 1).padStart(2, '0')}T10:00:00Z`,
+        format_id: FORMATS.EVENT,
+        series_id: `series-${index}`,
+      },
+      {
+        ...WITH_DETAILS[0]!,
+        replay_id: `s${index}-g2`,
+        played_at: `2026-08-${String(index + 1).padStart(2, '0')}T11:00:00Z`,
+        format_id: FORMATS.EVENT,
+        series_id: `series-${index}`,
+      },
+    ])
+  }
+
+  it('counts twenty series rather than twenty games', async () => {
+    // A Bo3 format is counted per series everywhere else on the page, and a
+    // list that stopped at twenty games would show ten opponents where a
+    // ladder account sees twenty.
+    battles().rows = seriesRuns()
+    useStatsFilters().value = { ...useStatsFilters().value, formatId: FORMATS.EVENT }
+
+    await useStats().whenLoaded()
+
+    const shown = useRecentBattles().recent.value
+
+    expect(new Set(shown.map((battle) => battle.seriesId)).size).toBe(20)
+    expect(shown).toHaveLength(40)
+  })
+
+  it('still counts games under a ladder format', async () => {
+    battles().rows = seriesRuns().map((row) => ({
+      ...row,
+      format_id: FORMATS.LADDER,
+      series_id: null,
+    }))
+    useStatsFilters().value = { ...useStatsFilters().value, formatId: FORMATS.LADDER }
+
+    await useStats().whenLoaded()
+
+    expect(useRecentBattles().recent.value).toHaveLength(20)
+  })
+})
