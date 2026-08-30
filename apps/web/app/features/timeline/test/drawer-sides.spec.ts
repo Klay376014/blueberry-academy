@@ -24,8 +24,8 @@ function battle(overrides: Partial<DrawerBattle> = {}): DrawerBattle {
     myBring: 'a|b|c|d',
     opponentBring: 'w|x|y|z',
     sides: {
-      p1: { username: 'NotLittleStar', bring: 'a|b|c|d' },
-      p2: { username: 'Somebody', bring: 'w|x|y|z' },
+      p1: { username: 'NotLittleStar', bring: 'a|b|c|d', team: 'a|b|c|d|e|f' },
+      p2: { username: 'Somebody', bring: 'w|x|y|z', team: 'u|v|w|x|y|z' },
     },
     winner: 'p1',
     parseError: null,
@@ -53,8 +53,18 @@ describe('a battle of mine', () => {
     const sides = drawerSides(battle())
 
     expect(sides.attributed).toBe(true)
-    expect(sides.left).toEqual({ name: 'NotLittleStar', bring: 'a|b|c|d', won: false })
-    expect(sides.right).toEqual({ name: 'Somebody', bring: 'w|x|y|z', won: false })
+    expect(sides.left).toEqual({
+      name: 'NotLittleStar',
+      bring: 'a|b|c|d',
+      team: 'a|b|c|d|e|f',
+      won: false,
+    })
+    expect(sides.right).toEqual({
+      name: 'Somebody',
+      bring: 'w|x|y|z',
+      team: 'u|v|w|x|y|z',
+      won: false,
+    })
   })
 
   it('is still mine on the left when the side of mine is p2', () => {
@@ -87,8 +97,18 @@ describe('a spectated battle', () => {
     const sides = drawerSides(spectated())
 
     expect(sides.attributed).toBe(false)
-    expect(sides.left).toEqual({ name: 'NotLittleStar', bring: 'a|b|c|d', won: true })
-    expect(sides.right).toEqual({ name: 'Somebody', bring: 'w|x|y|z', won: false })
+    expect(sides.left).toEqual({
+      name: 'NotLittleStar',
+      bring: 'a|b|c|d',
+      team: 'a|b|c|d|e|f',
+      won: true,
+    })
+    expect(sides.right).toEqual({
+      name: 'Somebody',
+      bring: 'w|x|y|z',
+      team: 'u|v|w|x|y|z',
+      won: false,
+    })
   })
 
   it('marks whichever side the log said won', () => {
@@ -121,7 +141,10 @@ describe('a spectated battle', () => {
     const sides = drawerSides(
       spectated({
         parseError: 'unexpected end of log',
-        sides: { p1: { username: null, bring: null }, p2: { username: null, bring: null } },
+        sides: {
+          p1: { username: null, bring: null, team: null },
+          p2: { username: null, bring: null, team: null },
+        },
       }),
     )
 
@@ -133,11 +156,51 @@ describe('a spectated battle', () => {
   it('carries a nameless side through as nameless', () => {
     const sides = drawerSides(
       spectated({
-        sides: { p1: { username: null, bring: null }, p2: { username: null, bring: null } },
+        sides: {
+          p1: { username: null, bring: null, team: null },
+          p2: { username: null, bring: null, team: null },
+        },
       }),
     )
 
     expect(sides.left.name).toBeNull()
     expect(sides.right.bring).toBeNull()
+  })
+})
+
+describe('the registered six behind each side', () => {
+  it('takes each side its own six, mine on the left', () => {
+    // Six-into-four is read against the six, and the header is where a battle
+    // is looked at closely enough to ask which two stayed home.
+    const sides = drawerSides(battle())
+
+    expect(sides.left.team).toBe('a|b|c|d|e|f')
+    expect(sides.right.team).toBe('u|v|w|x|y|z')
+  })
+
+  it('follows the sides round when p2 is mine', () => {
+    const sides = drawerSides(battle({ mySide: 'p2', myBring: 'w|x|y|z' }))
+
+    expect(sides.left.team).toBe('u|v|w|x|y|z')
+    expect(sides.right.team).toBe('a|b|c|d|e|f')
+  })
+
+  it('reads p1 and p2 in order for a battle with no side of mine', () => {
+    const sides = drawerSides(spectated())
+
+    expect(sides.left.team).toBe('a|b|c|d|e|f')
+    expect(sides.right.team).toBe('u|v|w|x|y|z')
+  })
+
+  it('leaves the six null on a row whose details predate it', () => {
+    // Then the header draws the bring alone, exactly as it does today.
+    const older = battle({
+      sides: {
+        p1: { username: 'NotLittleStar', bring: 'a|b|c|d', team: null },
+        p2: { username: 'Somebody', bring: 'w|x|y|z', team: null },
+      },
+    })
+
+    expect(drawerSides(older).left.team).toBeNull()
   })
 })

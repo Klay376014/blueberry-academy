@@ -201,6 +201,20 @@ describe('one team in detail', () => {
     expect(page.html()).not.toContain('calyrexshadow|incineroar|urshifu')
   })
 
+  it('draws a bring against the six it was picked from', async () => {
+    // The point of a bring row is which four of the six went; the other two
+    // have to be on screen for that to be readable, and the team already knows
+    // them — no new data is needed here.
+    const page = await mountSuspended(TeamDetail)
+
+    const bring = page.find('[data-testid="bring"]')
+    const party = bring.find('span[role="img"]')
+
+    // The registered six, with the two that were left behind named as absent.
+    expect(party.findAll('span[title]')).toHaveLength(6)
+    expect(party.attributes('aria-label')).toContain('(did not appear)')
+  })
+
   it('explains the games the brings do not account for', async () => {
     const page = await mountSuspended(TeamDetail)
 

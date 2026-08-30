@@ -44,8 +44,16 @@ function watched(replayId: string, playedAt: string, winner: string | null = 'p1
     details: {
       winner,
       sides: {
-        p1: { username: 'Alice', bringSignature: 'pikachu|eevee' },
-        p2: { username: 'Bob', bringSignature: 'snorlax|gengar' },
+        p1: {
+          username: 'Alice',
+          bringSignature: 'pikachu|eevee',
+          teamSignature: 'blastoise|eevee|pikachu',
+        },
+        p2: {
+          username: 'Bob',
+          bringSignature: 'snorlax|gengar',
+          teamSignature: 'gengar|meowth|snorlax',
+        },
       },
     },
   }
@@ -176,6 +184,21 @@ describe('the spectated section', () => {
     // Format and turn count, the way the recent list carries them.
     expect(first).toContain('BO1')
     expect(first).toContain('17')
+  })
+
+  it('draws each player’s registered six, marking who never appeared', async () => {
+    // Nobody here is "me", so both sides are read the same way — and learning
+    // how a strong player picks four is the reason to keep their battles.
+    const page = await mountHome()
+
+    const parties = rows(page)[0]!
+      .findAll('span[role="img"]')
+      .map((party: { attributes: (name: string) => string | undefined }) =>
+        party.attributes('aria-label'),
+      )
+
+    expect(parties[0]).toContain('Blastoise (did not appear)')
+    expect(parties[1]).toContain('Meowth (did not appear)')
   })
 
   it('draws both brings, and marks the side the log said won', async () => {

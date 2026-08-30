@@ -179,6 +179,7 @@
       "loss": "L",
       "tie": "T"
     },
+    "absentPokemon": "{pokemon} (did not appear)",
     "recent": {
       "title": "Recent battles",
       "turns": "{count} turns",

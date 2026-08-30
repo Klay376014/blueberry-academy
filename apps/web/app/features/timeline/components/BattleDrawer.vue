@@ -163,7 +163,7 @@ const RESULT_TONE = {
              on screen that says who won. This row wraps instead of clipping,
              and it is in the same left-to-right order as the names above it. -->
         <div v-if="battle && sides" class="flex flex-wrap items-center gap-2">
-          <SpeciesParty :signature="sides.left.bring" :size="36" />
+          <SpeciesParty :signature="sides.left.team" :bring="sides.left.bring" :size="36" />
           <span
             v-if="sides.left.won"
             class="text-primary font-mono text-[10px] tracking-widest uppercase"
@@ -174,7 +174,7 @@ const RESULT_TONE = {
           <span class="text-muted-foreground font-mono text-[10px]">
             {{ t('battle.drawer.versus') }}
           </span>
-          <SpeciesParty :signature="sides.right.bring" :size="36" />
+          <SpeciesParty :signature="sides.right.team" :bring="sides.right.bring" :size="36" />
           <span
             v-if="sides.right.won"
             class="text-primary font-mono text-[10px] tracking-widest uppercase"

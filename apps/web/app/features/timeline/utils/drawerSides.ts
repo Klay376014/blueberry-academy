@@ -17,6 +17,12 @@ export interface DrawerSide {
   name: string | null
   /** The Pokémon that appeared, as a bring signature. */
   bring: string | null
+  /**
+   * The registered six this side chose from, or null on a row stored before
+   * both sides were kept. Read off `sides` either way: the attribution columns
+   * carry my bring but not my six, and `details` carries both players'.
+   */
+  team: string | null
   /** This side won, and the header marks it. */
   won: boolean
 }
@@ -49,10 +55,22 @@ export function drawerSides(battle: DrawerBattle): DrawerSides {
   // strangers where there is no parse at all. The body says what actually
   // happened; the header keeps the shape it had before this existed.
   if (battle.mySide !== null || battle.parseError !== null) {
+    const theirs = battle.mySide === 'p2' ? 'p1' : 'p2'
+
     return {
       attributed: true,
-      left: { name: battle.myUsername, bring: battle.myBring, won: false },
-      right: { name: battle.opponentUsername, bring: battle.opponentBring, won: false },
+      left: {
+        name: battle.myUsername,
+        bring: battle.myBring,
+        team: battle.mySide ? battle.sides[battle.mySide].team : null,
+        won: false,
+      },
+      right: {
+        name: battle.opponentUsername,
+        bring: battle.opponentBring,
+        team: battle.sides[theirs].team,
+        won: false,
+      },
       tie: false,
     }
   }
@@ -63,6 +81,7 @@ export function drawerSides(battle: DrawerBattle): DrawerSides {
     // and the header has a column of its own to label.
     name: battle.sides[side].username,
     bring: battle.sides[side].bring,
+    team: battle.sides[side].team,
     won: winner === side,
   })
 

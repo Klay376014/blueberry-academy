@@ -142,6 +142,11 @@ export interface BattleSide {
   username: string | null
   /** The Pokémon that appeared, as a bring signature. */
   bring: string | null
+  /**
+   * The registered six, as a team signature. Null on a row written before both
+   * sides were kept, which is why every reader of it has a fallback.
+   */
+  team: string | null
 }
 
 /** One row as re-attribution reads it: its id, its `details`, its answers so far. */
@@ -156,6 +161,8 @@ export interface BattleDetails {
   opponentUsername: string | null
   turnCount: number | null
   opponentBring: string | null
+  /** The opponent's registered six, for the two of them that stayed home. */
+  opponentTeam: string | null
 }
 
 export interface Battles {
@@ -491,7 +498,9 @@ function* chunked(ids: string[]): Generator<string[]> {
  */
 interface StoredSides {
   winner?: unknown
-  sides?: Partial<Record<SideId, { username?: unknown; bringSignature?: unknown }>>
+  sides?: Partial<
+    Record<SideId, { username?: unknown; bringSignature?: unknown; teamSignature?: unknown }>
+  >
 }
 
 /** A stored row as `detailsOf` reads it. */
@@ -527,6 +536,10 @@ function sidesOf(row: StoredDetailRow): Record<SideId, BattleSide> {
   const sideOf = (side: SideId): BattleSide => ({
     username: textOf(row.details?.sides?.[side]?.username),
     bring: textOf(row.details?.sides?.[side]?.bringSignature),
+    // Written by the ingest since both sides were first kept, and read here
+    // for the first time: which two a player left at home is only visible
+    // against the six they registered.
+    team: textOf(row.details?.sides?.[side]?.teamSignature),
   })
 
   return { p1: sideOf('p1'), p2: sideOf('p2') }
@@ -540,10 +553,13 @@ function sidesOf(row: StoredDetailRow): Record<SideId, BattleSide> {
  * and the neutral p1/p2 view are the same derivation rather than two that
  * agree today (#63).
  */
-function opponentBringOf(row: StoredDetailRow, sides: Record<SideId, BattleSide>): string | null {
+function opponentSideOf(
+  row: StoredDetailRow,
+  sides: Record<SideId, BattleSide>,
+): BattleSide | null {
   const theirs = row.my_side === 'p1' ? 'p2' : row.my_side === 'p2' ? 'p1' : null
 
-  return theirs ? sides[theirs].bring : null
+  return theirs ? sides[theirs] : null
 }
 
 /** Who the log said won, or null for anything that is not one of its answers. */
@@ -554,10 +570,13 @@ function winnerOf(row: StoredRecordRow): SideId | 'tie' | null {
 }
 
 export function battleDetailsOf(row: StoredDetailRow): BattleDetails {
+  const opponent = opponentSideOf(row, sidesOf(row))
+
   return {
     opponentUsername: row.opponent_username,
     turnCount: row.turn_count,
-    opponentBring: opponentBringOf(row, sidesOf(row)),
+    opponentBring: opponent?.bring ?? null,
+    opponentTeam: opponent?.team ?? null,
   }
 }
 
@@ -578,7 +597,7 @@ export function battleRecordOf(row: StoredRecordRow): BattleRecord {
     opponentUsername: row.opponent_username,
     turnCount: row.turn_count,
     myBring: row.bring_signature,
-    opponentBring: opponentBringOf(row, sides),
+    opponentBring: opponentSideOf(row, sides)?.bring ?? null,
     sides,
     winner: winnerOf(row),
     parseError: row.parse_error,

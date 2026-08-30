@@ -179,6 +179,7 @@
       "loss": "敗",
       "tie": "平"
     },
+    "absentPokemon": "{pokemon}（未出場）",
     "recent": {
       "title": "最近對戰",
       "turns": "{count} 回合",

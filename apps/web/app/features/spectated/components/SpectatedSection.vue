@@ -126,7 +126,11 @@ const day = (playedAt: string) => new Date(playedAt).toLocaleDateString()
                reason the drawer's header marks it here: that line truncates,
                and the mark would be the first thing the ellipsis ate. -->
           <span class="flex flex-wrap items-center gap-1">
-            <SpeciesParty :signature="battle.sides.p1.bring" :size="33" />
+            <SpeciesParty
+              :signature="battle.sides.p1.team"
+              :bring="battle.sides.p1.bring"
+              :size="33"
+            />
             <span
               v-if="battle.winner === 'p1'"
               class="text-primary font-mono text-[10px] tracking-widest uppercase"
@@ -137,7 +141,11 @@ const day = (playedAt: string) => new Date(playedAt).toLocaleDateString()
             <span class="text-muted-foreground px-1 font-mono text-[10px]">
               {{ t('battle.drawer.versus') }}
             </span>
-            <SpeciesParty :signature="battle.sides.p2.bring" :size="33" />
+            <SpeciesParty
+              :signature="battle.sides.p2.team"
+              :bring="battle.sides.p2.bring"
+              :size="33"
+            />
             <span
               v-if="battle.winner === 'p2'"
               class="text-primary font-mono text-[10px] tracking-widest uppercase"

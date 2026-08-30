@@ -154,7 +154,7 @@ const next = computed(() => stepTo(1))
               data-testid="bring"
             >
               <div class="flex flex-wrap items-center justify-between gap-2">
-                <SpeciesParty :signature="bring.signature" :size="39" />
+                <SpeciesParty :signature="team.signature" :bring="bring.signature" :size="39" />
                 <span class="font-mono tabular-nums">
                   {{ bring.tally.wins }}–{{ bring.tally.losses }}
                 </span>
