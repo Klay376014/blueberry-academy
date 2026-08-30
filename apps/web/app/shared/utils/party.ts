@@ -24,12 +24,13 @@ export interface PartyMember {
  * before both sides were kept still have one.
  */
 export function partyOf(team: string | null, bring: string | null): PartyMember[] {
-  const appeared = new Set(idsOf(bring))
+  const seen = idsOf(bring)
+  const appeared = new Set(seen)
   const six = idsOf(team)
 
-  if (!six.length) return [...appeared].map((id) => ({ id, appeared: true }))
+  if (!six.length) return seen.map((id) => ({ id, appeared: true }))
 
-  const extra = [...appeared].filter((id) => !six.includes(id))
+  const extra = seen.filter((id) => !six.includes(id))
 
   return [...six, ...extra].map((id) => ({ id, appeared: appeared.has(id) }))
 }

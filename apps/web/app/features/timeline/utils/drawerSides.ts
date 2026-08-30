@@ -55,7 +55,10 @@ export function drawerSides(battle: DrawerBattle): DrawerSides {
   // strangers where there is no parse at all. The body says what actually
   // happened; the header keeps the shape it had before this existed.
   if (battle.mySide !== null || battle.parseError !== null) {
-    const theirs = battle.mySide === 'p2' ? 'p1' : 'p2'
+    // Both sides only once there is a side of mine. An unparsed row reaches
+    // here with `mySide` null and an empty `details`, and naming p2 "theirs"
+    // there would hand the opponent's column a six it has no claim to.
+    const theirs = battle.mySide === 'p1' ? 'p2' : battle.mySide === 'p2' ? 'p1' : null
 
     return {
       attributed: true,
@@ -68,7 +71,7 @@ export function drawerSides(battle: DrawerBattle): DrawerSides {
       right: {
         name: battle.opponentUsername,
         bring: battle.opponentBring,
-        team: battle.sides[theirs].team,
+        team: theirs ? battle.sides[theirs].team : null,
         won: false,
       },
       tie: false,

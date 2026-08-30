@@ -192,6 +192,19 @@ describe('the registered six behind each side', () => {
     expect(sides.right.team).toBe('u|v|w|x|y|z')
   })
 
+  it('gives the opponent no six on a row that has no side of mine', () => {
+    // A parse error puts a side-less row down the attributed branch, where
+    // "theirs" would otherwise mean p2 by default — and p2's registered six is
+    // not the opponent's when there is no me to be the opponent of. A failed
+    // re-parse can leave `details` populated alongside the error, so this is
+    // guarded rather than left to `unparsedRowOf` storing `details: {}`.
+    const sides = drawerSides(spectated({ parseError: 'unexpected end of log' }))
+
+    expect(sides.attributed).toBe(true)
+    expect(sides.right.team).toBeNull()
+    expect(sides.left.team).toBeNull()
+  })
+
   it('leaves the six null on a row whose details predate it', () => {
     // Then the header draws the bring alone, exactly as it does today.
     const older = battle({
