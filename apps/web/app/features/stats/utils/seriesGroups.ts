@@ -76,6 +76,11 @@ function headerOf(games: RecentBattle[]): SeriesHeader {
  *
  * Lone games are kept together rather than boxed one by one — an account that
  * plays no Bo3 has one list today and should keep it.
+ *
+ * `key` is the replay id of the block's first game rather than the group's own
+ * key: a replay id appears once in the whole list, while a series id can head
+ * two blocks at once when two series were played interleaved, and two blocks
+ * under one key is a duplicate `v-for` key.
  */
 export type RecentBlock =
   | { kind: 'series'; key: string; group: RecentGroup & { series: SeriesHeader } }
@@ -85,15 +90,17 @@ export function intoBlocks(groups: RecentGroup[]): RecentBlock[] {
   const blocks: RecentBlock[] = []
 
   for (const group of groups) {
+    const first = group.games[0]!.replayId
+
     if (group.series) {
-      blocks.push({ kind: 'series', key: group.key, group: { ...group, series: group.series } })
+      blocks.push({ kind: 'series', key: first, group: { ...group, series: group.series } })
       continue
     }
 
     const last = blocks.at(-1)
 
     if (last?.kind === 'games') last.games.push(...group.games)
-    else blocks.push({ kind: 'games', key: group.key, games: [...group.games] })
+    else blocks.push({ kind: 'games', key: first, games: [...group.games] })
   }
 
   return blocks

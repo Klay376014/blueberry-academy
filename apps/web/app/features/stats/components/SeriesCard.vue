@@ -77,7 +77,10 @@ const RESULT_TONE = {
       @click="() => battleRoute.open(game.replayId)"
     >
       <!-- Derived from the order, because the log has no game number: the
-           drawer's switcher numbers the same games the same way. -->
+           drawer's switcher numbers the same games the same way. It reads the
+           whole series from the database though, so the two agree only while
+           the list holds the whole series — which the limit guarantees and a
+           date filter can still break. -->
       <span
         class="border-border text-muted-foreground shrink-0 rounded-full border px-1.5 font-mono text-[10px]"
       >
