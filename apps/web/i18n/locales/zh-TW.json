@@ -180,7 +180,9 @@
     "recent": {
       "title": "最近對戰",
       "turns": "{count} 回合",
-      "empty": "目前的篩選條件下沒有任何對戰。"
+      "empty": "目前的篩選條件下沒有任何對戰。",
+      "seriesScore": "{wins}–{losses}",
+      "seriesLabel": "與 {opponent} 的系列賽，{count} 場"
     },
     "drawer": {
       "about": "這一局的每個回合，攤平成一份清單。",

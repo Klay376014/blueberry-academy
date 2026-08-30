@@ -161,3 +161,46 @@ describe('the columns the stats read leaves out', () => {
     signIn()
   })
 })
+
+describe('where the twenty games stop', () => {
+  /**
+   * A run of games in one format, newest last, with the oldest three a series.
+   * Twenty-two games puts that series across the limit: two of its games are
+   * inside the newest twenty and the first one is not.
+   */
+  function straddling() {
+    const games = Array.from({ length: 22 }, (_, index) => ({
+      ...WITH_DETAILS[0]!,
+      replay_id: `game-${index}`,
+      played_at: `2026-08-${String(index + 1).padStart(2, '0')}T10:00:00Z`,
+      format_id: FORMATS.LADDER,
+      series_id: index < 3 ? 'straddler' : null,
+    }))
+
+    return games
+  }
+
+  it('does not cut a series in half at the limit', async () => {
+    // The drawer numbers the whole series from the database, so a list holding
+    // only its last two games would call game 2 "game 1" while the drawer it
+    // opens calls the same replay "game 2".
+    battles().rows = straddling()
+
+    const stats = useStats()
+    await stats.whenLoaded()
+
+    const shown = useRecentBattles().recent.value.map((battle) => battle.replayId)
+
+    expect(shown).toContain('game-0')
+    expect(shown.filter((id) => id.startsWith('game-'))).toHaveLength(22)
+  })
+
+  it('still stops at twenty when nothing is cut', async () => {
+    battles().rows = straddling().map((row) => ({ ...row, series_id: null }))
+
+    const stats = useStats()
+    await stats.whenLoaded()
+
+    expect(useRecentBattles().recent.value).toHaveLength(20)
+  })
+})

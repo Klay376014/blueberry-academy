@@ -36,10 +36,32 @@ export function useRecentBattles() {
   const loading = useState('recent-battles-loading', () => false)
   const error = useState<Error | null>('recent-battles-error', () => null)
 
-  /** The filtered games, newest first. The stats read hands them over oldest first. */
-  const newest = computed(() =>
-    battles.value.toSorted((a, b) => (a.played_at < b.played_at ? 1 : -1)).slice(0, LIMIT),
-  )
+  /**
+   * The filtered games, newest first. The stats read hands them over oldest
+   * first.
+   *
+   * The limit never cuts a series in half. The list numbers a series' games by
+   * their position in it, and so does the drawer — but the drawer reads the
+   * whole series from the database, so a list holding only the last two games
+   * of a Bo3 would call one of them game 1 while the drawer it opens calls the
+   * same replay game 2. Finishing the series costs nothing: these rows are
+   * already in memory.
+   */
+  const newest = computed(() => {
+    const ordered = battles.value.toSorted((a, b) => (a.played_at < b.played_at ? 1 : -1))
+    const shown = ordered.slice(0, LIMIT)
+    const last = shown.at(-1)
+
+    if (last?.series_id == null) return shown
+
+    // Ordered by played_at, so the rest of that series is what comes next.
+    for (const row of ordered.slice(LIMIT)) {
+      if (row.series_id !== last.series_id) break
+      shown.push(row)
+    }
+
+    return shown
+  })
 
   const recent = computed<RecentBattle[]>(() =>
     newest.value.map((row) => {
