@@ -201,8 +201,18 @@ Bo1 的天梯格式與它的 Bo3 對應格式是**不同的格式**。所以只�
 
 移除三個 key：`filters.aggregate`、`filters.byGame`、`filters.bySeries`（§4）。
 
-新增 `summary.series`（「系列數」），與 `summary.games`（「場數」）由推導出來的單位
-擇一。`summary.streakWins` / `streakLosses` 不動，理由見 §4。
+單位會變的每個標籤都要有 series 版本，由推導出來的單位擇一：
+
+| game 版本                          | series 版本                                    | 用在           |
+| ---------------------------------- | ---------------------------------------------- | -------------- |
+| `summary.games`（場數）            | `summary.series`（系列數）                     | 摘要第一張卡   |
+| `teams.sample`（{games} 場）       | `teams.sampleSeries`（{games} 系列）           | 隊伍卡的樣本數 |
+| `teams.games`（場數）              | `teams.seriesCount`（系列數）                  | 隊伍詳情       |
+| `trend.windowOf` / `trend.winRate` | `trend.windowOfSeries` / `trend.winRateSeries` | 走勢圖的視窗   |
+
+**不跟著變的**：`teams.sample` 用在選出（bring）上的那一處、`teams.segment`、
+`teams.unfiledShort` —— 選出永遠以 game 計（Bo3 每一局選出不同，沒有系列層級的選出），
+所以那些「場」是準確的。`summary.streakWins` / `streakLosses` 同理，理由見 §4。
 
 對手名字、format 標籤照現況不進翻譯檔。
 

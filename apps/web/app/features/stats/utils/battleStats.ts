@@ -58,6 +58,14 @@ export interface TeamStats extends SignatureStats {
    * Bo3 brings a different four each game, so there is no series-level bring.
    */
   brings: SignatureStats[]
+
+  /**
+   * The team's decided games, whatever `tally` is counted in. The brings are
+   * counted by game, so the accounting bar needs a denominator in the same
+   * unit: under a Bo3 format `tally.games` is series, and three games filed
+   * under one series would draw as 300% of the bar.
+   */
+  gamesPlayed: number
 }
 
 /** A game, or a whole series, depending on the aggregation. */
@@ -242,6 +250,7 @@ export function teamStats(rows: StatsRow[], options: TeamStatsOptions): TeamStat
       signature: first.team_signature!,
       tally: tallyOf(resultUnits(teamRows, aggregate).map((unit) => unit.result)),
       brings,
+      gamesPlayed: resultUnits(teamRows, 'game').length,
     }
   })
 

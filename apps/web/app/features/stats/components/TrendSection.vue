@@ -89,7 +89,9 @@ function formatRating(value: number): string {
                 : 'text-muted-foreground hover:bg-accent'
             "
             :aria-pressed="windowSize === size"
-            :aria-label="t('trend.windowOf', { count: size })"
+            :aria-label="
+              t(aggregate === 'series' ? 'trend.windowOfSeries' : 'trend.windowOf', { count: size })
+            "
             :data-testid="`trend-window-${size}`"
             @click="() => (windowSize = size)"
           >
@@ -145,7 +147,11 @@ function formatRating(value: number): string {
         :points="winRatePoints"
         :x-domain
         :y-domain="[0, 1]"
-        :label="t('trend.winRate', { count: windowSize })"
+        :label="
+          t(aggregate === 'series' ? 'trend.winRateSeries' : 'trend.winRate', {
+            count: windowSize,
+          })
+        "
         color="var(--chart-1)"
         :format-value="formatRate"
         :reference="0.5"

@@ -44,6 +44,10 @@ export function useRecentBattles() {
    * Bo3, twenty games on the ladder — so a Bo3 account sees as many opponents
    * as a ladder one does rather than a third as many.
    *
+   * A unit is a run of adjacent rows, so two series played interleaved would
+   * count as three rather than two. Ordered by `played_at`, that takes playing
+   * two Bo3s at once, and the list would draw them as three cards either way.
+   *
    * Either way it stops between series and never inside one. The list numbers
    * a series' games by their position in it, and so does the drawer — but the
    * drawer reads the whole series from the database, so a list holding only
