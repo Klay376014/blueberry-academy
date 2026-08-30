@@ -762,6 +762,15 @@ describe('a Bo3 in the list', () => {
     expect(push).toHaveBeenCalledWith(expect.objectContaining({ query: { battle: 'series-1-g2' } }))
   })
 
+  it('counts the series beside the heading, not the games in them', async () => {
+    const page = await series()
+
+    // Two series in the fixture, of three games and two. A Bo3 format is
+    // counted per series everywhere else on the page.
+    expect(page.get('[data-testid="recent-count"]').text()).toBe('2')
+    expect(page.findAll('[data-testid="recent-battle"]')).toHaveLength(5)
+  })
+
   it('leaves a game that is on its own as a plain row', async () => {
     // The ladder format has no series at all, so nothing there is a card.
     const page = await mountDashboard()

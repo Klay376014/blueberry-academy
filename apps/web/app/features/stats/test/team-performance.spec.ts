@@ -145,6 +145,15 @@ describe('the dashboard', () => {
     expect(page.findAll('[data-testid="filter-format"] option')).toHaveLength(2)
   })
 
+  it('does not ask which unit to count in, having already been told', async () => {
+    // The format settles it: a ladder Bo1 format and its Bo3 counterpart are
+    // different formats, so choosing one chooses the unit.
+    const page = await mountSuspended(Dashboard)
+
+    expect(page.find('[data-testid="filter-by-game"]').exists()).toBe(false)
+    expect(page.find('[data-testid="filter-by-series"]').exists()).toBe(false)
+  })
+
   it('names Pokémon in English, from the generated table rather than a locale', async () => {
     const page = await mountSuspended(Dashboard)
 

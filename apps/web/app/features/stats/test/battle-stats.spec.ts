@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { overallTally, resultUnits, tallyOf, teamStats } from '../utils/battleStats'
+import { aggregateFor, overallTally, resultUnits, tallyOf, teamStats } from '../utils/battleStats'
 import type { StatsRow } from '~/shared/api/battles'
 import { FORMATS, SIGNATURES, STATS_ROWS } from '../../../../test/fixtures/stats-rows'
 
@@ -170,5 +170,27 @@ describe('grouping by team and by bring', () => {
     expect(overallTally(rows, 'game').games).toBe(12)
     // Two teams, each registered in two formats.
     expect(teamStats(rows, { aggregate: 'game' })).toHaveLength(4)
+  })
+})
+
+describe('which unit a format is counted in', () => {
+  it('counts a ladder format by game and a best-of format by series', () => {
+    // The format filter is single and required, and CONTEXT.md makes a Bo1
+    // ladder format and its Bo3 counterpart different formats — so choosing one
+    // settles the unit, and asking the reader again would be asking a question
+    // whose answer is already on screen.
+    expect(aggregateFor('gen9championsvgc2026regmb')).toBe('game')
+    expect(aggregateFor('gen9championsvgc2026regmbbo3')).toBe('series')
+  })
+
+  it('counts a Bo2 format by series too', () => {
+    // `bestOfLabel` reports BO2 as itself rather than folding it into BO3, and
+    // both are series of more than one game.
+    expect(aggregateFor('gen9vgc2026regibo2')).toBe('series')
+  })
+
+  it('falls back to games before a format has been chosen', () => {
+    // Null is "the read has not settled on one yet", which lasts a tick.
+    expect(aggregateFor(null)).toBe('game')
   })
 })

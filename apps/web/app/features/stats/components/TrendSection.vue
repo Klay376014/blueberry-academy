@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { resultUnits } from '../utils/battleStats'
-import type { ResultUnit, Tally } from '../utils/battleStats'
+import type { Aggregate, ResultUnit, Tally } from '../utils/battleStats'
 import type { StatsRow } from '~/shared/api/battles'
 import { currentStreak, ratingSeries, slidingWinRate } from '../utils/winRateTrend'
 import type { SeriesPoint } from '../utils/winRateTrend'
@@ -16,7 +16,12 @@ import type { SeriesPoint } from '../utils/winRateTrend'
  * `battles` is still here because the rating curve needs the rows themselves;
  * a rating is something the ladder does to one game, not to a series.
  */
-const props = defineProps<{ battles: StatsRow[]; units: ResultUnit[]; overall: Tally }>()
+const props = defineProps<{
+  battles: StatsRow[]
+  units: ResultUnit[]
+  overall: Tally
+  aggregate: Aggregate
+}>()
 
 const { t } = useI18n()
 
@@ -97,7 +102,9 @@ function formatRating(value: number): string {
     <div class="grid gap-3 sm:grid-cols-3">
       <div class="rounded-lg border border-border bg-card p-3">
         <span class="font-mono text-[10px] tracking-wider text-muted-foreground uppercase">
-          {{ t('summary.games') }}
+          <!-- The tile counts whatever the format is counted in, so it has to
+               say which — 12 series and 12 games are different claims. -->
+          {{ t(aggregate === 'series' ? 'summary.series' : 'summary.games') }}
         </span>
         <p class="font-mono text-3xl tabular-nums" data-testid="summary-games">
           {{ overall.games }}

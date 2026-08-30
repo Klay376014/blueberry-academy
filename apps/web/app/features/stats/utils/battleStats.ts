@@ -1,4 +1,5 @@
 import { wilsonLowerBound } from './wilson'
+import { bestOfLabel } from '~/shared/utils/formatLabel'
 import type { BattleResult, StatsRow } from '~/shared/api/battles'
 
 /**
@@ -10,6 +11,23 @@ import type { BattleResult, StatsRow } from '~/shared/api/battles'
 
 /** Counting by game, or by folding each Bo3 series into one result. */
 export type Aggregate = 'game' | 'series'
+
+/**
+ * The unit a format is counted in, which the format alone decides.
+ *
+ * It was a filter of its own until the two crossed answers turned out to be
+ * dead: under a Bo1 format every `series_id` is null and each game is a series
+ * of one, so counting by series does nothing at all; under a Bo3 format
+ * counting by game reports a 2-1 series as two wins and a loss, diluting a
+ * result that is decided per series. And the format filter is single and
+ * required, while CONTEXT.md makes a Bo1 ladder format and its Bo3 counterpart
+ * different formats — so choosing a format already settles this.
+ *
+ * A null format is the tick before the read settles on one; games until then.
+ */
+export function aggregateFor(formatId: string | null): Aggregate {
+  return formatId !== null && bestOfLabel(formatId) !== 'BO1' ? 'series' : 'game'
+}
 
 export interface Tally {
   games: number

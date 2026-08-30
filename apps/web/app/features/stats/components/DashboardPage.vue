@@ -13,6 +13,7 @@ const localePath = useLocalePath()
 const {
   teams,
   battles,
+  aggregate,
   units,
   overall,
   formatOptions,
@@ -59,7 +60,7 @@ const strongest = computed(() => teams.value[0])
   </section>
 
   <template v-else>
-    <StatsTrendSection :battles :units :overall />
+    <StatsTrendSection :battles :units :overall :aggregate />
 
     <StatsRecentList />
 

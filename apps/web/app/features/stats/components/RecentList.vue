@@ -14,6 +14,9 @@ import { groupIntoSeries, intoBlocks } from '../utils/seriesGroups'
  * (design document 2026-08-30, series grouping).
  */
 const { recent, hydrate } = useRecentBattles()
+// The list counts what the format is counted in: a Bo3 account's "20" is
+// twenty series, and the number beside the heading has to say the same.
+const { aggregate } = useStats()
 // Opening a battle is a query parameter, and the timeline is what reads it
 // (issue #61).
 const battleRoute = useBattleRoute()
@@ -24,8 +27,14 @@ const { t } = useI18n()
 // fetched per id.
 watch(recent, () => void hydrate(), { immediate: true })
 
+const groups = computed(() => groupIntoSeries(recent.value))
+
 /** One bordered run each: a series card, or the lone games between two of them. */
-const blocks = computed(() => intoBlocks(groupIntoSeries(recent.value)))
+const blocks = computed(() => intoBlocks(groups.value))
+
+const counted = computed(() =>
+  aggregate.value === 'series' ? groups.value.length : recent.value.length,
+)
 
 const day = (playedAt: string) => new Date(playedAt).toLocaleDateString()
 
@@ -40,7 +49,9 @@ const RESULT_TONE = {
   <section class="flex flex-col gap-3" :aria-label="t('battle.recent.title')">
     <div class="flex items-baseline justify-between gap-3">
       <h2 class="text-xl font-semibold tracking-tight">{{ t('battle.recent.title') }}</h2>
-      <p class="text-muted-foreground font-mono text-xs tabular-nums">{{ recent.length }}</p>
+      <p class="text-muted-foreground font-mono text-xs tabular-nums" data-testid="recent-count">
+        {{ counted }}
+      </p>
     </div>
 
     <div class="flex flex-col gap-2">

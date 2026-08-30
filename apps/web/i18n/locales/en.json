@@ -118,13 +118,11 @@
     "format": "Format",
     "from": "From",
     "to": "To",
-    "aggregate": "Count by",
-    "byGame": "GAME",
-    "bySeries": "SERIES",
     "includeIncomplete": "Include games with no complete bring"
   },
   "summary": {
     "games": "Games",
+    "series": "Series",
     "winRate": "Win rate",
     "strongest": "Strongest team",
     "streak": "Current streak",

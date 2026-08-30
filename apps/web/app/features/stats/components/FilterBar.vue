@@ -1,6 +1,4 @@
 <script setup lang="ts">
-import type { Aggregate } from '../utils/battleStats'
-
 /**
  * The dashboard's global filters, shared by every section that reads
  * `useStatsFilters()` — one bar rather than one per section, so a format and
@@ -16,8 +14,6 @@ const { t } = useI18n()
 const filters = useStatsFilters()
 
 const fieldId = useId()
-
-const AGGREGATES: Aggregate[] = ['game', 'series']
 
 function valueOf(event: Event): string {
   return (event.target as HTMLSelectElement | HTMLInputElement).value
@@ -106,28 +102,6 @@ function toggleIncomplete(event: Event) {
         @change="pickTo"
       />
     </div>
-
-    <fieldset class="flex flex-col gap-1">
-      <legend class="text-xs text-muted-foreground">{{ t('filters.aggregate') }}</legend>
-      <div class="flex overflow-hidden rounded-md border border-input">
-        <button
-          v-for="option of AGGREGATES"
-          :key="option"
-          type="button"
-          class="h-9 cursor-pointer px-3 font-mono text-xs transition-colors"
-          :class="
-            filters.aggregate === option
-              ? 'bg-secondary text-secondary-foreground'
-              : 'text-muted-foreground hover:bg-accent'
-          "
-          :aria-pressed="filters.aggregate === option"
-          :data-testid="`filter-by-${option}`"
-          @click="() => (filters.aggregate = option)"
-        >
-          {{ t(`filters.by${option === 'game' ? 'Game' : 'Series'}`) }}
-        </button>
-      </div>
-    </fieldset>
 
     <label class="flex h-9 cursor-pointer items-center gap-2 text-xs text-muted-foreground">
       <input

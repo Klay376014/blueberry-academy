@@ -172,9 +172,12 @@ Bo1 的天梯格式與它的 Bo3 對應格式是**不同的格式**。所以只�
   它們沒有錯，錯的只是由誰決定。
 - `FilterBar.vue` 移除那組 fieldset；i18n 移除 `filters.aggregate` / `filters.byGame`
   / `filters.bySeries`。
-- **摘要的文案要跟著單位走。** `summary.streakWins` 現在寫死「連勝，以每局計」，
-  Bo3 下會說謊；`summary.games`（「場數」）在 Bo3 下數的是系列。兩者都要有 game
-  與 series 兩種說法，由同一個推導出來的單位挑。
+- **摘要的「場數」要跟著單位走。** `summary.games`（「場數」）在 Bo3 下數的是系列，
+  所以要有 series 版本，由推導出來的單位挑。
+  **連續紀錄不跟。** `TrendSection` 寫死 `resultUnits(battles, 'game')` 並在註解說明
+  了原因：「三連勝」講的是最後打的三場，把一個 Bo3 折成一個單位會讓三場悄悄變成一場。
+  它的文案「連勝，以每局計」因此是準確的 —— 而且在其他數字改用系列之後更該留著，
+  它是畫面上唯一標明自己用哪個單位的地方。
 - 「最近對戰」的 `LIMIT`：Bo1 取 20 個 game，Bo3 取 **20 個 series**（由新到舊累積
   到第 20 個不同的 `series_id` 為止，該系列的 game 全數納入）。清單標題旁的計數
   跟著顯示同一個單位的數量。
@@ -198,9 +201,8 @@ Bo1 的天梯格式與它的 Bo3 對應格式是**不同的格式**。所以只�
 
 移除三個 key：`filters.aggregate`、`filters.byGame`、`filters.bySeries`（§4）。
 
-摘要的文案要有兩種單位的說法。`summary.games`（「場數」）與 `summary.streakWins`
-（「連勝，以每局計」）現在都寫死了 game，Bo3 下會說謊 —— 兩者各自要有 series 版本，
-由推導出來的單位挑。
+新增 `summary.series`（「系列數」），與 `summary.games`（「場數」）由推導出來的單位
+擇一。`summary.streakWins` / `streakLosses` 不動，理由見 §4。
 
 對手名字、format 標籤照現況不進翻譯檔。
 

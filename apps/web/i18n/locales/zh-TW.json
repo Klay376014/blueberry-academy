@@ -118,13 +118,11 @@
     "format": "賽制",
     "from": "起",
     "to": "訖",
-    "aggregate": "計算單位",
-    "byGame": "每局",
-    "bySeries": "每系列",
     "includeIncomplete": "含沒有完整選出的場次"
   },
   "summary": {
     "games": "場數",
+    "series": "系列數",
     "winRate": "勝率",
     "strongest": "表現最好的隊",
     "streak": "目前連續",
