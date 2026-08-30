@@ -3,7 +3,7 @@
 - 日期：2026-08-30
 - 狀態：已定案，待實作
 - 相關文件：[replay 分析主設計](2026-08-16-replay-analytics-design.md)、[對戰流程時間軸](2026-08-20-battle-timeline-design.md)、[CONTEXT.md](../../CONTEXT.md)、[實作守則](../../AGENTS.md)
-- 實作票：GitHub issue #83
+- 實作票：GitHub issue #83（清單分組）、#85（計算單位由 format 決定）
 
 這份文件記錄「為什麼」。實作步驟見 GitHub issue，領域詞彙見 CONTEXT.md。
 
@@ -22,14 +22,16 @@ CONTEXT.md 已經把這件事定義完畢：series 是 Bo3 下 2–3 個 game �
 
 ### 明確不做的事
 
-**不改變儲存與統計的單位。** 系統永遠以 game 為單位儲存（CONTEXT.md），統計層預設按
-game 計算。這份設計只動 `RecentList` 的呈現，不動 `useStats`、不動 `battleStats.ts`
-既有的 `series` 聚合切換，也不新增任何查詢。
+**不改變儲存的單位。** 系統永遠以 game 為單位儲存（CONTEXT.md）。這份設計動的是
+**呈現與計算的單位**，不動 schema，也不新增任何查詢 —— `battleStats.ts` 的
+`asGames` / `asSeries` 兩條路徑都留著，改的只是「誰來決定走哪一條」（§4）。
 
 **不宣稱系列的勝者。** 清單只數卡片裡看得到的勝敗場數，理由見 §3「卡頭放什麼」。
 
-**不做跨頁的系列補齊。** 清單只有 20 個 game，一個系列的第三場可能落在第 21 個。
-卡片呈現的永遠是「這個清單裡看得到的那幾場」，不會為了補完而多打一次 API。
+**不做跨頁的系列補齊。** 清單有邊界，系列可能被邊界切斷。以 series 計的 `LIMIT`
+（§4）讓 Bo3 的邊界落在系列之間而不是系列中間，但篩選器與匯入進度仍可能讓一個系列
+只剩一場在畫面上。卡片呈現的永遠是「這個清單裡看得到的那幾場」，不會為了補完而多打
+一次 API。
 
 ---
 
@@ -62,7 +64,7 @@ game 計算。這份設計只動 `RecentList` 的呈現，不動 `useStats`、�
 
 ## 3. 設計
 
-選定的畫法是**系列卡片**（四個方案的比較與取捨見實作票）：同系列的 game 收進一張卡，
+選定的畫法是**系列卡片**（四個方案的比較與取捨見 §8）：同系列的 game 收進一張卡，
 卡頭把整個系列的共通資訊講完，內部的 game 列只留下彼此不同的部分。
 
 ```
@@ -118,15 +120,67 @@ game 計算。這份設計只動 `RecentList` 的呈現，不動 `useStats`、�
 **卡頭本身不可點。** 它旁邊就是三個各自可點的 game 列，再讓卡頭也可點，「點它會開哪
 一場」沒有好答案。系列層級的巡覽已經在抽屜裡了（`BattleDrawer` 的系列切換器）。
 
-### 標題旁的計數仍然數 game
+### 計數與 `LIMIT` 跟著計算單位走
 
-`最近對戰 20` 的 20 是 game 數，維持不變。`LIMIT` 是 20 個 game，統計層預設也按
-game 計算（CONTEXT.md）；把標題改成系列數會讓它與 `LIMIT` 對不上，而讀者無從得知
-差在哪裡。分組是呈現層的事，不改變清單在數什麼。
+Bo1 的格式下清單數 game、取 20 個 game；Bo3 的格式下清單數 series、取 20 個
+series。單位由選定的 format 決定，理由與規則見 §4。
 
 ---
 
-## 4. i18n
+## 4. 計算單位不再是一個選項
+
+現況：篩選器上有一組「計算單位 每局／每系列」的切換（`FilterBar.vue`，
+`StatsFilters.aggregate`），預設每局。**移除它，改由 format 決定。**
+
+### 規則
+
+```
+bestOfLabel(formatId) === 'BO1'   → 以 game 為單位
+BO2 / BO3                          → 以 series 為單位
+```
+
+沒有第三種情況，也沒有使用者可以選的餘地。
+
+### 為什麼這是對的
+
+**format 已經把答案講完了。** 篩選器的 format 是**單一且必選**的 `format_id`
+（`useStatsFilters.ts` 的註解說明了為什麼不能是「全部格式」），而 CONTEXT.md 定義
+Bo1 的天梯格式與它的 Bo3 對應格式是**不同的格式**。所以只要選定了 format，這批
+資料是 Bo1 還是 Bo3 就沒有懸念 —— 再問使用者一次「你要用哪個單位看」，是把一個
+已知的答案當成選項。
+
+**兩個組合本來就沒有意義。** Bo1 格式下「每系列」和「每局」的結果完全相同（每個
+`series_id` 都是 null，每一場自成一個系列，`asSeries` 的註解已經寫明了這點）——
+那個切換在 Bo1 下是個什麼都不會發生的按鈕。而 Bo3 格式下「每局」會把一個 2–1 的
+系列算成 2 勝 1 敗，勝率因此被單場的輸贏稀釋 —— Bo3 的勝負本來就是以系列計的。
+
+**少一個要解釋的東西。** 「計算單位」這四個字要讀者先知道 game 與 series 的差別、
+再知道自己現在在看哪一種格式，才決定得了。移掉它，這個知識就從使用者身上移到程式裡。
+
+### 連帶要改的
+
+- `StatsFilters.aggregate` 與 `defaultStatsFilters()` 的 `aggregate: 'game'` 移除；
+  `useStats` 改為由 `filters.formatId` 推導單位傳給 `resultUnits` / `overallTally`
+  / `teamStats`。`battleStats.ts` 的 `Aggregate` 型別與兩條聚合路徑**都留著**，
+  它們沒有錯，錯的只是由誰決定。
+- `FilterBar.vue` 移除那組 fieldset；i18n 移除 `filters.aggregate` / `filters.byGame`
+  / `filters.bySeries`。
+- **摘要的文案要跟著單位走。** `summary.streakWins` 現在寫死「連勝，以每局計」，
+  Bo3 下會說謊；`summary.games`（「場數」）在 Bo3 下數的是系列。兩者都要有 game
+  與 series 兩種說法，由同一個推導出來的單位挑。
+- 「最近對戰」的 `LIMIT`：Bo1 取 20 個 game，Bo3 取 **20 個 series**（由新到舊累積
+  到第 20 個不同的 `series_id` 為止，該系列的 game 全數納入）。清單標題旁的計數
+  跟著顯示同一個單位的數量。
+
+### 取捨
+
+一個 Bo3 帳號從此看不到「以單場計」的勝率。這是刻意的：那個數字回答的問題
+（「我單場的勝率」）在 Bo3 的賽制下不是使用者實際在比的東西，而想看單場表現的人
+仍然看得到每一場 —— 清單裡的每個 game 列都在，只是被收在系列卡片裡。
+
+---
+
+## 5. i18n
 
 新增三個 key（`en.json` / `zh-TW.json`）：
 
@@ -135,11 +189,17 @@ game 計算（CONTEXT.md）；把標題改成系列數會讓它與 `LIMIT` 對�
 - 局次沿用既有的 `battle.drawer.game`（`第 {number} 局`），不另開 key —— 同一個概念
   在兩個地方必須是同一句話。
 
+移除三個 key：`filters.aggregate`、`filters.byGame`、`filters.bySeries`（§4）。
+
+摘要的文案要有兩種單位的說法。`summary.games`（「場數」）與 `summary.streakWins`
+（「連勝，以每局計」）現在都寫死了 game，Bo3 下會說謊 —— 兩者各自要有 series 版本，
+由推導出來的單位挑。
+
 對手名字、format 標籤照現況不進翻譯檔。
 
 ---
 
-## 5. 無障礙
+## 6. 無障礙
 
 - 卡片是 `role="group"` 加 `aria-label`（`seriesLabel`），讀者才知道接下來三個按鈕
   屬於同一個系列。
@@ -148,7 +208,7 @@ game 計算（CONTEXT.md）；把標題改成系列數會讓它與 `LIMIT` 對�
 
 ---
 
-## 6. 測試策略
+## 7. 測試策略
 
 **分組邏輯是純函式**（`groupIntoSeries(recent: RecentBattle[]): RecentGroup[]`），
 放在 `features/stats/utils/`，與元件分開測：
@@ -163,9 +223,18 @@ game 計算（CONTEXT.md）；把標題改成系列數會讓它與 `LIMIT` 對�
 **元件測試**（`test/nuxt/`）：卡片渲染出三個 `recent-battle` 按鈕、卡頭出現一次
 對手名字、單場的系列不畫卡片、點 game 列仍然開對應的抽屜。
 
+**計算單位的推導**（§4）另外測：
+
+- `bestOfLabel` 的三種輸出各自對到的單位（BO1 → game，BO2 / BO3 → series）
+- 換 format 就換單位：同一批資料在 Bo1 與 Bo3 格式下的總勝率不同，且 Bo3 的那個
+  與舊的「每系列」切換算出來的相同
+- Bo3 下的 `LIMIT` 取的是 20 個 series，且第 20 個系列的 game **全數**在畫面上
+  （不會切在系列中間）
+- 篩選器上不再有 `filter-by-game` / `filter-by-series` 這兩個 testid
+
 ---
 
-## 7. 決策紀錄
+## 8. 決策紀錄
 
 **為什麼不是「系列收合成一列」。** 收合能讓一屏看到更多對手，但清單被掃視的理由是
 「我上次對這支隊帶了什麼」（`RecentList` 的檔頭註解），而收合起來的那一列放不下三場
