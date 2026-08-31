@@ -201,6 +201,7 @@
       "turn": "第 {number} 回合",
       "game": "第 {number} 局",
       "knockedOut": "倒下",
+      "offField": "場外",
       "moreDetails": "這回合還有 {count} 個",
       "fewerDetails": "收起這回合其餘的",
       "loading": "正在讀取 log…",

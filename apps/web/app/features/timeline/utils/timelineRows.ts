@@ -134,6 +134,10 @@ export function rowOf(event: TimelineEvent): TimelineRow | null {
 
     case 'damage':
     case 'heal':
+      // Showdown showed nothing for it and neither does this. The state under
+      // the field bar still takes it: see `HealthChange.silent`.
+      if (event.silent) return null
+
       return {
         ...blank(),
         mark: 'health',

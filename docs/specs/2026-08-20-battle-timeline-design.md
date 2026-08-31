@@ -139,6 +139,16 @@ Scrafty-Mega。這正是 timeline 與 `ParsedBattle` 的分工：
 
 `battle-only-formes.ts` 那張還原表在 timeline 這條路徑上完全不該被呼叫。
 
+### silent 的 HP 行留著，但沒有人畫它
+
+原本的做法是解析器讀完 HP 就把 silent 行丟掉。場上的狀態不會因此出錯 —— 換回場的
+`|switch|` 自己帶當前 HP —— 但**場外**的狀態會：再生力在換下場的前一刻悄悄回滿三分之一，
+丟掉那一行，場外那排就會拿舊的數字當成它現在的血量（實測 Toxapex 顯示 50%，實際 83%）。
+
+所以 silent 的 `-damage`/`-heal` 現在照樣進事件流，帶 `silent: true`；`timelineRows`
+看到這個旗標回傳 `null`，畫面完全不變，而 `battleField` 的狀態照收。
+與「不認得的東西要留著而不是消失」同一條理由：判斷要不要顯示是 UI 的事，不是解析的事。
+
 ### HP 狀態綁在場上位置
 
 差值要靠前後相減，但綽號會重複、Illusion 會騙人，所以狀態綁**位置**（`p1a`），
@@ -243,6 +253,7 @@ gzip 後更小，一次性延遲可接受。
 | T21 | 函式關係            | 兩個獨立函式，各自 tokenize           | `parseAll(log, meta)`                         |
 | T22 | 頂層欄位            | 只有 `turns`                          | 帶 gameType/players/winner                    |
 | T23 | 壞 log              | 回傳部分結果，不丟例外                | 丟例外                                        |
+| T24 | silent 的 HP 行     | 輸出事件並標 `silent`，UI 不畫它      | 解析器直接丟掉；照畫                          |
 
 ---
 

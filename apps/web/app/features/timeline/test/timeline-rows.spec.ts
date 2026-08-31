@@ -27,6 +27,15 @@ function rows(lines: string[], detailed = false) {
 }
 
 describe('the rows one turn becomes', () => {
+  it('draws nothing for a health line Showdown itself does not show', () => {
+    // The state behind the drawer takes the silent heal; the log of what was
+    // played must not, or it shows a heal nobody saw (#90).
+    const silent = ['|-heal|p1a: Scrafty|83/100|[from] ability: Regenerator|[silent]']
+
+    expect(rows(silent, true)).toEqual([])
+    expect(sidelinedCount(turnsOf(silent)[1]!)).toBe(0)
+  })
+
   it('reads a move as its English name and the icons it was aimed at', () => {
     // The move name is an identifier and never passes through i18n; the
     // targets are icons, so what is carried is their species.
