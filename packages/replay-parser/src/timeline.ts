@@ -99,6 +99,14 @@ export interface HealthChange {
   hpAfter: number
   hpDelta: number | null
   from: string | null
+  /**
+   * Showdown marked this one `[silent]` and drew nothing for it: a Regenerator
+   * heal on the way out, a Rest. The number is still true — and for a Pokémon
+   * on its way off the field it is the last true one anybody gets — so it is
+   * kept and flagged rather than dropped. Nothing that draws the log may draw
+   * it, or the timeline stops matching what was played (#90).
+   */
+  silent: boolean
 }
 
 export interface TimelineTurn {
@@ -153,11 +161,10 @@ export function buildTimeline(lines: ProtocolLine[]): BattleTimeline {
     // Showdown sends these for the client's own bookkeeping and shows none of
     // them; a timeline that rendered them would not match what was played. The
     // HP they carry is still real, though — a silent Rest that went unrecorded
-    // would turn the next hit into a gain.
-    if (args.includes('[silent]')) {
-      if (type === '-damage' || type === '-heal') recordHealth(field, health, args)
-      continue
-    }
+    // would turn the next hit into a gain — so the health lines go through as
+    // events that say they are silent, and everything else is dropped here.
+    const silent = args.includes('[silent]')
+    if (silent && type !== '-damage' && type !== '-heal') continue
     // A bare `|` spaces the log out and says nothing. `||<text>` is a message
     // and is kept, as unknown, like any other line this parser does not read.
     if (type === '' && args.length === 0) continue
@@ -241,6 +248,7 @@ export function buildTimeline(lines: ProtocolLine[]): BattleTimeline {
           hpAfter,
           hpDelta: hpBefore === null ? null : hpAfter - hpBefore,
           from: sourceOf(args),
+          silent,
         })
         break
       }
@@ -447,17 +455,6 @@ function enter(
 function instantOf(seconds: string): string | null {
   const at = new Date(Number(seconds) * 1000)
   return Number.isNaN(at.getTime()) ? null : at.toISOString()
-}
-
-/** Keeps the running HP current for a line that is not itself shown. */
-function recordHealth(
-  field: Map<string, Combatant>,
-  health: Map<string, number>,
-  args: string[],
-): void {
-  const pokemon = occupant(field, args[0] ?? '')
-  const hp = healthOf(args[1] ?? '')
-  if (pokemon && hp !== null) health.set(pokemon.position, hp)
 }
 
 /** The position a `|swap|` slot index names, e.g. `1` at `p1a` is `p1b`. */

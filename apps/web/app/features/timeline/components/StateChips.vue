@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { FieldSlot } from '../utils/battleField'
+import type { PokemonState } from '../utils/battleField'
 
 /**
  * What a Pokémon is carrying right now: its condition, the stat stages it is
@@ -12,7 +12,7 @@ import type { FieldSlot } from '../utils/battleField'
  * The stat and status names are Showdown's own (`atk`, `brn`) and stay as they
  * are — like species and move names, they are identifiers rather than copy.
  */
-const props = defineProps<{ pokemon: FieldSlot }>()
+const props = defineProps<{ pokemon: PokemonState }>()
 
 /** In the order Showdown reports them, so two Pokémon read the same way. */
 const STATS = ['atk', 'def', 'spa', 'spd', 'spe', 'accuracy', 'evasion']

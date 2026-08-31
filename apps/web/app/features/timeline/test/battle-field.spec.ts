@@ -30,6 +30,15 @@ function slotAt(lines: string[], position: string) {
   return last.slots.find((slot) => slot.position === position)
 }
 
+/** Everyone a side has seen who is not standing on the field right now. */
+function offFieldAt(lines: string[]) {
+  const last = fieldSnapshots(parseTimeline(log(lines))).at(-1)
+
+  if (!last) throw new Error('No snapshot for a timeline that has turns.')
+
+  return last.offField
+}
+
 describe('the state of the field at the end of a turn', () => {
   it('reports one snapshot per turn, in the turns’ own order', () => {
     const snapshots = fieldSnapshots(parseTimeline(log(['|turn|2', '|turn|3'])))
@@ -171,5 +180,87 @@ describe('the state of the field at the end of a turn', () => {
       status: 'brn',
     })
     expect(turn7?.screens.p2).toEqual(['Tailwind'])
+  })
+})
+
+describe('the Pokémon that are off the field', () => {
+  it('keeps the HP and the status a Pokémon left the field on', () => {
+    // Nothing damages a Pokémon on the bench, so the last thing the log said
+    // about it is still true — and it is the only place the log says it.
+    const lines = [
+      '|-status|p1a: Scrafty|brn',
+      '|-damage|p1a: Scrafty|64/100 brn',
+      '|turn|2',
+      '|switch|p1a: Toxapex|Toxapex, L50, M|100/100',
+    ]
+
+    expect(offFieldAt(lines)).toEqual([
+      expect.objectContaining({ side: 'p1', species: 'Scrafty', hp: 64, status: 'brn' }),
+    ])
+  })
+
+  it('leaves the stat changes behind with the square it was standing on', () => {
+    const lines = [
+      '|-boost|p1a: Scrafty|atk|2',
+      '|turn|2',
+      '|switch|p1a: Toxapex|Toxapex, L50, M|100/100',
+    ]
+
+    expect(offFieldAt(lines)[0]).toMatchObject({ species: 'Scrafty', boosts: {} })
+  })
+
+  it('keeps a fainted Pokémon after the next one comes in over it', () => {
+    // The one thing the field alone cannot show: a Pokémon that is replaced
+    // stops being on the field, and "how many are left" is the reason for this.
+    const lines = [
+      '|-damage|p2a: Whimsicott|0 fnt',
+      '|faint|p2a: Whimsicott',
+      '|switch|p2a: Gholdengo|Gholdengo, L50|100/100',
+    ]
+
+    expect(offFieldAt(lines)).toEqual([
+      expect.objectContaining({ species: 'Whimsicott', hp: 0, fainted: true }),
+    ])
+  })
+
+  it('is empty for a lead nobody has switched away from', () => {
+    expect(offFieldAt([])).toEqual([])
+  })
+
+  it('never has the same Pokémon standing on the field and off it', () => {
+    const lines = [
+      '|switch|p1a: Toxapex|Toxapex, L50, M|100/100',
+      '|turn|2',
+      '|switch|p1a: Scrafty|Scrafty, L50, F|100/100',
+    ]
+
+    expect(offFieldAt(lines).map((pokemon) => pokemon.species)).toEqual(['Toxapex'])
+  })
+
+  it('leaves no ghost behind when an Illusion is revealed', () => {
+    // `replace` is the same body under its real name, not two Pokémon.
+    const lines = ['|replace|p2a: Zoroark|Zoroark-Hisui, L50, M']
+
+    expect(offFieldAt(lines)).toEqual([])
+  })
+
+  it('reads a real game the same way the drawer will', () => {
+    const snapshots = fieldSnapshots(parseTimeline(ladderReplay.log))
+    const turn7 = snapshots.find((snapshot) => snapshot.turn === 7)
+    const of = (side: string) => turn7?.offField.filter((pokemon) => pokemon.side === side)
+
+    // Toxapex left on turn 5 and Ninetales at 27% on turn 7, and neither is on
+    // the field to say so. Toxapex is at 83 rather than the 50 the screen last
+    // showed: Regenerator healed it on the way out, silently.
+    expect(of('p1')).toEqual([
+      expect.objectContaining({ species: 'Toxapex', hp: 83 }),
+      expect.objectContaining({ species: 'Ninetales-Alola', hp: 27 }),
+    ])
+    // The Zoroark that was pretending to be Glimmora fainted on turn 4 and was
+    // replaced, so the field has not mentioned it for three turns.
+    expect(of('p2')).toEqual([
+      expect.objectContaining({ species: 'Gholdengo', hp: 90, fainted: false }),
+      expect.objectContaining({ species: 'Zoroark-Hisui', hp: 0, fainted: true }),
+    ])
   })
 })

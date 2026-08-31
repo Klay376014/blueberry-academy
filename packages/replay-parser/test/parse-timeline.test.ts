@@ -247,13 +247,24 @@ describe('parseTimeline', () => {
   })
 
   it('drops the lines Showdown marks silent, which it does not show either', () => {
+    const timeline = parseTimeline(log({ lines: ['|-boost|p1a: Scrafty|atk|1|[silent]'] }))
+
+    expect(timeline.turns[1]?.events).toEqual([])
+  })
+
+  it('keeps a silent health line, marked as the one thing nothing draws', () => {
+    // Regenerator heals on the way out and Showdown shows nothing. The number
+    // is still true, and the Pokémon it belongs to is about to be off the
+    // field, where the log will not mention it again (#90).
     const timeline = parseTimeline(
       log({
         lines: ['|-heal|p1a: Scrafty|83/100|[from] ability: Regenerator|[silent]'],
       }),
     )
 
-    expect(timeline.turns[1]?.events).toEqual([])
+    expect(timeline.turns[1]?.events).toEqual([
+      expect.objectContaining({ kind: 'heal', hpAfter: 83, silent: true }),
+    ])
   })
 
   it('shows a Pokémon in the forme it changed into, not the species it counts as', () => {
@@ -456,7 +467,8 @@ describe('parseTimeline', () => {
       }),
     )
 
-    expect(timeline.turns[1]?.events).toHaveLength(2)
+    expect(timeline.turns[1]?.events).toHaveLength(3)
+    expect(timeline.turns[1]?.events[1]).toMatchObject({ hpAfter: 100, silent: true })
     expect(timeline.turns[1]?.events.at(-1)).toMatchObject({ hpBefore: 100, hpDelta: -30 })
   })
 

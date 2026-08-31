@@ -201,6 +201,7 @@
       "turn": "Turn {number}",
       "game": "Game {number}",
       "knockedOut": "KO",
+      "offField": "Off",
       "moreDetails": "{count} more in this turn",
       "fewerDetails": "Hide the rest of this turn",
       "loading": "Reading the log…",

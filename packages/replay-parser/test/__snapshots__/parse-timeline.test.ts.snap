@@ -260,6 +260,7 @@ exports[`parseTimeline > parses a real Bo3 game end to end 1`] = `
             "side": "p2",
             "species": "Glimmora",
           },
+          "silent": false,
         },
         {
           "kind": "status",
@@ -316,6 +317,7 @@ exports[`parseTimeline > parses a real Bo3 game end to end 1`] = `
             "side": "p2",
             "species": "Gholdengo",
           },
+          "silent": false,
         },
         {
           "kind": "faint",
@@ -382,6 +384,7 @@ exports[`parseTimeline > parses a real Bo3 game end to end 1`] = `
             "side": "p1",
             "species": "Arcanine-Hisui",
           },
+          "silent": false,
         },
         {
           "kind": "unknown",
@@ -553,6 +556,7 @@ exports[`parseTimeline > parses a real Bo3 game end to end 1`] = `
             "side": "p1",
             "species": "Arcanine-Hisui",
           },
+          "silent": false,
         },
         {
           "kind": "faint",
@@ -659,6 +663,7 @@ exports[`parseTimeline > parses a real Bo3 game end to end 1`] = `
             "side": "p1",
             "species": "Raichu-Mega-Y",
           },
+          "silent": false,
         },
         {
           "actor": {
@@ -736,6 +741,7 @@ exports[`parseTimeline > parses a real Bo3 game end to end 1`] = `
             "side": "p2",
             "species": "Mamoswine",
           },
+          "silent": false,
         },
         {
           "kind": "faint",
@@ -760,6 +766,7 @@ exports[`parseTimeline > parses a real Bo3 game end to end 1`] = `
             "side": "p1",
             "species": "Basculegion",
           },
+          "silent": false,
         },
         {
           "kind": "unknown",
@@ -862,6 +869,7 @@ exports[`parseTimeline > parses a real Bo3 game end to end 1`] = `
             "side": "p2",
             "species": "Charizard-Mega-Y",
           },
+          "silent": false,
         },
         {
           "kind": "faint",
@@ -917,6 +925,7 @@ exports[`parseTimeline > parses a real Bo3 game end to end 1`] = `
             "side": "p2",
             "species": "Glimmora",
           },
+          "silent": false,
         },
         {
           "effect": "Toxic Debris",
@@ -959,6 +968,7 @@ exports[`parseTimeline > parses a real Bo3 game end to end 1`] = `
             "side": "p1",
             "species": "Basculegion",
           },
+          "silent": false,
         },
         {
           "kind": "unknown",

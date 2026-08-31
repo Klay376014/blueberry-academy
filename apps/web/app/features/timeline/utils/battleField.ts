@@ -8,14 +8,16 @@ import type { BattleTimeline, SideId, TimelineEvent } from 'replay-parser'
  * off, the Tailwind still up. Without it the drawer shows a log and leaves the
  * reader to accumulate it in their head (battle timeline design document §4).
  *
+ * Not only the field: everyone who has been on it is here, because "how much
+ * has that one got left" and "how many have they got left" are the same
+ * question a turn late (#90).
+ *
  * Everything here comes off events the log actually sent. Nothing is inferred:
  * a state this cannot derive is left `null` rather than guessed.
  */
 
-/** One Pokémon as it stood at the end of a turn. */
-export interface FieldSlot {
-  /** The field position it was standing on, e.g. `p1a`. */
-  position: string
+/** One Pokémon as it stood at the end of a turn, wherever it was standing. */
+export interface PokemonState {
   side: SideId
   /** The forme it was in at the time, as the log showed it. */
   species: string
@@ -28,11 +30,29 @@ export interface FieldSlot {
   fainted: boolean
 }
 
+/** One Pokémon on the field, and the square it is on. */
+export interface FieldSlot extends PokemonState {
+  /** The field position it was standing on, e.g. `p1a`. */
+  position: string
+}
+
 export interface FieldSnapshot {
   /** The turn this is the end of. 0 is the lead. */
   turn: number
   /** Everyone on the field, in position order. */
   slots: FieldSlot[]
+  /**
+   * Everyone who has been on the field and is not on it now, in the order they
+   * first appeared — the ones that were switched out, and the ones that
+   * fainted and have since been replaced.
+   *
+   * Their HP and their status are the ones they left on: nothing off the field
+   * takes damage, so the last thing the log said about them still holds. Their
+   * stat changes are gone, which is the rule rather than an omission. What a
+   * side registered and never sent out is not here at all — that is `battles`'
+   * team signature, not the log's.
+   */
+  offField: PokemonState[]
   screens: Record<SideId, string[]>
 }
 
@@ -176,28 +196,36 @@ export function fieldSnapshots(timeline: BattleTimeline): FieldSnapshot[] {
     }
   }
 
+  function stateOf(body: Body): PokemonState {
+    return {
+      side: body.side,
+      species: body.species,
+      hp: body.hp,
+      status: body.status,
+      boosts: Object.fromEntries([...body.boosts].filter(([, stages]) => stages !== 0)),
+      teraType: body.teraType,
+      fainted: body.fainted,
+    }
+  }
+
   function snapshot(turn: number): FieldSnapshot {
     const slots = [...standing]
       .toSorted(([a], [b]) => (a < b ? -1 : 1))
       .flatMap<FieldSlot>(([position, key]) => {
         const body = bodies.get(key)
-        if (!body) return []
 
-        return [
-          {
-            position,
-            side: body.side,
-            species: body.species,
-            hp: body.hp,
-            status: body.status,
-            boosts: Object.fromEntries([...body.boosts].filter(([, stages]) => stages !== 0)),
-            teraType: body.teraType,
-            fainted: body.fainted,
-          },
-        ]
+        return body ? [{ position, ...stateOf(body) }] : []
       })
 
-    return { turn, slots, screens: { p1: [...screens.p1], p2: [...screens.p2] } }
+    // Whoever is standing somewhere is on the field and nowhere else. An
+    // Illusion is one body under two names, and `enter` has already dropped
+    // the name it was wearing, so it cannot be in both.
+    const onField = new Set(standing.values())
+    const offField = [...bodies]
+      .filter(([key]) => !onField.has(key))
+      .map(([, body]) => stateOf(body))
+
+    return { turn, slots, offField, screens: { p1: [...screens.p1], p2: [...screens.p2] } }
   }
 
   return timeline.turns.map((turn) => {
