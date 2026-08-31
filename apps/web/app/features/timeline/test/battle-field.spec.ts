@@ -257,10 +257,12 @@ describe('the Pokémon that are off the field', () => {
       expect.objectContaining({ species: 'Ninetales-Alola', hp: 27 }),
     ])
     // The Zoroark that was pretending to be Glimmora fainted on turn 4 and was
-    // replaced, so the field has not mentioned it for three turns.
+    // replaced, so the field has not mentioned it for three turns. It leads
+    // this list because it led the battle: being unmasked on turn 2 does not
+    // move a Pokémon to the back of the bench.
     expect(of('p2')).toEqual([
-      expect.objectContaining({ species: 'Gholdengo', hp: 90, fainted: false }),
       expect.objectContaining({ species: 'Zoroark-Hisui', hp: 0, fainted: true }),
+      expect.objectContaining({ species: 'Gholdengo', hp: 90, fainted: false }),
     ])
   })
 })

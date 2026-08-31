@@ -67,6 +67,13 @@ export interface FieldSnapshot {
  * is all most protocol lines carry. An Illusion is therefore tracked as
  * whoever it was pretending to be, which is also what was on screen; `replace`
  * hands that state over to the Pokémon it turned out to be.
+ *
+ * The limit of that key, now that the count of who is left rests on it: two
+ * Pokémon of one side wearing the same name at once are one body here. An
+ * Illusion that never breaks — it wore an ally's name while that ally was out
+ * too, or it fainted to poison, which does not break it — is the only way to
+ * get there, and reading it right needs an identity per appearance rather than
+ * per name. Not reachable in any measured replay, and not fixed here.
  */
 interface Body {
   side: SideId
@@ -76,6 +83,14 @@ interface Body {
   boosts: Map<string, number>
   teraType: string | null
   fainted: boolean
+}
+
+/** Gives a body a new key in the place it already holds, order and all. */
+function rename(bodies: Map<string, Body>, from: string, to: string, body: Body): void {
+  const renamed = [...bodies].map(([key, value]) => (key === from ? [to, body] : [key, value]))
+
+  bodies.clear()
+  for (const [key, value] of renamed as [string, Body][]) bodies.set(key, value)
 }
 
 type Combatant = Extract<TimelineEvent, { kind: 'faint' }>['pokemon']
@@ -115,8 +130,10 @@ export function fieldSnapshots(timeline: BattleTimeline): FieldSnapshot[] {
 
     if (how === 'replace' && before && leaving) {
       // The Illusion is up: the same body is still there, under its real name.
-      bodies.delete(leaving)
-      bodies.set(key, { ...before, species: pokemon.species })
+      // Renamed where it stands rather than deleted and re-added, so that the
+      // order everyone first appeared in — which is the order they are drawn
+      // in once they are off the field — survives the reveal.
+      rename(bodies, leaving, key, { ...before, species: pokemon.species })
       standing.set(pokemon.position, key)
       return
     }

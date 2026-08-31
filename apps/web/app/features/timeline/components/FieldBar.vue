@@ -41,7 +41,11 @@ function linesOf(side: SideId) {
     {
       label: label(side),
       tone: side === props.mySide ? 'text-primary' : 'text-foreground',
-      pokemon: props.snapshot.slots.filter((slot) => slot.side === side),
+      // Keyed by the square, which is the one thing about a Pokémon on the
+      // field that a Mega or an Ally Switch does not change.
+      pokemon: props.snapshot.slots
+        .filter((slot) => slot.side === side)
+        .map((slot) => ({ key: slot.position, state: slot as PokemonState })),
       size: 40,
       screens: props.snapshot.screens[side],
     },
@@ -50,7 +54,9 @@ function linesOf(side: SideId) {
           {
             label: t('battle.drawer.offField'),
             tone: 'text-muted-foreground',
-            pokemon: off,
+            // Nothing off the field is standing anywhere, and the order is the
+            // order they first appeared in, so their place in it is the key.
+            pokemon: off.map((pokemon, index) => ({ key: `off-${index}`, state: pokemon })),
             size: 28,
             screens: [] as string[],
           },
@@ -83,27 +89,27 @@ function hpLabel(pokemon: PokemonState) {
         </span>
 
         <span
-          v-for="(pokemon, index) of line.pokemon"
-          :key="`${pokemon.species}-${index}`"
+          v-for="{ key, state } of line.pokemon"
+          :key="key"
           class="flex items-center gap-1"
-          :class="pokemon.fainted ? 'opacity-45' : ''"
+          :class="state.fainted ? 'opacity-45' : ''"
         >
           <SpeciesIcon
-            :id="toID(pokemon.species)"
-            :label="speciesName(toID(pokemon.species))"
+            :id="toID(state.species)"
+            :label="speciesName(toID(state.species))"
             :size="line.size"
           />
           <span
             class="font-mono text-[11px] tabular-nums"
             :class="
-              !pokemon.fainted && pokemon.hp !== null && pokemon.hp <= 33
+              !state.fainted && state.hp !== null && state.hp <= 33
                 ? 'text-destructive'
                 : 'text-muted-foreground'
             "
           >
-            {{ hpLabel(pokemon) }}
+            {{ hpLabel(state) }}
           </span>
-          <BattleStateChips :pokemon />
+          <BattleStateChips :pokemon="state" />
         </span>
 
         <span
