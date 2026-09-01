@@ -48,7 +48,7 @@ const message = computed(() => {
   return t(`battle.event.${said.key}`, {
     ...said.params,
     pokemon: named(props.row.species ?? undefined),
-    into: named(props.row.targets[0]),
+    into: named(props.row.targets[0]?.species),
   })
 })
 </script>
@@ -82,18 +82,44 @@ const message = computed(() => {
     <span class="flex min-w-0 flex-wrap items-center gap-1.5 text-sm">
       <span v-if="row.move" class="font-medium">{{ row.move }}</span>
 
+      <!-- What the move did to the Pokémon using it: a Protect that went up, a
+           swing that missed. -->
+      <BattleRowNotes :notes="row.notes" />
+
       <!-- Whatever the row points at: a move's targets, or the Pokémon that came
            in for the one that left. -->
       <template v-if="row.targets.length">
         <span class="text-muted-foreground" aria-hidden="true">→</span>
-        <SpeciesIcon
+        <span
           v-for="(target, index) of row.targets"
-          :key="`${target}-${index}`"
-          :id="toID(target)"
-          :label="speciesName(toID(target))"
-          :size="row.mark === 'switch' ? 40 : 30"
-        />
+          :key="`${target.species}-${index}`"
+          class="flex items-center gap-1"
+        >
+          <SpeciesIcon
+            :id="toID(target.species)"
+            :label="speciesName(toID(target.species))"
+            :size="row.mark === 'switch' ? 40 : 30"
+          />
+          <BattleRowNotes :notes="target.notes" />
+        </span>
       </template>
+
+      <!-- Whoever else the action reached, and not behind the arrow: the one
+           that stopped a spread move was never listed as a target of it. The
+           dot is what keeps it from reading as one more target. -->
+      <span v-if="row.bystanders.length" class="text-muted-foreground" aria-hidden="true">·</span>
+      <span
+        v-for="(bystander, index) of row.bystanders"
+        :key="`${bystander.species}-${index}`"
+        class="flex items-center gap-1"
+      >
+        <SpeciesIcon
+          :id="toID(bystander.species)"
+          :label="speciesName(toID(bystander.species))"
+          :size="30"
+        />
+        <BattleRowNotes :notes="bystander.notes" />
+      </span>
 
       <BattleHealthChange v-if="row.health" :health="row.health" />
 
