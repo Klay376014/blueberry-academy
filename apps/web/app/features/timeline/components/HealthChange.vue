@@ -5,12 +5,15 @@ import type { HealthChange } from 'replay-parser'
  * A change in HP: the bar that is left, the piece that went, and the two
  * numbers.
  *
- * On its own line and never on the move's, because the log does not connect the
- * two: `|-damage|` carries no `[from]` for move damage, so hanging the number
- * off the move would be an inference dressed as a fact (design decision T4).
+ * The form for a change that stands on its own: recoil, a burn's tick, the
+ * Leftovers at the end of a turn. A change that belongs to a move's target is
+ * drawn beside that target's icon instead, by `BattleRowHealth` — see decision
+ * T26 for the two fields that tell the two apart, and T5 for the attribution
+ * neither of them performs.
  *
  * `from` is shown only when the log itself named a source — burn, an item, an
- * ability — which is exactly when there is one to name.
+ * ability — which is exactly when there is one to name, and on this form it
+ * always is.
  */
 const props = defineProps<{ health: HealthChange }>()
 

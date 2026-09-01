@@ -50,6 +50,7 @@ export default defineConfig({
         files: [
           'apps/web/app/shared/components/SpeciesIcon.vue',
           'apps/web/app/features/timeline/components/HealthChange.vue',
+          'apps/web/app/features/timeline/components/RowHealth.vue',
           'apps/web/app/features/stats/components/AccountingBar.vue',
           'apps/web/app/features/stats/components/TeamCard.vue',
           'apps/web/app/features/stats/components/TeamDetail.vue',
