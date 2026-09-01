@@ -101,6 +101,11 @@ const message = computed(() => {
             :size="row.mark === 'switch' ? 40 : 30"
           />
           <BattleRowNotes :notes="target.notes" />
+          <BattleRowHealth
+            v-for="(change, hit) of target.health"
+            :key="`${change.kind}-${change.hpAfter}-${hit}`"
+            :change
+          />
         </span>
       </template>
 

@@ -328,17 +328,57 @@ describe('the drawer', () => {
     expect(turns).toHaveLength(16)
   })
 
-  it('keeps the damage off the line that names the move', async () => {
-    // The whole point of decision T4: `|-damage|` carries no attribution, so a
-    // move and the health that changed after it are two rows in time order.
+  it('puts a target’s own damage beside that target, on the move’s row', async () => {
+    // Turn 3 of the fixture: Icy Wind is resisted by Toxapex and takes it from
+    // 100% to 93%, and both halves of that are on the one row now (issue #97).
     await openDrawer()
 
     const rows = [...drawer().querySelectorAll('[data-testid="timeline-row"]')]
-    const move = rows.find((row) => row.textContent?.includes('Knock Off'))
+    const icyWind = rows.find((row) => row.textContent?.includes('Icy Wind'))
 
-    expect(move).toBeDefined()
-    expect(move?.querySelector('[data-testid="health-change"]')).toBeNull()
-    expect(drawer().querySelector('[data-testid="health-change"]')).not.toBeNull()
+    expect(icyWind?.textContent).toContain('resisted')
+    expect(icyWind?.querySelector('[data-testid="row-health"]')?.textContent).toContain('93%')
+    expect(icyWind?.textContent).toContain('−7%')
+  })
+
+  it('says a target fell rather than putting it on 0%', async () => {
+    // Turn 4 of the fixture: Rock Slide hits both, and `0 fnt` is the HP field
+    // reporting a faint — `0%` is not how that reads.
+    await openDrawer()
+
+    const rows = [...drawer().querySelectorAll('[data-testid="timeline-row"]')]
+    const rockSlide = rows.find((row) => row.textContent?.includes('Rock Slide'))
+    const cells = [...(rockSlide?.querySelectorAll('[data-testid="row-health"]') ?? [])].map(
+      (cell) => cell.textContent ?? '',
+    )
+
+    // Two targets, each with its own numbers: the one that fell, and the 87%
+    // the other was left on.
+    expect(cells).toHaveLength(2)
+    expect(cells.find((text) => text.includes('KO'))).not.toContain('0%')
+    expect(cells.some((text) => text.includes('87%'))).toBe(true)
+  })
+
+  it('leaves the damage the log named a source of on a row of its own', async () => {
+    // Also turn 3: the Life Orb recoil is on the Pokémon that used the move and
+    // the Leftovers tick is at the end of the turn. Neither belongs to any
+    // move's target, and the log says so itself with `[from]` (decision T24).
+    await openDrawer()
+
+    const sourced = [...drawer().querySelectorAll('[data-testid="health-change"]')].map(
+      (change) => change.textContent ?? '',
+    )
+
+    expect(sourced.some((text) => text.includes('item: Life Orb'))).toBe(true)
+    expect(sourced.some((text) => text.includes('item: Leftovers'))).toBe(true)
+    // And no row of its own for what was folded: turn 3 is six rows, from eight.
+    const turn = drawer().querySelectorAll('[data-testid="timeline-turn"]')[3]
+    expect(turn?.querySelectorAll('[data-testid="timeline-row"]')).toHaveLength(6)
+    // The field bar is unmoved by any of it: it reads the events, not the rows,
+    // so the 44% the Leftovers left Toxapex on is still there — on turn 4's
+    // bar, which is the state turn 3 ended on (decision T25).
+    const next = drawer().querySelectorAll('[data-testid="timeline-turn"]')[4]
+    expect(next?.querySelector('[data-testid="field-bar"]')?.textContent).toContain('44%')
   })
 
   it('says on the move row how the hit landed and who stopped it', async () => {
