@@ -5,8 +5,10 @@ import type { FieldSnapshot } from '../utils/battleField'
 import { rowsOf, sidelinedCount } from '../utils/timelineRows'
 
 /**
- * One turn: how the field stood at the end of it, and the main line of what
- * happened during it.
+ * One turn: the field it opened on, and the main line of what happened from
+ * there. In that order, because that is the order it was played in — a turn
+ * drawn over its own outcome tells the reader how it went before it says what
+ * anybody did (#92).
  *
  * The supporting events — an ability announcing itself, a Protect holding, a
  * stat stage — are behind a switch. A turn of this game runs to nineteen
@@ -56,7 +58,7 @@ const startedAt = computed(() =>
       </span>
     </div>
 
-    <BattleFieldBar v-if="snapshot" :snapshot :my-side />
+    <BattleFieldBar v-if="snapshot" :snapshot :my-side :caption="t('battle.drawer.turnOpening')" />
 
     <div class="flex flex-col">
       <BattleEventRow v-for="(row, index) of rows" :key="`${row.mark}-${index}`" :row :my-side />
