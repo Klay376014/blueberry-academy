@@ -200,6 +200,7 @@
       "lead": "Lead",
       "turn": "Turn {number}",
       "turnOpening": "Entering this turn",
+      "closingField": "As the game ended",
       "game": "Game {number}",
       "knockedOut": "KO",
       "offField": "Off",

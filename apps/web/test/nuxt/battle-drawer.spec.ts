@@ -74,6 +74,16 @@ const shortLog = [
   '|-damage|p2a: Whimsicott|41/100',
 ].join('\n')
 
+/** A game that ended at team preview: leads, and no `|turn|` line at all. */
+const leadOnlyLog = [
+  '|gametype|doubles',
+  '|player|p1|Alice|benga|1444',
+  '|player|p2|Bob|gentleman|1534',
+  '|start',
+  '|switch|p1a: Scrafty|Scrafty, L50, F|100/100',
+  '|switch|p2a: Whimsicott|Whimsicott, L50, M|100/100',
+].join('\n')
+
 /** A Pokémon returning to the field poisoned, which only the HP field says. */
 const switchWithStatusLog = [
   '|gametype|doubles',
@@ -373,7 +383,10 @@ describe('the drawer', () => {
 
     expect(turns[0]?.querySelector('[data-testid="field-bar"]')).toBeNull()
     // One per turn, less the lead: the 15-turn fixture, plus the lead, is 16.
-    expect(drawer().querySelectorAll('[data-testid="field-bar"]')).toHaveLength(15)
+    // The one at the foot of the timeline is the game's own and not a turn's.
+    expect(
+      drawer().querySelectorAll('[data-testid="timeline-turn"] [data-testid="field-bar"]'),
+    ).toHaveLength(15)
   })
 
   it('holds the rest of a turn behind a switch', async () => {
@@ -513,7 +526,9 @@ describe('the drawer', () => {
     // And the fields are this game's, one turn behind their turn: a snapshot
     // list left over from game 1 would pair a turn with somebody else's field.
     const turns = drawer().querySelectorAll('[data-testid="timeline-turn"]').length
-    expect(drawer().querySelectorAll('[data-testid="field-bar"]')).toHaveLength(turns - 1)
+    expect(
+      drawer().querySelectorAll('[data-testid="timeline-turn"] [data-testid="field-bar"]'),
+    ).toHaveLength(turns - 1)
   })
 
   it('closes the timeline with how the battle ended and what it cost', async () => {
@@ -533,6 +548,41 @@ describe('the drawer', () => {
     expect(outcome?.textContent).toContain('1444')
     expect(outcome?.textContent).toContain('1429')
     expect(outcome?.textContent).toContain('15')
+  })
+
+  it('draws the field the game finished on, between the last turn and the outcome', async () => {
+    // The turns draw the field they opened on (#92), so the last turn's own
+    // result belongs to nobody. Here is where it goes, in the order it was
+    // played: the last turn's events, what they left, then how it ended.
+    await openDrawer()
+
+    const closing = [...drawer().querySelectorAll('[data-testid="field-bar"]')].at(-1)
+    const outcome = drawer().querySelector('[data-testid="battle-outcome"]')
+
+    expect(closing?.closest('[data-testid="timeline-turn"]')).toBeNull()
+    expect(closing?.textContent).toContain('As the game ended')
+    // Turn 15 knocks out Toxapex and Gholdengo, and this is the only field
+    // that has either of them down.
+    expect(closing?.textContent).toContain('KO')
+    expect(
+      closing &&
+        outcome &&
+        closing.compareDocumentPosition(outcome) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy()
+  })
+
+  it('draws the closing field for a game that never reached a turn', async () => {
+    // A forfeit at team preview is one turn — the lead — which draws no field
+    // of its own. Without this the reader is shown no field at all (#93).
+    storage.object = await storedLog({ ...ladder, log: leadOnlyLog })
+    await openDrawer()
+
+    const bars = [...drawer().querySelectorAll('[data-testid="field-bar"]')]
+
+    expect(bars).toHaveLength(1)
+    expect(bars[0]?.textContent).toContain('As the game ended')
+    // The icons are the only thing naming them, and the label is what they say.
+    expect(bars[0]?.querySelector('[aria-label="Scrafty"]')).not.toBeNull()
   })
 
   it('says nothing about a rating a best-of series never had', async () => {

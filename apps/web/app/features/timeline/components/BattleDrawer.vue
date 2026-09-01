@@ -86,6 +86,15 @@ const games = computed(() => (series.value.length > 1 ? series.value : []))
  */
 const openingOf = (index: number) => snapshots.value[index - 1] ?? null
 
+/**
+ * The field the game finished on — the last turn's own end, which no turn
+ * draws now that each of them draws its opening.
+ *
+ * It is also the only field a game that never reached a turn has: a forfeit at
+ * team preview is the lead and nothing else (#93).
+ */
+const closingField = computed(() => snapshots.value.at(-1) ?? null)
+
 const RESULT_TONE = {
   win: 'border-primary text-primary',
   loss: 'border-destructive text-destructive',
@@ -251,6 +260,14 @@ const RESULT_TONE = {
             :turn
             :snapshot="openingOf(index)"
             :my-side="battle?.mySide ?? null"
+          />
+
+          <BattleFieldBar
+            v-if="closingField"
+            class="mt-2"
+            :snapshot="closingField"
+            :my-side="battle?.mySide ?? null"
+            :caption="t('battle.drawer.closingField')"
           />
 
           <BattleOutcome v-if="battle" :battle />
