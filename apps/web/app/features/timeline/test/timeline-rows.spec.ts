@@ -36,7 +36,7 @@ describe('the rows one turn becomes', () => {
         side: 'p1',
         species: 'Scrafty',
         move: 'Knock Off',
-        targets: [{ species: 'Whimsicott', notes: [] }],
+        targets: [{ species: 'Whimsicott', notes: [], health: [] }],
         bystanders: [],
         notes: [],
         message: null,
@@ -209,11 +209,11 @@ describe('the rows one turn becomes', () => {
       '|-activate|p2a: Whimsicott|move: Protect',
     ]
 
-    // The main line reads: it moved, it hurt. The rest is available and not in
-    // the way (design decision Q3 on this issue).
-    expect(rows(lines).map((row) => row.mark)).toEqual(['move', 'health'])
+    // The whole turn reads on one row: it moved, it was super effective, it
+    // took 68%. The stat stage is available and not in the way.
+    expect(rows(lines).map((row) => row.mark)).toEqual(['move'])
     expect(sidelinedCount(turnsOf(lines)[1]!)).toBe(1)
-    expect(rows(lines, true)).toHaveLength(3)
+    expect(rows(lines, true)).toHaveLength(2)
   })
 
   it('never shows a line the parser could not read, at either level', () => {
@@ -270,9 +270,8 @@ describe('the results an action gathers onto its own row', () => {
     })
   })
   it('gathers a result that arrives after the damage did', () => {
-    // The rows between are the action's own: nothing about a `-damage` says the
-    // move is over, and measured logs put the stat drop and the Protect that
-    // held on the far side of it.
+    // Nothing about a `-damage` says the move is over, and measured logs put
+    // the stat drop and the Protect that held on the far side of it.
     const lines = [
       '|move|p1a: Scrafty|Knock Off|p2a: Whimsicott',
       '|-damage|p2a: Whimsicott|32/100',
@@ -280,7 +279,7 @@ describe('the results an action gathers onto its own row', () => {
     ]
 
     expect(rows(lines)[0]?.targets[0]?.notes).toEqual([{ key: 'hit.resisted', quiet: false }])
-    expect(rows(lines)).toHaveLength(2)
+    expect(rows(lines)).toHaveLength(1)
   })
   it('puts the Protect that went up on the Pokémon that put it up', () => {
     // `-singleturn` names the user, not a target: it is the move working, and
@@ -318,8 +317,8 @@ describe('the results an action gathers onto its own row', () => {
     // In the order the log listed the targets, not the order the results
     // arrived in: the icons stay where the reader last saw them.
     expect(rows(lines).at(-1)?.targets).toEqual([
-      { species: 'Whimsicott', notes: [{ key: 'hit.resisted', quiet: false }] },
-      { species: 'Gholdengo', notes: [{ key: 'hit.supereffective', quiet: false }] },
+      { species: 'Whimsicott', notes: [{ key: 'hit.resisted', quiet: false }], health: [] },
+      { species: 'Gholdengo', notes: [{ key: 'hit.supereffective', quiet: false }], health: [] },
     ])
   })
 
@@ -348,5 +347,93 @@ describe('the results an action gathers onto its own row', () => {
       'effectHeld',
     ])
     expect(rows(afterSwitch)[0]?.targets[0]?.notes).toEqual([])
+  })
+})
+
+describe('the damage an action gathers onto its own row', () => {
+  it('folds a hit onto the target it hit, when the log named no other source', () => {
+    const lines = [
+      '|move|p1a: Scrafty|Knock Off|p2a: Whimsicott',
+      '|-damage|p2a: Whimsicott|38/100',
+    ]
+
+    expect(rows(lines)).toMatchObject([
+      {
+        move: 'Knock Off',
+        targets: [{ species: 'Whimsicott', health: [{ hpBefore: 100, hpAfter: 38 }] }],
+      },
+    ])
+    expect(rows(lines)).toHaveLength(1)
+  })
+  it('leaves the damage the log gave a source of on its own row', () => {
+    // Measured on turn 3 of the ladder fixture: `[from] item: Life Orb` on the
+    // Pokémon that just used the move, and `[from] brn` at the end of the turn.
+    // Both would be a lie beside the move's target icon, and `from` is the log
+    // saying so itself.
+    const lines = [
+      '|move|p2a: Whimsicott|Moonblast|p1a: Scrafty',
+      '|-damage|p1a: Scrafty|62/100',
+      '|-damage|p2a: Whimsicott|90/100|[from] item: Life Orb',
+      '|-damage|p1a: Scrafty|56/100 brn|[from] brn',
+      '|-heal|p1a: Scrafty|62/100|[from] item: Leftovers',
+    ]
+
+    expect(rows(lines).map((row) => [row.mark, row.species, row.health?.from])).toEqual([
+      ['move', 'Whimsicott', undefined],
+      ['health', 'Whimsicott', 'item: Life Orb'],
+      ['health', 'Scrafty', 'brn'],
+      ['health', 'Scrafty', 'item: Leftovers'],
+    ])
+    // The one with no source of its own is the one that went onto the row.
+    expect(rows(lines)[0]?.targets[0]?.health).toMatchObject([{ hpAfter: 62 }])
+  })
+
+  it('folds nothing onto a Pokémon the move was never aimed at', () => {
+    // Garchomp is on the row because it stopped the move, not because the log
+    // called it a target — so a change in its HP is nobody's to claim.
+    const lines = [
+      '|switch|p1b: Garchomp|Garchomp, L50, F|100/100',
+      '|move|p2a: Whimsicott|Make It Rain|p1b: Garchomp|[spread] p1a',
+      '|-activate|p1b: Garchomp|move: Protect',
+      '|-damage|p1b: Garchomp|80/100',
+    ]
+
+    const [move, hurt] = rows(lines).slice(-2)
+    expect(move?.bystanders).toEqual([
+      {
+        species: 'Garchomp',
+        notes: [{ key: 'effectHeld', params: { effect: 'Protect' }, quiet: false }],
+        health: [],
+      },
+    ])
+    expect(hurt).toMatchObject({ mark: 'health', species: 'Garchomp' })
+  })
+
+  it('keeps both hits of a move that hit twice', () => {
+    const lines = [
+      '|move|p1a: Scrafty|Dual Wingbeat|p2a: Whimsicott',
+      '|-damage|p2a: Whimsicott|70/100',
+      '|-damage|p2a: Whimsicott|41/100',
+    ]
+
+    expect(rows(lines)[0]?.targets[0]?.health).toMatchObject([{ hpAfter: 70 }, { hpAfter: 41 }])
+  })
+
+  it('gives each target of a spread move its own numbers, in the log’s order', () => {
+    const lines = [
+      '|switch|p2b: Gholdengo|Gholdengo, L50|100/100',
+      '|move|p1a: Scrafty|Rock Slide|p2a: Whimsicott|[spread] p2a,p2b',
+      '|-damage|p2b: Gholdengo|61/100',
+      '|-damage|p2a: Whimsicott|0 fnt',
+    ]
+
+    expect(
+      rows(lines)
+        .at(-1)
+        ?.targets.map((target) => [target.species, target.health.map((change) => change.hpAfter)]),
+    ).toEqual([
+      ['Whimsicott', [0]],
+      ['Gholdengo', [61]],
+    ])
   })
 })

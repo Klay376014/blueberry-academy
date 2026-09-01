@@ -38,6 +38,15 @@ export interface RowNote {
 export interface RowPokemon {
   species: string
   notes: RowNote[]
+  /**
+   * The HP this action cost it, or gave it back — one entry per change, so a
+   * multi-hit move shows both of its hits rather than the last one only.
+   *
+   * Only ever the changes the two conditions in `foldsHealth` let through: this
+   * is a display decision the UI makes on fields the log itself filled in, not
+   * an attribution the parser performed (design decision T24).
+   */
+  health: HealthChange[]
 }
 
 export interface TimelineRow {
@@ -152,7 +161,7 @@ export function rowOf(event: TimelineEvent): TimelineRow | null {
         mark: 'switch',
         side: event.pokemon.side,
         species: trade ? event.replaced!.species : event.pokemon.species,
-        targets: trade ? [{ species: event.pokemon.species, notes: [] }] : [],
+        targets: trade ? [{ species: event.pokemon.species, notes: [], health: [] }] : [],
         message: {
           key: event.how === 'replace' ? 'wasAnIllusion' : trade ? 'cameInFor' : 'cameIn',
         },
@@ -375,7 +384,19 @@ type MoveEvent = Extract<TimelineEvent, { kind: 'move' }>
 interface OpenAction {
   row: TimelineRow
   actor: string
-  slots: Map<string, RowPokemon>
+  slots: Map<string, RowSlot>
+}
+
+/**
+ * A place on the row and whether the log called it a target of the move.
+ *
+ * Damage folds onto targets only, so the difference has to survive: a
+ * bystander is on the row because a result mentioned it, which is not the log
+ * saying the move was aimed at it.
+ */
+interface RowSlot {
+  pokemon: RowPokemon
+  target: boolean
 }
 
 function actionOf(event: MoveEvent): OpenAction {
@@ -387,13 +408,18 @@ function actionOf(event: MoveEvent): OpenAction {
     side: event.actor.side,
     species: event.actor.species,
     move: event.move,
-    targets: aimedAt.map((target) => ({ species: target.species, notes: [] })),
+    targets: aimedAt.map((target) => ({ species: target.species, notes: [], health: [] })),
   }
 
   return {
     row,
     actor: event.actor.position,
-    slots: new Map(aimedAt.map((target, index) => [target.position, row.targets[index]!])),
+    slots: new Map(
+      aimedAt.map((target, index) => [
+        target.position,
+        { pokemon: row.targets[index]!, target: true },
+      ]),
+    ),
   }
 }
 
@@ -451,13 +477,40 @@ function slotFor(action: OpenAction, pokemon: Combatant): { notes: RowNote[] } {
   if (pokemon.position === action.actor) return action.row
 
   const known = action.slots.get(pokemon.position)
-  if (known) return known
+  if (known) return known.pokemon
 
-  const bystander: RowPokemon = { species: pokemon.species, notes: [] }
+  const bystander: RowPokemon = { species: pokemon.species, notes: [], health: [] }
   action.row.bystanders.push(bystander)
-  action.slots.set(pokemon.position, bystander)
+  action.slots.set(pokemon.position, { pokemon: bystander, target: false })
 
   return bystander
+}
+
+/**
+ * Whether this change in HP is the work of the action that is open, on the two
+ * fields the log itself filled in:
+ *
+ * 1. `from === null` — a log that named a source named one, and it is not this
+ *    move: Life Orb recoil, a burn's tick, Leftovers.
+ * 2. the Pokémon is in this move's `targets` — the spread list, or the single
+ *    target, both of which the log states outright (design hard point 5).
+ *
+ * Those two conditions are exactly what keeps the three cases decision T5
+ * warned about off the move's row: recoil and residuals carry `[from]`, Iron
+ * Barbs and Rocky Helmet hurt the Pokémon that attacked rather than a target,
+ * and an end-of-turn status tick belongs to no move's targets at all. Nothing
+ * here looks back for "the nearest `|move|`" — see the decision record, T24.
+ */
+function foldedHealth(
+  action: OpenAction,
+  event: TimelineEvent,
+): { into: HealthChange[]; change: HealthChange } | null {
+  if (event.kind !== 'damage' && event.kind !== 'heal') return null
+  if (event.from !== null) return null
+
+  const slot = action.slots.get(event.pokemon.position)
+
+  return slot?.target ? { into: slot.pokemon.health, change: event } : null
 }
 
 /** What closes an action, so that its results cannot reach past it. */
@@ -483,6 +536,13 @@ export function rowsOf(turn: TimelineTurn, { detailed }: RowOptions): TimelineRo
   turn.events.forEach((event, index) => {
     if (isPlumbingFor(turn.events, index)) return
     if (action && pin(action, event)) return
+
+    const health = action && foldedHealth(action, event)
+    if (health) {
+      health.into.push(health.change)
+      return
+    }
+
     if (CLOSES_ACTION.has(event.kind)) action = null
     if (!detailed && !isMainLine(event)) return
 
