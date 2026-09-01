@@ -331,6 +331,29 @@ describe('the drawer', () => {
     expect(drawer().querySelector('[data-testid="health-change"]')).not.toBeNull()
   })
 
+  it('says on the move row how the hit landed and who stopped it', async () => {
+    // Turn 3 of the fixture, without opening anything: Icy Wind is resisted by
+    // Toxapex, and the Garchomp that protected is named nowhere in the move's
+    // own line — `[spread] p1a` lists Toxapex alone (issue #96).
+    await openDrawer()
+
+    const rows = [...drawer().querySelectorAll('[data-testid="timeline-row"]')]
+    const icyWind = rows.find((row) => row.textContent?.includes('Icy Wind'))
+
+    expect(icyWind?.textContent).toContain('resisted')
+    expect(icyWind?.textContent).toContain('Protect held')
+  })
+
+  it('leaves only what it did not fold behind the switch', async () => {
+    await openDrawer()
+
+    // Turn 3 held seven; the two left are the speed drop and the Nasty
+    // Plot's own drop, which belong to nobody's move in particular.
+    const turn = drawer().querySelectorAll('[data-testid="timeline-turn"]')[3]
+
+    expect(turn?.querySelector('[data-testid="turn-details"]')?.textContent).toContain('2 more')
+  })
+
   it('shows what each Pokémon is carrying at the end of a turn', async () => {
     await openDrawer()
 

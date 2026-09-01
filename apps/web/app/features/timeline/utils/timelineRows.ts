@@ -1,4 +1,4 @@
-import type { HealthChange, SideId, TimelineEvent, TimelineTurn } from 'replay-parser'
+import type { Combatant, HealthChange, SideId, TimelineEvent, TimelineTurn } from 'replay-parser'
 
 /**
  * One turn of a battle as the rows the drawer draws.
@@ -15,6 +15,31 @@ import type { HealthChange, SideId, TimelineEvent, TimelineTurn } from 'replay-p
 /** Which glyph a row wears. Semantic, so the icon set can change without this. */
 export type RowMark = 'move' | 'switch' | 'health' | 'faint' | 'tera' | 'forme' | 'status' | 'none'
 
+/**
+ * How an action turned out for one Pokémon, in a few words beside its icon: a
+ * hit that was resisted, a Protect that held, a move that missed.
+ *
+ * The words are the whole of it — a colour alone would leave a reader who
+ * cannot see it with nothing (issue #96).
+ */
+export interface RowNote {
+  /** A key under `battle.event`, as a row's `message` uses. */
+  key: string
+  params?: Record<string, string>
+  /**
+   * Whether the note only repeats what the row already says, and so is for a
+   * screen reader rather than for the screen: `-singleturn Protect` on the
+   * Pokémon that just used Protect is the move's own name back again.
+   */
+  quiet: boolean
+}
+
+/** A Pokémon an action reached, and what the log said happened to it. */
+export interface RowPokemon {
+  species: string
+  notes: RowNote[]
+}
+
 export interface TimelineRow {
   mark: RowMark
   /** Whose Pokémon this is about, or null for something happening to the field. */
@@ -27,7 +52,15 @@ export interface TimelineRow {
    * Species of whatever this row points at, as icons after an arrow: a move's
    * targets, or the Pokémon that came in for the one that left.
    */
-  targets: string[]
+  targets: RowPokemon[]
+  /**
+   * Whoever else the action reached: the Pokémon that stopped a spread move it
+   * was never listed as a target of. Kept apart from `targets` because the log
+   * did not call it one, and the arrow the targets sit behind would.
+   */
+  bystanders: RowPokemon[]
+  /** What the log said the action did to the row's own subject. */
+  notes: RowNote[]
   /** A key under `battle.event` in the locale files, with its parameters. */
   message: { key: string; params?: Record<string, string> } | null
   /**
@@ -87,6 +120,8 @@ function blank(): TimelineRow {
     species: null,
     move: null,
     targets: [],
+    bystanders: [],
+    notes: [],
     message: null,
     quiet: false,
     health: null,
@@ -95,21 +130,16 @@ function blank(): TimelineRow {
   }
 }
 
-/** The row an event becomes, or null for a line nothing should draw. */
+/**
+ * The row an event becomes, or null for a line nothing should draw.
+ *
+ * A move's row comes back with no results on it: gathering those is `rowsOf`'s
+ * work, because it takes the events that follow to know what they were.
+ */
 export function rowOf(event: TimelineEvent): TimelineRow | null {
   switch (event.kind) {
     case 'move':
-      return {
-        ...blank(),
-        mark: 'move',
-        side: event.actor.side,
-        species: event.actor.species,
-        move: event.move,
-        // A move aimed at its own user says nothing an icon would add.
-        targets: event.targets
-          .filter((target) => target.position !== event.actor.position)
-          .map((target) => target.species),
-      }
+      return actionOf(event).row
 
     case 'switch': {
       // A trade reads as one: whoever left, then whoever came in for them. An
@@ -122,7 +152,7 @@ export function rowOf(event: TimelineEvent): TimelineRow | null {
         mark: 'switch',
         side: event.pokemon.side,
         species: trade ? event.replaced!.species : event.pokemon.species,
-        targets: trade ? [event.pokemon.species] : [],
+        targets: trade ? [{ species: event.pokemon.species, notes: [] }] : [],
         message: {
           key: event.how === 'replace' ? 'wasAnIllusion' : trade ? 'cameInFor' : 'cameIn',
         },
@@ -333,14 +363,150 @@ function isPlumbingFor(events: TimelineEvent[], index: number): boolean {
   )
 }
 
-export function rowsOf(turn: TimelineTurn, { detailed }: RowOptions): TimelineRow[] {
-  return turn.events
-    .filter((event, index) => (detailed || isMainLine(event)) && !isPlumbingFor(turn.events, index))
-    .map(rowOf)
-    .filter((row): row is TimelineRow => row !== null)
+type MoveEvent = Extract<TimelineEvent, { kind: 'move' }>
+
+/**
+ * A move's row, open for the results that follow it.
+ *
+ * `slots` is by field position rather than by species, because a position is
+ * the only thing on the field that is unique — nicknames repeat and an Illusion
+ * lies about the species.
+ */
+interface OpenAction {
+  row: TimelineRow
+  actor: string
+  slots: Map<string, RowPokemon>
 }
 
-/** How many rows the "show the rest of this turn" switch would add. */
+function actionOf(event: MoveEvent): OpenAction {
+  // A move aimed at its own user says nothing an icon would add.
+  const aimedAt = event.targets.filter((target) => target.position !== event.actor.position)
+  const row: TimelineRow = {
+    ...blank(),
+    mark: 'move',
+    side: event.actor.side,
+    species: event.actor.species,
+    move: event.move,
+    targets: aimedAt.map((target) => ({ species: target.species, notes: [] })),
+  }
+
+  return {
+    row,
+    actor: event.actor.position,
+    slots: new Map(aimedAt.map((target, index) => [target.position, row.targets[index]!])),
+  }
+}
+
+/**
+ * What the log said an action did to one Pokémon, or null for an event that is
+ * not a result at all.
+ */
+function resultOf(
+  event: TimelineEvent,
+  move: string | null,
+): { pokemon: Combatant; note: RowNote } | null {
+  switch (event.kind) {
+    case 'hitResult':
+      return { pokemon: event.pokemon, note: { key: `hit.${event.result}`, quiet: false } }
+
+    case 'fail':
+      return { pokemon: event.pokemon, note: { key: 'failed', quiet: false } }
+
+    // On the Pokémon that used the move rather than on the one it flew past:
+    // the row's subject is the user, and a spread move that misses one of two
+    // targets is the one shape this cannot tell apart. Measured: never seen.
+    case 'miss':
+      return { pokemon: event.actor, note: { key: 'missed', quiet: false } }
+
+    case 'effect':
+      return {
+        pokemon: event.pokemon,
+        note: {
+          key: event.phase === 'start' ? 'effectStarted' : 'effectHeld',
+          params: { effect: event.effect },
+          quiet: event.phase === 'start' && event.effect === move,
+        },
+      }
+
+    default:
+      return null
+  }
+}
+
+/**
+ * Puts a result on the row of the action it belongs to, and says whether it
+ * went. The notes are pushed into objects the row already holds, so the row
+ * that was pushed earlier gains them.
+ */
+function pin(action: OpenAction, event: TimelineEvent): boolean {
+  const result = resultOf(event, action.row.move)
+  if (!result) return false
+
+  slotFor(action, result.pokemon).notes.push(result.note)
+  return true
+}
+
+/** Where on the row a result about this Pokémon goes, made room for if new. */
+function slotFor(action: OpenAction, pokemon: Combatant): { notes: RowNote[] } {
+  if (pokemon.position === action.actor) return action.row
+
+  const known = action.slots.get(pokemon.position)
+  if (known) return known
+
+  const bystander: RowPokemon = { species: pokemon.species, notes: [] }
+  action.row.bystanders.push(bystander)
+  action.slots.set(pokemon.position, bystander)
+
+  return bystander
+}
+
+/** What closes an action, so that its results cannot reach past it. */
+const CLOSES_ACTION = new Set<TimelineEvent['kind']>(['move', 'switch'])
+
+/**
+ * The rows a turn becomes, with each action's results gathered onto its own row.
+ *
+ * A result — how the hit landed, a Protect that held, a miss — is a fact about
+ * the move that just went out, and Showdown shows it on that move's line. It is
+ * folded rather than dropped: a row of its own for `resisted` says nothing the
+ * move's row cannot say better, and thirty-seven of them per game were behind
+ * the "show the rest of this turn" switch (issue #96).
+ *
+ * This is not the damage attribution decision T5 declined. The events folded
+ * here each name the Pokémon they are about, and the group they land in is
+ * closed by the next move or switch — nothing is inferred from proximity alone.
+ */
+export function rowsOf(turn: TimelineTurn, { detailed }: RowOptions): TimelineRow[] {
+  const rows: TimelineRow[] = []
+  let action: OpenAction | null = null
+
+  turn.events.forEach((event, index) => {
+    if (isPlumbingFor(turn.events, index)) return
+    if (action && pin(action, event)) return
+    if (CLOSES_ACTION.has(event.kind)) action = null
+    if (!detailed && !isMainLine(event)) return
+
+    if (event.kind === 'move') {
+      action = actionOf(event)
+      rows.push(action.row)
+      return
+    }
+
+    // Whatever else happened stays a row of its own, and leaves the action open:
+    // the damage of a spread move lands between its two targets' results.
+    const row = rowOf(event)
+    if (row) rows.push(row)
+  })
+
+  return rows
+}
+
+/**
+ * How many rows the "show the rest of this turn" switch would add.
+ *
+ * The difference between the two levels rather than a count of its own, so that
+ * an event folded into an action cannot be offered as a row that is not there.
+ */
 export function sidelinedCount(turn: TimelineTurn): number {
-  return turn.events.filter((event) => !isMainLine(event) && rowOf(event) !== null).length
+  return rowsOf(turn, { detailed: true }).length - rowsOf(turn, { detailed: false }).length
 }
