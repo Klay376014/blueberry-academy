@@ -199,6 +199,7 @@
       "won": "Won",
       "lead": "Lead",
       "turn": "Turn {number}",
+      "turnOpening": "Entering this turn",
       "game": "Game {number}",
       "knockedOut": "KO",
       "offField": "Off",

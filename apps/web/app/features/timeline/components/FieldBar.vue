@@ -5,15 +5,19 @@ import type { FieldSnapshot, PokemonState } from '../utils/battleField'
 import { speciesName } from '~/shared/utils/speciesName'
 
 /**
- * How the field stood at the end of one turn: who was out, on how much HP, and
- * what each of them was carrying — and, on a second line, the ones that are no
- * longer out but have been.
+ * How the field stood at one moment: who was out, on how much HP, and what each
+ * of them was carrying — and, on a second line, the ones that are no longer out
+ * but have been.
  *
  * One of these per turn is the answer to "was Garchomp still burning here?"
  * without reading back up the log for the turn it caught it, and to "how many
  * has he got left?" without counting the faints (#90).
+ *
+ * Which moment it is belongs to whoever draws it, and is said in `caption`
+ * rather than left to the reader: the same bar is a turn's opening field and,
+ * at the foot of the timeline, the field the game finished on.
  */
-const props = defineProps<{ snapshot: FieldSnapshot; mySide: SideId | null }>()
+const props = defineProps<{ snapshot: FieldSnapshot; mySide: SideId | null; caption: string }>()
 
 /** Mine first when either side is mine, and p1 first when neither is. */
 const sides = computed<SideId[]>(() => (props.mySide === 'p2' ? ['p2', 'p1'] : ['p1', 'p2']))
@@ -78,6 +82,10 @@ function hpLabel(pokemon: PokemonState) {
     class="bg-muted/40 border-border flex flex-col gap-1 rounded-md border px-2 py-1"
     data-testid="field-bar"
   >
+    <span class="text-muted-foreground font-mono text-[9px] tracking-widest uppercase">
+      {{ caption }}
+    </span>
+
     <template v-for="side of sides" :key="side">
       <div
         v-for="line of linesOf(side)"

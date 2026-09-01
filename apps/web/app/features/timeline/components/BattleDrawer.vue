@@ -77,7 +77,14 @@ const rightName = computed(() => nameOf(sides.value?.right, 'battle.drawer.unkno
 /** The other games of this series, oldest first, only when there is a series. */
 const games = computed(() => (series.value.length > 1 ? series.value : []))
 
-const snapshotOf = (index: number) => snapshots.value[index] ?? null
+/**
+ * The field a turn opened on: the snapshot the turn before it left behind.
+ *
+ * `fieldSnapshots` reports the end of each turn, and a turn drawn over its own
+ * end reads its result before its events (#92). The lead has no turn before it
+ * and gets `null` — its own events are who came in.
+ */
+const openingOf = (index: number) => snapshots.value[index - 1] ?? null
 
 const RESULT_TONE = {
   win: 'border-primary text-primary',
@@ -242,7 +249,7 @@ const RESULT_TONE = {
             v-for="(turn, index) of timeline.turns"
             :key="`${battle?.replayId}-${turn.number}`"
             :turn
-            :snapshot="snapshotOf(index)"
+            :snapshot="openingOf(index)"
             :my-side="battle?.mySide ?? null"
           />
 

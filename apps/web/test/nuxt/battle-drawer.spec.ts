@@ -331,7 +331,7 @@ describe('the drawer', () => {
     expect(drawer().querySelector('[data-testid="health-change"]')).not.toBeNull()
   })
 
-  it('shows what each Pokémon is carrying at the end of a turn', async () => {
+  it('shows what each Pokémon is carrying as the turn begins', async () => {
     await openDrawer()
 
     // Scrafty is burnt from turn 2 onwards, and the chip is how that is read
@@ -341,6 +341,39 @@ describe('the drawer', () => {
     const bars = [...drawer().querySelectorAll('[data-testid="field-bar"]')]
 
     expect(bars.some((bar) => bar.textContent?.includes('brn'))).toBe(true)
+  })
+
+  it('draws the field a turn began on, not the field it left behind', async () => {
+    await openDrawer()
+
+    // The log burns Scrafty during turn 2, so turn 2 is read on a field that
+    // has no burn on it yet and turn 3 is the first one that opens with one.
+    // Backwards, and the reader is told the outcome before the move that
+    // caused it (#92).
+    const turns = [...drawer().querySelectorAll('[data-testid="timeline-turn"]')]
+    const carries = (turn: number) =>
+      turns[turn]?.querySelector('[data-testid="field-bar"]')?.textContent?.includes('brn')
+
+    expect(carries(2)).toBe(false)
+    expect(carries(3)).toBe(true)
+  })
+
+  it('says which turn the field it draws is the opening of', async () => {
+    await openDrawer()
+
+    const bar = drawer().querySelector('[data-testid="field-bar"]')
+
+    expect(bar?.textContent).toContain('Entering this turn')
+  })
+
+  it('draws no field on the lead, which has no turn before it to open on', async () => {
+    await openDrawer()
+
+    const turns = [...drawer().querySelectorAll('[data-testid="timeline-turn"]')]
+
+    expect(turns[0]?.querySelector('[data-testid="field-bar"]')).toBeNull()
+    // One per turn, less the lead: the 15-turn fixture, plus the lead, is 16.
+    expect(drawer().querySelectorAll('[data-testid="field-bar"]')).toHaveLength(15)
   })
 
   it('holds the rest of a turn behind a switch', async () => {
@@ -476,6 +509,11 @@ describe('the drawer', () => {
     // The turns of a different game, numbered the same: the switch that was
     // opened belonged to game 1's turn, not to this one.
     expect(toggle().getAttribute('aria-expanded')).toBe('false')
+
+    // And the fields are this game's, one turn behind their turn: a snapshot
+    // list left over from game 1 would pair a turn with somebody else's field.
+    const turns = drawer().querySelectorAll('[data-testid="timeline-turn"]').length
+    expect(drawer().querySelectorAll('[data-testid="field-bar"]')).toHaveLength(turns - 1)
   })
 
   it('closes the timeline with how the battle ended and what it cost', async () => {
