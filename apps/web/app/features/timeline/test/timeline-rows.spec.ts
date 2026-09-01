@@ -45,7 +45,9 @@ describe('the rows one turn becomes', () => {
         side: 'p1',
         species: 'Scrafty',
         move: 'Knock Off',
-        targets: ['Whimsicott'],
+        targets: [{ species: 'Whimsicott', notes: [] }],
+        bystanders: [],
+        notes: [],
         message: null,
         quiet: false,
         health: null,
@@ -69,7 +71,11 @@ describe('the rows one turn becomes', () => {
       '|move|p1a: Scrafty|Rock Slide|p2a: Whimsicott|[spread] p2a,p2b',
     ]
 
-    expect(rows(turn).at(-1)?.targets).toEqual(['Whimsicott', 'Gholdengo'])
+    expect(
+      rows(turn)
+        .at(-1)
+        ?.targets.map((target) => target.species),
+    ).toEqual(['Whimsicott', 'Gholdengo'])
   })
 
   it('carries a health change as the change itself, not as words', () => {
@@ -145,7 +151,7 @@ describe('the rows one turn becomes', () => {
     expect(rows(['|switch|p1a: Toxapex|Toxapex, L50, M|100/100'])[0]).toMatchObject({
       mark: 'switch',
       species: 'Scrafty',
-      targets: ['Toxapex'],
+      targets: [{ species: 'Toxapex', notes: [] }],
       message: { key: 'cameInFor' },
       quiet: true,
     })
@@ -215,8 +221,8 @@ describe('the rows one turn becomes', () => {
     // The main line reads: it moved, it hurt. The rest is available and not in
     // the way (design decision Q3 on this issue).
     expect(rows(lines).map((row) => row.mark)).toEqual(['move', 'health'])
-    expect(sidelinedCount(turnsOf(lines)[1]!)).toBe(3)
-    expect(rows(lines, true)).toHaveLength(5)
+    expect(sidelinedCount(turnsOf(lines)[1]!)).toBe(1)
+    expect(rows(lines, true)).toHaveLength(3)
   })
 
   it('never shows a line the parser could not read, at either level', () => {
@@ -235,5 +241,121 @@ describe('the rows one turn becomes', () => {
     expect(rows(['|-boost|p1a: Scrafty|spe|2'], true)[0]).toMatchObject({
       message: { key: 'statRose', params: { stat: 'spe', stages: '2' } },
     })
+  })
+})
+
+describe('the results an action gathers onto its own row', () => {
+  it('pins how a hit landed on the Pokémon it landed on', () => {
+    const lines = [
+      '|move|p1a: Scrafty|Knock Off|p2a: Whimsicott',
+      '|-supereffective|p2a: Whimsicott',
+    ]
+
+    expect(rows(lines)).toMatchObject([
+      {
+        move: 'Knock Off',
+        targets: [{ species: 'Whimsicott', notes: [{ key: 'hit.supereffective' }] }],
+      },
+    ])
+  })
+  it('makes room on the row for a Pokémon that only turns up in the results', () => {
+    // Measured: `|move|p2b: Gholdengo|Make It Rain|p1b: Garchomp|[spread] p1a`.
+    // The spread list is the targets, and the Garchomp that protected is named
+    // in no other place than its own result — so a row that only had targets
+    // could not show who stopped the move.
+    const lines = [
+      '|switch|p1b: Garchomp|Garchomp, L50, F|100/100',
+      '|switch|p2b: Gholdengo|Gholdengo, L50|100/100',
+      '|move|p2b: Gholdengo|Make It Rain|p1b: Garchomp|[spread] p1a',
+      '|-activate|p1b: Garchomp|move: Protect',
+    ]
+
+    expect(rows(lines).at(-1)).toMatchObject({
+      move: 'Make It Rain',
+      targets: [{ species: 'Scrafty', notes: [] }],
+      bystanders: [
+        { species: 'Garchomp', notes: [{ key: 'effectHeld', params: { effect: 'Protect' } }] },
+      ],
+    })
+  })
+  it('gathers a result that arrives after the damage did', () => {
+    // The rows between are the action's own: nothing about a `-damage` says the
+    // move is over, and measured logs put the stat drop and the Protect that
+    // held on the far side of it.
+    const lines = [
+      '|move|p1a: Scrafty|Knock Off|p2a: Whimsicott',
+      '|-damage|p2a: Whimsicott|32/100',
+      '|-resisted|p2a: Whimsicott',
+    ]
+
+    expect(rows(lines)[0]?.targets[0]?.notes).toEqual([{ key: 'hit.resisted', quiet: false }])
+    expect(rows(lines)).toHaveLength(2)
+  })
+  it('puts the Protect that went up on the Pokémon that put it up', () => {
+    // `-singleturn` names the user, not a target: it is the move working, and
+    // the row already says `Protect`, so the words are the screen reader's.
+    const lines = ['|move|p1a: Scrafty|Protect|p1a: Scrafty', '|-singleturn|p1a: Scrafty|Protect']
+
+    expect(rows(lines)).toMatchObject([
+      {
+        move: 'Protect',
+        targets: [],
+        notes: [{ key: 'effectStarted', params: { effect: 'Protect' }, quiet: true }],
+      },
+    ])
+  })
+  it('folds a miss and a failure onto the move that missed or failed', () => {
+    const missed = [
+      '|move|p1a: Scrafty|Knock Off|p2a: Whimsicott',
+      '|-miss|p1a: Scrafty|p2a: Whimsicott',
+    ]
+    const failed = ['|move|p1a: Scrafty|Protect|p1a: Scrafty', '|-fail|p1a: Scrafty']
+
+    // On the Pokémon that used the move rather than the one it flew past: the
+    // row's subject is the user, and `missed` reads as its failure.
+    expect(rows(missed)).toMatchObject([{ move: 'Knock Off', notes: [{ key: 'missed' }] }])
+    expect(rows(failed)).toMatchObject([{ move: 'Protect', notes: [{ key: 'failed' }] }])
+  })
+  it('gives each target of a spread move its own result', () => {
+    const lines = [
+      '|switch|p2b: Gholdengo|Gholdengo, L50|100/100',
+      '|move|p1a: Scrafty|Rock Slide|p2a: Whimsicott|[spread] p2a,p2b',
+      '|-supereffective|p2b: Gholdengo',
+      '|-resisted|p2a: Whimsicott',
+    ]
+
+    // In the order the log listed the targets, not the order the results
+    // arrived in: the icons stay where the reader last saw them.
+    expect(rows(lines).at(-1)?.targets).toEqual([
+      { species: 'Whimsicott', notes: [{ key: 'hit.resisted', quiet: false }] },
+      { species: 'Gholdengo', notes: [{ key: 'hit.supereffective', quiet: false }] },
+    ])
+  })
+
+  it('closes an action at the next move, and at a switch', () => {
+    const nextMove = [
+      '|move|p1a: Scrafty|Knock Off|p2a: Whimsicott',
+      '|move|p2a: Whimsicott|Moonblast|p1a: Scrafty',
+      '|-resisted|p1a: Scrafty',
+    ]
+    const afterSwitch = [
+      '|move|p1a: Scrafty|Knock Off|p2a: Whimsicott',
+      '|switch|p2a: Toxapex|Toxapex, L50, M|100/100',
+      '|-activate|p2a: Toxapex|move: Protect',
+    ]
+
+    // The result belongs to Moonblast, whose user it names, and not to the
+    // Knock Off two rows up.
+    const [knockOff, moonblast] = rows(nextMove)
+    expect(knockOff?.targets[0]?.notes).toEqual([])
+    expect(moonblast?.targets[0]?.notes).toEqual([{ key: 'hit.resisted', quiet: false }])
+
+    // Nothing is open across a switch, so the effect keeps its own row.
+    expect(rows(afterSwitch, true).map((row) => row.message?.key)).toEqual([
+      undefined,
+      'cameInFor',
+      'effectHeld',
+    ])
+    expect(rows(afterSwitch)[0]?.targets[0]?.notes).toEqual([])
   })
 })
