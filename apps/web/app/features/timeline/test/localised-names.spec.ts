@@ -216,3 +216,186 @@ describe('a move on the timeline in zh-TW', () => {
     expect(wrapper.text()).toContain('Nihil Light')
   })
 })
+
+/**
+ * The rest of the battle vocabulary on the rows and the chips that draw it:
+ * the ability row, the lost-item row, the weather, the field, a stat change, a
+ * Tera type, and the `[from]` on a damage row.
+ *
+ * The `en` cases pin the English screen in place, the same way the two blocks
+ * above pin it for #101 and #102 (docs/adr/0016-localised-battle-vocabulary.md).
+ */
+
+const abilityRow: TimelineRow = {
+  ...moveRow,
+  mark: 'none',
+  move: null,
+  targets: [],
+  bystanders: [],
+  notes: [],
+  message: { key: 'ability', params: { ability: 'Regenerator' } },
+}
+
+const lostItemRow: TimelineRow = {
+  ...abilityRow,
+  message: { key: 'lostItem', params: { item: 'Life Orb' } },
+}
+
+const weatherRow: TimelineRow = {
+  ...abilityRow,
+  species: null,
+  message: { key: 'weather', params: { weather: 'Snowscape' } },
+}
+
+const weatherClearedRow: TimelineRow = {
+  ...weatherRow,
+  message: { key: 'weatherCleared' },
+}
+
+const fieldEffectRow: TimelineRow = {
+  ...abilityRow,
+  message: { key: 'fieldEffectStarted', params: { effect: 'Trick Room' } },
+}
+
+const boostRow: TimelineRow = {
+  ...abilityRow,
+  message: { key: 'statRose', params: { stat: 'atk', stages: '1' } },
+}
+
+const teraRow: TimelineRow = {
+  ...abilityRow,
+  message: { key: 'terastallized', params: { type: 'Fire' } },
+}
+
+/** A damage row whose source the log named, namespace and all. */
+const damageRow: TimelineRow = {
+  ...abilityRow,
+  mark: 'health',
+  message: null,
+  health: {
+    kind: 'damage',
+    pokemon: { side: 'p1', position: 'p1a', species: 'Pikachu', nickname: 'Pikachu' },
+    hpBefore: 100,
+    hpAfter: 90,
+    hpDelta: -10,
+    from: 'item: Life Orb',
+    silent: false,
+  } as unknown as TimelineRow['health'],
+}
+
+const fieldWithConditions: FieldSnapshot = {
+  ...snapshot,
+  slots: [{ ...snapshot.slots[0]!, status: 'brn', boosts: { atk: 1 }, teraType: 'Fire' }],
+  screens: { p1: ['Reflect'], p2: [] },
+  fieldEffects: ['Trick Room'],
+}
+
+async function mountFieldOf(field: FieldSnapshot, locale: string) {
+  return await mountSuspended(FieldBar, {
+    props: { snapshot: field, mySide: 'p1' as const, caption: 'Turn 1' },
+    route: routeFor(locale),
+  })
+}
+
+/** What a row says, with the whitespace the template introduces collapsed. */
+const said = async (row: TimelineRow, locale: string) =>
+  (await mountRowOf(row, locale)).text().replaceAll(/\s+/gu, ' ').trim()
+
+describe('the rest of the vocabulary in en', () => {
+  it('is unchanged on every row that carries one', async () => {
+    const rows = [
+      abilityRow,
+      lostItemRow,
+      weatherRow,
+      weatherClearedRow,
+      fieldEffectRow,
+      boostRow,
+      teraRow,
+      damageRow,
+    ]
+
+    // One at a time: the locale is global to the app instance, so mounting
+    // these concurrently renders some of them under whichever locale the
+    // previous test left behind (measured -- this block read Chinese).
+    const texts: string[] = []
+    for (const row of rows) texts.push(await said(row, 'en'))
+
+    expect(texts).toEqual([
+      'Regenerator',
+      'lost its Life Orb',
+      'weather · Snowscape',
+      'weather · none',
+      'Trick Room up',
+      'atk +1',
+      'terastallized Fire',
+      '100% → 90% item: Life Orb',
+    ])
+  })
+
+  it('is unchanged on the field bar chips', async () => {
+    const wrapper = await mountFieldOf(fieldWithConditions, 'en')
+    const text = wrapper.text().replaceAll(/\s+/gu, ' ')
+
+    for (const chip of ['Trick Room', 'Reflect', 'brn', 'atk +1', 'Tera Fire']) {
+      expect(text, chip).toContain(chip)
+    }
+  })
+})
+
+describe('the rest of the vocabulary in zh-TW', () => {
+  it('says an ability under its official Chinese name', async () => {
+    expect(await said(abilityRow, 'zh-TW')).toBe('再生力')
+  })
+
+  it('says a lost item under its official Chinese name', async () => {
+    expect(await said(lostItemRow, 'zh-TW')).toBe('失去了 生命寶珠')
+  })
+
+  it("says the weather under the state's name, not the move's", async () => {
+    // 下雪 is the weather Snowscape; 雪景 is the move of the same name. Both
+    // are official strings and only one of them is what this row means.
+    const text = await said(weatherRow, 'zh-TW')
+
+    expect(text).toBe('天氣 · 下雪')
+    expect(text).not.toContain('雪景')
+  })
+
+  it('says the weather running out, which is a word no source has a name for', async () => {
+    // `none` is not a name, so it is copy rather than a table entry.
+    expect(await said(weatherClearedRow, 'zh-TW')).toBe('天氣 · 無')
+  })
+
+  it('says something on the whole field in Chinese', async () => {
+    expect(await said(fieldEffectRow, 'zh-TW')).toBe('戲法空間 展開')
+  })
+
+  it('says a stat change and a Tera type in Chinese', async () => {
+    expect(await said(boostRow, 'zh-TW')).toBe('攻擊 +1')
+    expect(await said(teraRow, 'zh-TW')).toBe('太晶化 火')
+  })
+
+  it("says what a [from] blamed under the reader's name for it", async () => {
+    const text = await said(damageRow, 'zh-TW')
+
+    expect(text).toContain('生命寶珠')
+    expect(text).not.toContain('item: Life Orb')
+  })
+
+  it('says the field bar chips in Chinese', async () => {
+    const wrapper = await mountFieldOf(fieldWithConditions, 'zh-TW')
+    const text = wrapper.text().replaceAll(/\s+/gu, ' ')
+
+    for (const chip of ['戲法空間', '反射壁', '攻擊 +1', '太晶 火']) {
+      expect(text, chip).toContain(chip)
+    }
+  })
+
+  it('leaves the condition chip as Showdown spells it', async () => {
+    // The one thing on this bar with no official name anywhere: Showdown's own
+    // `StatusNames` are eight nulls. English is the honest answer, not a
+    // translation this project invented.
+    const wrapper = await mountFieldOf(fieldWithConditions, 'zh-TW')
+
+    expect(wrapper.text()).toContain('brn')
+  })
+})

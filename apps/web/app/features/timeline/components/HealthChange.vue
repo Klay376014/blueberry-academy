@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { HealthChange } from 'replay-parser'
+import { sourceDisplayName } from '~/shared/utils/battleTerms'
 
 /**
  * A change in HP: the bar that is left, the piece that went, and the two
@@ -13,9 +14,19 @@ import type { HealthChange } from 'replay-parser'
  *
  * `from` is shown only when the log itself named a source — burn, an item, an
  * ability — which is exactly when there is one to name, and on this form it
- * always is.
+ * always is. It is the one identifier the parser hands over with its namespace
+ * still on it, so it is the one the reader's name for it can be looked up by
+ * the log's own word rather than by the dex
+ * (docs/adr/0016-localised-battle-vocabulary.md).
  */
 const props = defineProps<{ health: HealthChange }>()
+
+const { locale } = useI18n()
+
+/** What the log blamed, under the reader's name for it. */
+const from = computed(() =>
+  props.health.from === null ? null : sourceDisplayName(props.health.from, locale.value),
+)
 
 const hurt = computed(() => props.health.kind === 'damage')
 /** The slice between before and after, which is what the hit took. */
@@ -50,6 +61,6 @@ const lost = computed(() => {
       {{ health.hpAfter }}%
     </span>
 
-    <span v-if="health.from" class="text-muted-foreground text-xs">{{ health.from }}</span>
+    <span v-if="from" class="text-muted-foreground text-xs">{{ from }}</span>
   </span>
 </template>
