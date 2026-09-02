@@ -495,3 +495,22 @@ runtime lookup. The icon slots come from `@pkmn/img` rather than from
 `species.num`: Ninetales-Alola shares dex number 38 with Ninetales, and 524 of
 the 1517 species are Megas, Gmax, regional or cosmetic formes that Showdown
 keeps in a separate range of the sheet.
+
+The zh-Hant table beside them has its own generator and its own verifier:
+
+```sh
+pnpm --filter web gen:species-names-zh-hant     # rewrite the table from PokéAPI
+pnpm --filter web verify:species-names-zh-hant  # diff it against the official Pokédex
+```
+
+The generator's source is PokéAPI's zh-Hant strings, corrected by
+`apps/web/scripts/species-names-zh-hant-official.mjs` — the ids where the official
+Taiwan Pokédex disagrees, each carrying the Pokédex URL it was read from. Fix a
+name there and re-run the generator; hand-editing the JSON gets reverted by the
+next run.
+
+The verifier fetches the official Pokédex list page once and diffs all 1025 base
+species byte for byte, printing every deviation and exiting non-zero. It is
+deliberately **not** part of `pnpm test:unit`: that suite stays hermetic and
+offline. Run the verifier by hand after regenerating, on a dex bump, or on a new
+generation. See `docs/adr/0014-localised-species-names.md`.

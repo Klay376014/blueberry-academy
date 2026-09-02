@@ -10,7 +10,9 @@ import type { PokemonState } from '../utils/battleField'
  * something holds the state.
  *
  * The stat and status names are Showdown's own (`atk`, `brn`) and stay as they
- * are — like species and move names, they are identifiers rather than copy.
+ * are: they are protocol values rather than copy, and the chips are laid out
+ * for three characters. Species names do get localised — that is the line
+ * ADR-0014 draws, and these are on the identifier side of it.
  */
 const props = defineProps<{ pokemon: PokemonState }>()
 
