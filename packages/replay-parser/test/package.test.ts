@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vite-plus/test'
 import pkg from '../package.json'
 import ladder from './fixtures/gen9championsvgc2026regmb-2667169457.json'
 import forfeit from './fixtures/gen9championsvgc2026regmb-2667301751.json'
+import fieldEffects from './fixtures/gen9championsvgc2026regmb-2674299387.json'
 import unratedSeries from './fixtures/gen9championsvgc2026regmbbo3-2667579302.json'
 import series from './fixtures/gen9championsvgc2026regmbbo3-2667582547.json'
 import tie from './fixtures/gen9ou-2667293085.json'
@@ -15,6 +16,7 @@ import long from './fixtures/gen9ou-2667299955.json'
 const FIXTURES = {
   'gen9championsvgc2026regmb-2667169457.json': ladder,
   'gen9championsvgc2026regmb-2667301751.json': forfeit,
+  'gen9championsvgc2026regmb-2674299387.json': fieldEffects,
   'gen9championsvgc2026regmbbo3-2667579302.json': unratedSeries,
   'gen9championsvgc2026regmbbo3-2667582547.json': series,
   'gen9ou-2667293085.json': tie,

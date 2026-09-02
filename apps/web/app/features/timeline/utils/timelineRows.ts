@@ -106,6 +106,9 @@ const MAIN_LINE = new Set<TimelineEvent['kind']>([
   'miss',
   'status',
   'ability',
+  // Trick Room and the terrains decide every turn they are up, and the line
+  // that lifts one has no move of its own to be read from.
+  'fieldEffect',
 ])
 
 /**
@@ -288,6 +291,21 @@ export function rowOf(event: TimelineEvent): TimelineRow | null {
         side: event.side,
         message: {
           key: event.phase === 'start' ? 'sideEffectStarted' : 'sideEffectEnded',
+          params: { effect: event.effect },
+        },
+      }
+
+    case 'fieldEffect':
+      return {
+        ...blank(),
+        // Neither side's: Trick Room and a terrain are on the whole field, and
+        // a rail down one side would say they belong to that side.
+        side: null,
+        // The Pokémon the log named as having set it, so the row has a face.
+        // Null where the log named nobody, which is most terrains.
+        species: event.source?.species ?? null,
+        message: {
+          key: event.phase === 'start' ? 'fieldEffectStarted' : 'fieldEffectEnded',
           params: { effect: event.effect },
         },
       }

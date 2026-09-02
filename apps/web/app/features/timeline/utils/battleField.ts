@@ -54,6 +54,12 @@ export interface FieldSnapshot {
    */
   offField: PokemonState[]
   screens: Record<SideId, string[]>
+  /**
+   * The effects on the whole field, both sides of it — Trick Room, a terrain —
+   * in the order they went up, and gone from the turn the log lifted them.
+   * Neither side's, so they are not under `screens`.
+   */
+  fieldEffects: string[]
 }
 
 /**
@@ -112,6 +118,8 @@ export function fieldSnapshots(timeline: BattleTimeline): FieldSnapshot[] {
   /** Who is standing where. A fainted Pokémon stays until it is replaced. */
   const standing = new Map<string, string>()
   const screens: Record<SideId, Set<string>> = { p1: new Set(), p2: new Set() }
+  /** What is on the whole field: Trick Room, a terrain. */
+  const fieldEffects = new Set<string>()
 
   function bodyAt(event: TimelineEvent): Body | null {
     const pokemon = positionOf(event)
@@ -166,6 +174,12 @@ export function fieldSnapshots(timeline: BattleTimeline): FieldSnapshot[] {
       const side = screens[event.side]
       if (event.phase === 'start') side.add(event.effect)
       else side.delete(event.effect)
+      return
+    }
+
+    if (event.kind === 'fieldEffect') {
+      if (event.phase === 'start') fieldEffects.add(event.effect)
+      else fieldEffects.delete(event.effect)
       return
     }
 
@@ -242,7 +256,13 @@ export function fieldSnapshots(timeline: BattleTimeline): FieldSnapshot[] {
       .filter(([key]) => !onField.has(key))
       .map(([, body]) => stateOf(body))
 
-    return { turn, slots, offField, screens: { p1: [...screens.p1], p2: [...screens.p2] } }
+    return {
+      turn,
+      slots,
+      offField,
+      screens: { p1: [...screens.p1], p2: [...screens.p2] },
+      fieldEffects: [...fieldEffects],
+    }
   }
 
   return timeline.turns.map((turn) => {
