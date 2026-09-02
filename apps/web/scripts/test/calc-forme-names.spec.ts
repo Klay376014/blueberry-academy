@@ -11,10 +11,13 @@ const species = (name: string, baseSpecies: string, forme: string, id?: string) 
 })
 
 describe('indexCalcNames', () => {
-  it('rekeys the calculator table by Showdown id form', () => {
-    expect(
-      indexCalcNames({ 'ogerpon-wellspring-mask': '厄鬼椪（水井面具）', bulbasaur: '妙蛙種子' }),
-    ).toEqual({ ogerponwellspringmask: '厄鬼椪（水井面具）', bulbasaur: '妙蛙種子' })
+  it('rekeys the calculator table by Showdown id form, keeping its own words', () => {
+    expect(indexCalcNames({ 'ogerpon-wellspring-mask': '厄鬼椪（水井面具）' })).toEqual({
+      ogerponwellspringmask: {
+        name: '厄鬼椪（水井面具）',
+        segments: ['ogerpon', 'wellspring', 'mask'],
+      },
+    })
   })
 })
 
@@ -122,6 +125,59 @@ describe('fillFormeNames', () => {
     expect(filled.unresolved).toEqual(['Nihil-Form'])
   })
 
+  // `Darmanitan-Galar` used to match both `darmanitan-galar-standard` and
+  // `darmanitan-galar-zen`, go unresolved for being ambiguous, and leave a
+  // zh-TW screen showing an English base forme beside a Chinese Zen one. The
+  // `-zen` key is not ambiguous evidence: another species answers to it.
+  it('ignores a candidate key that is some other species own id', () => {
+    const filled = fillFormeNames({
+      names: {},
+      species: [
+        species('Darmanitan-Galar', 'Darmanitan', 'Galar'),
+        species('Darmanitan-Galar-Zen', 'Darmanitan', 'Galar-Zen'),
+      ],
+      calcNames: indexCalcNames({
+        'darmanitan-galar-standard': '達摩狒狒（伽勒爾的樣子）',
+        'darmanitan-galar-zen': '達摩狒狒（達摩模式-伽勒爾）',
+      }),
+    })
+
+    expect(filled.names).toEqual({
+      darmanitangalar: '達摩狒狒（伽勒爾的樣子）',
+      darmanitangalarzen: '達摩狒狒（達摩模式-伽勒爾）',
+    })
+    expect(filled.unresolved).toEqual([])
+  })
+
+  // `Meowstic-M-Mega`'s `m` used to match plain `meowstic-mega` on a substring
+  // -- a different Pokémon's entry, and its sibling `Meowstic-F-Mega` matched
+  // nothing, so the pair came out half translated.
+  it('matches a forme word as a whole word, not as a substring', () => {
+    const filled = fillFormeNames({
+      names: {},
+      species: [species('Meowstic-M-Mega', 'Meowstic', 'M-Mega')],
+      calcNames: indexCalcNames({ 'meowstic-mega': '超級超能妙喵' }),
+    })
+
+    expect(filled.names).toEqual({})
+    expect(filled.unresolved).toEqual(['Meowstic-M-Mega'])
+  })
+
+  // Gender is the only forme Showdown spells with one letter, and one letter is
+  // what a whole-word rule cannot match against a spelled-out key.
+  it('reads the gender formes single letter as the word the calculator spells', () => {
+    const filled = fillFormeNames({
+      names: {},
+      species: [species('Indeedee-F', 'Indeedee', 'F')],
+      calcNames: indexCalcNames({
+        'indeedee-male': '愛管侍（公）',
+        'indeedee-female': '愛管侍（母）',
+      }),
+    })
+
+    expect(filled.names).toEqual({ indeedeef: '愛管侍（母）' })
+  })
+
   it('fills in a stable order whatever order the species arrive in', () => {
     const calcNames = indexCalcNames({ 'fake-a': '甲', 'fake-b': '乙' })
     const forward = fillFormeNames({
@@ -152,12 +208,31 @@ describe('the committed table, against the sources that outrank the calculator',
   it('names the formes a gen 9 battle actually puts on screen', () => {
     // The timeline draws the forme a Pokémon is *in*, so these are on screen
     // every game a team brings them — the whole reason issue #115 exists.
+    //
+    // These assertions hold on the committed table, which was generated with
+    // the sibling checkout present. Regenerating without it drops all 80
+    // gap-filled ids, so the message says that rather than leaving a bare data
+    // mismatch to be puzzled over.
+    const regenerate =
+      'missing — was the table regenerated without PokemonTool-DamageCalculator? ' +
+      'See docs/adr/0014-localised-species-names.md'
     const table = zhHant as Record<string, string>
 
-    expect(table.ogerponwellspring).toBe('厄鬼椪（水井面具）')
-    expect(table.palafinhero).toBe('海豚俠（全能形態）')
-    expect(table.terapagosterastal).toBe('太樂巴戈斯（太晶形態）')
-    expect(table.indeedeef).toBe('愛管侍（母）')
+    expect(table.ogerponwellspring, regenerate).toBe('厄鬼椪（水井面具）')
+    expect(table.palafinhero, regenerate).toBe('海豚俠（全能形態）')
+    expect(table.terapagosterastal, regenerate).toBe('太樂巴戈斯（太晶形態）')
+    expect(table.indeedeef, regenerate).toBe('愛管侍（母）')
+  })
+
+  it('names both halves of a forme family or neither', () => {
+    // `Darmanitan-Galar` used to be English beside a Chinese
+    // `Darmanitan-Galar-Zen`: the matching rule declared the plain forme
+    // ambiguous because the Zen key also matched it. Even is the invariant —
+    // ADR-0014's "缺得整齊，比缺得像對的好".
+    const table = zhHant as Record<string, string>
+
+    expect('darmanitangalar' in table).toBe('darmanitangalarzen' in table)
+    expect('meowsticfmega' in table).toBe('meowsticmmega' in table)
   })
 
   it('left out the calculator entry that would name two Pokémon alike', () => {

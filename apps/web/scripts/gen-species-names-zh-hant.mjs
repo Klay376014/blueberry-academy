@@ -29,8 +29,7 @@
  *   node scripts/gen-species-names-zh-hant.mjs   (or: pnpm --filter web gen:species-names-zh-hant)
  */
 
-import { readFileSync } from 'node:fs'
-import { writeFileSync } from 'node:fs'
+import { readFileSync, writeFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { Dex } from '@pkmn/dex'
 import { fillFormeNames, indexCalcNames } from './calc-forme-names.mjs'
@@ -218,29 +217,34 @@ console.log(
   `official Pokédex overrides: ${overridden} entries, ${corrections} of which PokéAPI still disagrees with`,
 )
 
+// Without the table there is nothing to report but where it was looked for:
+// every unnamed forme lands in `unresolved` then, so a count would claim the
+// calculator could have named all 220 of them, and the list would print them.
 if (calcTable === null) {
-  console.log(
-    `no calculator table at ${CALC_ZH_HANT}: ` +
-      `${gapFilled.unresolved.length} formes it could have named are left to the fallback`,
-  )
+  console.log(`no calculator table at ${CALC_ZH_HANT}: no formes gap-filled`)
 } else {
   console.log(`gap-filled from the calculator's table: ${gapCount} formes`)
+
+  // Both lists are printed rather than counted: what is still English is the
+  // only thing that says what a next pass would have to find, and a collision
+  // is a name this script refused to put on two Pokémon at once.
+  for (const { name, clash } of gapFilled.collided) {
+    console.log(`  skipped ${name}: ${clash} already names another Pokémon`)
+  }
+  if (gapFilled.unresolved.length > 0) {
+    console.log(
+      `  still English (${gapFilled.unresolved.length}): ${gapFilled.unresolved.join(', ')}`,
+    )
+  }
 }
 
-// Both lists are printed rather than counted: what is still English is the
-// only thing that says what a next pass would have to find, and a collision
-// is a name this script refused to put on two Pokémon at once.
-for (const { name, clash } of gapFilled.collided) {
-  console.log(`  skipped ${name}: ${clash} already names another Pokémon`)
-}
-if (gapFilled.unresolved.length > 0) {
+// Filtered against the fill, which runs after this list is built:
+// `Darmanitan-Galar-Zen` is skipped by the composition rule and then named by
+// the calculator's table, and a line saying it fell back to English while it
+// sits in the file is worse than no line at all.
+const stillSkipped = formesSkipped.filter((name) => names[toId(name)] === undefined)
+if (stillSkipped.length > 0) {
   console.log(
-    `  still English (${gapFilled.unresolved.length}): ${gapFilled.unresolved.join(', ')}`,
-  )
-}
-
-if (formesSkipped.length > 0) {
-  console.log(
-    `left to the English fallback for having a forme the bracket cannot hold: ${formesSkipped.join(', ')}`,
+    `left to the English fallback for having a forme the bracket cannot hold: ${stillSkipped.join(', ')}`,
   )
 }

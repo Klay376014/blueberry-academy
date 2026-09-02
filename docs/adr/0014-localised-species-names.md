@@ -135,11 +135,25 @@ PokéAPI 的繁中**型態**資料實質停在第八世代，而時間軸畫的�
 
 兩邊的 key 命名不同（Showdown 的 `ogerponwellspring` vs `@smogon/calc` 的
 `ogerpon-wellspring-mask`、`indeedee-female`、`maushold-family-of-four`），沒有規則能互轉，
-所以對照方式是：候選 = 以基礎種 id 開頭的 key，再要求**型態的每個詞都出現**，且**只能命中
-一個**。命中兩個或零個就報出來而不選 —— `Necrozma-Dusk-Mane` 是「零個」的實測例子。
+所以對照方式是：候選 = 以基礎種 id 開頭的 key，再要求**型態的每個詞都以完整的詞出現在該
+key 裡**，且**只能命中一個**。命中兩個或零個就報出來而不選 —— `Necrozma-Dusk-Mane` 是
+「零個」的實測例子（那份表把它鍵成 `necrozma-dusk`，`mane` 在任何 key 裡都不存在）。
+
+三條規則各自擋掉一種在 review 中實際發生過的錯配：
+
+1. **候選若本身是「別的物種的 id」就先剔除。** 沒有這條，`Darmanitan-Galar`（型態 `Galar`）
+   會同時命中 `darmanitan-galar-standard` 與 `darmanitan-galar-zen`、因歧義而放棄，於是畫面
+   上出現英文的 `Darmanitan-Galar` 配上中文的達摩模式 —— 正是本文件想避免的「一半翻一半沒
+   翻」。而 `-zen` 那個 key 不是歧義的證據，它已經被 `Darmanitan-Galar-Zen` 認領了。
+2. **型態詞要比對完整的詞，不是子字串。** `Meowstic-M-Mega` 的 `m` 曾經比中通用的
+   `meowstic-mega` —— 那是另一隻寶可夢的條目。
+3. **性別型態的單字母另有對照**（`F`→`female`、`M`→`male`）。性別是 dex 裡唯一用單一字母
+   表示的型態，而單一字母正是最容易誤中長字的東西 —— 所以它需要規則，而不是靠子字串巧合
+   命中（`Indeedee-F` 之前就是靠巧合）。
 
 **名字相撞就跳過。** 那份表裡 `Avalugg-Hisui` 是 `冰岩怪`，也就是基礎種自己的名字（型態詞
-掉了）；照收會讓兩隻不同的寶可夢同名，正是上面 `Darmanitan-Galar-Zen` 被讓掉的那個病。
+掉了）；照收會讓兩隻不同的寶可夢同名，正是組合規則讓掉 `Darmanitan-Galar-Zen` 的那個病
+（而那一筆本身現在由這層來源補上了 —— 它有完整的名字 `達摩狒狒（達摩模式-伽勒爾）`）。
 實測共擋掉三筆：`Avalugg-Hisui`、`Eevee-Starter`、`Pikachu-Starter`。這條防護是機制而不是
 記憶 —— `species-locale.spec.ts` 的「表裡沒有重複的名字」因此依然成立。
 
@@ -244,11 +258,12 @@ compared 1025 base species against https://tw.portal-pokemon.com/pokedex/: 0 dev
 （前世代限定，第九世代的 replay 不會有），以及純外觀型態（Vivillon 的 20 種花紋、
 阿爾宙斯 17 屬性、Alcremie 的奶油、皮卡丘的帽子、Deerling 四季）。**仍然缺、而且會上畫面**
 的是 `Necrozma-Dusk-Mane` / `-Dawn-Wings`（計算機那份把它們鍵成 `necrozma-dusk`，型態詞
-`mane` 在任何 key 裡都找不到，所以對照不起來）、`Ogerpon-*-Tera` 四個（那份沒有太晶化後
-的條目）、以及上面那條規則刻意讓掉的 `Darmanitan-Galar-Zen`。
+`mane` 在任何 key 裡都找不到，所以對照不起來）、以及 `Ogerpon-*-Tera` 四個（那份沒有太晶化
+後的條目）。
 
-`Darmanitan-Galar` 也沒有繁中列，所以那一對在中文畫面上是兩個英文名並排，而不是一個
-中文一個英文 —— 缺得整齊，比缺得像對的好。
+**同一族的型態要嘛整族有名字、要嘛整族沒有。** 缺得整齊比缺得像對的好，而
+`species-locale.spec.ts` 現在把達摩狒狒與超能妙喵那兩對釘成「兩邊有無一致」，因為那正是
+review 抓到的錯配長出來的樣子。
 
 **接縫是三個函式**（`app/shared/utils/speciesName.ts`，Nuxt auto-import）：
 
