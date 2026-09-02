@@ -106,7 +106,8 @@ DB 那份是匯入當時的解析結果，timeline 這份是現在解的。單�
 只解析畫面要用的型別：`move`、`switch`/`drag`/`replace`/`swap`、`-damage`/`-heal`、
 `faint`、`-terastallize`/`-mega`/`detailschange`/`-formechange`、`-crit`/`-supereffective`/
 `-resisted`/`-immune`/`-miss`/`-fail`、`-status`、`-weather`、`-boost`/`-unboost`、`cant`、
-`-singleturn`/`-activate`、`-sidestart`/`-sideend`、`-enditem`、`-ability`、`-mustrecharge`。
+`-singleturn`/`-activate`、`-sidestart`/`-sideend`、`-fieldstart`/`-fieldend`、`-enditem`、
+`-ability`、`-mustrecharge`。
 
 其餘一律保留為 `{ kind: 'unknown', raw }`，UI 預設不顯示。理由與 gametype-agnostic
 同一條：**不認得的東西要留著而不是消失**，否則 Showdown 加一種訊息、使用者就少看到一段，
@@ -122,6 +123,26 @@ DB 那份是匯入當時的解析結果，timeline 這份是現在解的。單�
 畫面會出現「A 使出寄生種子 → 然後什麼都沒有」這種看起來像招式憑空消失的段落。
 補進去之後同一場的 `unknown` 從 31 降到 11，剩下的是 `poke`/`player`/`rule`/`upkeep`/
 `j`/`l` 這些本來就不該顯示的。
+
+**清單第二次擴充：`-fieldstart`/`-fieldend`（#104）。** 原始清單只有「一邊的場地」
+（`-sidestart`）而漏了「整張場地」，於是戲法空間與各種場地在畫面上完全不存在 ——
+而戲法空間開著與沒開著是完全不同的一場對戰。實測 201 場 Reg M-B 天梯 replay，
+57 場（28%）帶場地效果的行：戲法空間開場 55 次、精神/電氣場地各 4 次、重力 3 次、
+薄霧場地 1 次 —— 這不是罕見的角落，是四分之一以上的對戰。三個實測到的形狀：
+
+- `|-fieldstart|move: Trick Room|[of] p2a: Sinistcha` —— 有 `[of]` 沒有 `[from]`，
+  「誰開的」只有這一個欄位說得出來。
+- `|-fieldstart|move: Psychic Terrain` —— 招式開的場地兩個欄位都沒有，來源就是 null。
+- `|-fieldstart|move: Electric Terrain|[from] ability: Electric Surge|[of] p1a: Raichu`
+  —— 特性開的兩個都有。
+
+所以事件同時帶 `from`（`[from]`，那個「造成它的效果」）與 `source`（`[of]` 指名的寶可夢，
+照場上位置解出物種）。兩個都只在 log 自己填了的時候才有值 —— 沒填就是 null，不回頭找
+最近一個 `|move|`，與 T5/T26 同一條線。`move:` 前綴在 `-fieldend` 上時有時無
+（實測 42 行帶前綴、1 行是裸的 `|-fieldend|Misty Terrain`），照 `effectNameOf` 剝掉。
+
+場地效果同時進**主線**（結束那行沒有招式可以依附，藏在「這回合還有 N 個」後面等於看不到）
+與**狀態列**（`fieldEffects`，接在兩邊之上而不是掛在某一邊底下 —— 戲法空間不屬於任何一邊）。
 
 `swap`（Ally Switch）與 `-formechange`（Aegislash、Mimikyu、Morpeko 的型態切換）也不在
 原始清單上，但它們**會改變場上狀態** —— 不讀的話後續事件會掛到錯的那隻身上，或整場
@@ -237,8 +258,14 @@ gzip 後更小，一次性延遲可接受。
 
 ## 5. 測試策略
 
-沿用現有七份 fixture，不新增。它們已經涵蓋 Illusion、Mega、Primal、平手、認輸、
+沿用現有 fixture，能不新增就不新增。它們已經涵蓋 Illusion、Mega、Primal、平手、認輸、
 單打、長局（31 回合）與開放隊表 Bo3。
+
+唯一的例外是新事件型別在既有 fixture 裡**一行都沒有**的時候 —— 那時沒有真實 log 可以
+證明實作對，而手寫的合成 log 只證明實作符合作者的想像。#104 因此加了第八份：
+`gen9championsvgc2026regmb-2674299387`，戲法空間與精神場地重疊（1→5 回合與 2→6 回合），
+一個帶 `[of]`、一個什麼來源都沒有。合成 log 仍然可以當**額外**的單元測試輸入
+（例如 `[from] ability: Electric Surge` 那個形狀），但不能是唯一的證據。
 
 **snapshot 只存一份完整的。** 最短的 Bo3 fixture（5 回合）存完整 snapshot，
 其餘用具名斷言（事件總數、某回合的事件序列、某個硬點的行為）。
