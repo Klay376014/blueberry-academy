@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { RowNote } from '../utils/timelineRows'
+import { localisedParams } from '../utils/rowMessage'
 
 /**
  * What an action did to one Pokémon, in a few words beside its icon: a hit that
@@ -11,7 +12,10 @@ import type { RowNote } from '../utils/timelineRows'
  */
 defineProps<{ notes: RowNote[] }>()
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
+
+/** A note's parameters, with a move name in them said in the reader's language. */
+const paramsOf = (note: RowNote) => localisedParams(note.key, note.params, locale.value)
 </script>
 
 <template>
@@ -22,6 +26,6 @@ const { t } = useI18n()
     :class="note.quiet ? 'sr-only' : ''"
     data-testid="row-note"
   >
-    {{ t(`battle.event.${note.key}`, note.params ?? {}) }}
+    {{ t(`battle.event.${note.key}`, paramsOf(note)) }}
   </span>
 </template>

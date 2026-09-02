@@ -4,9 +4,10 @@ import type { Combatant, HealthChange, SideId, TimelineEvent, TimelineTurn } fro
  * One turn of a battle as the rows the drawer draws.
  *
  * Two rules from the design document (§1, §3) live here rather than in the
- * template. Pokémon are icons and moves are their English names, so nothing a
- * row carries about them is translatable — what is translatable is a `message`
- * key with parameters, which the component hands to `t()`. And a row never
+ * template. A row carries the identifiers the log gave it — a species id, a
+ * move's English name — and the components are what put those into the
+ * reader's language (ADR-0014, ADR-0015); what a row says in words is a
+ * `message` key with parameters, which the component hands to `t()`. And a row never
  * claims causality: a move and the damage that followed it are two rows in
  * time order, because the log's `|-damage|` carries no attribution and
  * inventing one is not this project's job.
@@ -55,7 +56,11 @@ export interface TimelineRow {
   side: SideId | null
   /** The species whose icon leads the row, in the forme it was in at the time. */
   species: string | null
-  /** A move's English name. Never translated: it is an identifier. */
+  /**
+   * A move's English name, as the log spelled it. It is what the localised
+   * name is looked up by and what a reader of `en` sees — the translation
+   * happens where it is drawn, not here (ADR-0015).
+   */
   move: string | null
   /**
    * Species of whatever this row points at, as icons after an arrow: a move's
