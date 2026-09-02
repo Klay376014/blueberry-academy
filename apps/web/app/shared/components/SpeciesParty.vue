@@ -6,8 +6,11 @@ import { partyOf } from '../utils/party'
  * A team or a bring, as the row of Pokémon it is.
  *
  * `signature` is the stored form — base species ids joined by `|`. The names
- * are read out as one label on the group rather than one per icon, and they
- * stay English: a species name is an identifier, not copy (design document §3).
+ * are read out as one label on the group rather than one per icon, and they are
+ * English here: a signature is a set of registered base species, which is the
+ * language the ids and the stored column are in. The timeline localises its
+ * names (docs/adr/0014-localised-species-names.md); this is the other side of
+ * that line, and #101 deliberately left it alone.
  *
  * Pass `bring` as well and `signature` is read as the registered six, with the
  * ones that did not appear drawn faded in their own places — which two a player

@@ -146,8 +146,10 @@ describe('where the dex data is allowed to live', () => {
   })
 
   it('keeps Pokémon names out of the i18n locales', () => {
-    // Design document §3: a species name is an identifier, not copy. It is
-    // English everywhere and never passes through a translation file.
+    // Localised names live in a generated table, not in the locale files
+    // (docs/adr/0014-localised-species-names.md): the locale files are copy a
+    // person writes and proofreads, and 1200 machine-generated names in there
+    // would bury every real change to them under a dex bump.
     const locales = JSON.stringify([en, zhTW])
     for (const name of ['Ho-Oh', 'Pikachu', 'Farfetch', 'Flabébé', 'Basculegion']) {
       expect(locales).not.toContain(name)
