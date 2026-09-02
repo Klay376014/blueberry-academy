@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { parseTimeline } from 'replay-parser'
 import { fieldSnapshots } from '../utils/battleField'
 import ladderReplay from '../../../../../../packages/replay-parser/test/fixtures/gen9championsvgc2026regmb-2667169457.json'
+import fieldReplay from '../../../../../../packages/replay-parser/test/fixtures/gen9championsvgc2026regmb-2674299387.json'
 
 /**
  * A doubles log with one Pokémon a side already out, so each test adds only the
@@ -151,6 +152,41 @@ describe('the state of the field at the end of a turn', () => {
       ),
     ).at(-1)
     expect(ended?.screens.p2).toEqual([])
+  })
+
+  it('holds the effects on the whole field until the log lifts them', () => {
+    // "Is Trick Room still up on this turn?" is the question the bar exists to
+    // answer without reading back up the log (#104).
+    const both = fieldSnapshots(
+      parseTimeline(
+        log(['|-fieldstart|move: Trick Room|[of] p2a: Whimsicott', '|-fieldstart|Psychic Terrain']),
+      ),
+    ).at(-1)
+    expect(both?.fieldEffects).toEqual(['Trick Room', 'Psychic Terrain'])
+
+    const lifted = fieldSnapshots(
+      parseTimeline(
+        log([
+          '|-fieldstart|move: Trick Room|[of] p2a: Whimsicott',
+          '|-fieldstart|Psychic Terrain',
+          '|turn|2',
+          '|-fieldend|move: Trick Room',
+        ]),
+      ),
+    ).at(-1)
+    expect(lifted?.fieldEffects).toEqual(['Psychic Terrain'])
+  })
+
+  it('reads the field effects of a real game turn by turn', () => {
+    // Trick Room from turn 1 to turn 5, Psychic Terrain from 2 to 6: they
+    // overlapped, so one lifting must not take the other with it.
+    const snapshots = fieldSnapshots(parseTimeline(fieldReplay.log))
+    const at = (turn: number) => snapshots.find((snapshot) => snapshot.turn === turn)?.fieldEffects
+
+    expect(at(1)).toEqual(['Trick Room'])
+    expect(at(2)).toEqual(['Trick Room', 'Psychic Terrain'])
+    expect(at(5)).toEqual(['Psychic Terrain'])
+    expect(at(6)).toEqual([])
   })
 
   it('keeps the name an Illusion was wearing, then hands its state to the real one', () => {

@@ -79,6 +79,20 @@ export type TimelineEvent =
   | { kind: 'effect'; pokemon: Combatant; effect: string; phase: 'start' | 'activate' }
   /** An effect on one side of the field: Reflect, Light Screen, Tailwind. */
   | { kind: 'sideEffect'; side: SideId; effect: string; phase: 'start' | 'end' }
+  /**
+   * An effect on the whole field, both sides of it: Trick Room, a terrain,
+   * Gravity. `from` and `source` are only ever what the log itself named —
+   * measured, a Trick Room carries `[of]` and no `[from]`, a terrain from a
+   * move carries neither, and one from an ability carries both. Nothing here
+   * looks back at the last move to fill a gap.
+   */
+  | {
+      kind: 'fieldEffect'
+      effect: string
+      phase: 'start' | 'end'
+      from: string | null
+      source: Combatant | null
+    }
   | { kind: 'endItem'; pokemon: Combatant; item: string }
   | { kind: 'ability'; pokemon: Combatant; ability: string }
   /** A turn spent recharging after Hyper Beam and its like. */
@@ -366,6 +380,22 @@ export function buildTimeline(lines: ProtocolLine[]): BattleTimeline {
         break
       }
 
+      case '-fieldstart':
+      case '-fieldend': {
+        // Trick Room and the terrains. The `move:` prefix is on some of these
+        // lines and not others — measured, `|-fieldend|move: Trick Room` and
+        // `|-fieldend|Misty Terrain` in two ladder games — so the name is
+        // stripped the way every other effect name is.
+        push({
+          kind: 'fieldEffect',
+          effect: effectNameOf(args[0] ?? ''),
+          phase: type === '-fieldstart' ? 'start' : 'end',
+          from: sourceOf(args),
+          source: originOf(field, args),
+        })
+        break
+      }
+
       case '-enditem': {
         const pokemon = occupant(field, args[0] ?? '')
         if (pokemon) push({ kind: 'endItem', pokemon, item: args[1] ?? '' })
@@ -547,6 +577,17 @@ function effectNameOf(effect: string): string {
 function sourceOf(args: string[]): string | null {
   const from = args.find((arg) => arg.startsWith('[from]'))
   return from === undefined ? null : from.slice('[from]'.length).trim()
+}
+
+/**
+ * The Pokémon a line named as where an effect came from, e.g.
+ * `[of] p2a: Sinistcha`. Measured on `|-fieldstart|move: Trick Room`, which
+ * carries this and no `[from]` at all: the only thing the log ever says about
+ * who set a Trick Room.
+ */
+function originOf(field: Map<string, Combatant>, args: string[]): Combatant | null {
+  const of = args.find((arg) => arg.startsWith('[of]'))
+  return of === undefined ? null : occupant(field, of.slice('[of]'.length).trim())
 }
 
 /** `p1a` out of `p1a: Scrafty`. */

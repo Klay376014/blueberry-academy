@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vite-plus/test'
 import { parseTimeline } from '../src/index'
 import type { BattleTimeline, TimelineEvent } from '../src/index'
 import ladderFixture from './fixtures/gen9championsvgc2026regmb-2667169457.json'
+import fieldFixture from './fixtures/gen9championsvgc2026regmb-2674299387.json'
 import seriesFixture from './fixtures/gen9championsvgc2026regmbbo3-2667582547.json'
 import tieFixture from './fixtures/gen9ou-2667293085.json'
 import longFixture from './fixtures/gen9ou-2667299955.json'
@@ -588,6 +589,81 @@ describe('parseTimeline', () => {
       { kind: 'sideEffect', side: 'p1', effect: 'Tailwind', phase: 'start' },
       { kind: 'sideEffect', side: 'p1', effect: 'Tailwind', phase: 'end' },
     ])
+  })
+
+  it('reads an effect on the whole field, and who the log said set it', () => {
+    // Measured in `gen9championsvgc2026regmb-2674299387`: Trick Room names the
+    // Pokémon that set it in `[of]` and carries no `[from]` at all, while a
+    // terrain set by a move names nobody. The `move:` prefix comes and goes —
+    // `|-fieldend|Misty Terrain` in `-2674353181` against
+    // `|-fieldend|move: Trick Room` here.
+    const timeline = parseTimeline(
+      log({
+        lines: [
+          '|-fieldstart|move: Trick Room|[of] p2a: Whimsicott',
+          '|-fieldstart|move: Psychic Terrain',
+          '|-fieldend|move: Trick Room',
+          '|-fieldend|Psychic Terrain',
+        ],
+      }),
+    )
+
+    expect(timeline.turns[1]?.events).toMatchObject([
+      {
+        kind: 'fieldEffect',
+        effect: 'Trick Room',
+        phase: 'start',
+        from: null,
+        source: { position: 'p2a', side: 'p2', species: 'Whimsicott' },
+      },
+      { kind: 'fieldEffect', effect: 'Psychic Terrain', phase: 'start', from: null, source: null },
+      { kind: 'fieldEffect', effect: 'Trick Room', phase: 'end', from: null, source: null },
+      { kind: 'fieldEffect', effect: 'Psychic Terrain', phase: 'end', from: null, source: null },
+    ])
+  })
+
+  it('reads the ability a terrain came from when the log named one', () => {
+    // Measured in `gen9championsvgc2026regmb-2674263035`, where Electric Surge
+    // set the terrain on the switch in. The source is what the log said and
+    // nothing more: no `[from]` means no ability, not "the last move".
+    const timeline = parseTimeline(
+      log({
+        lines: [
+          '|-fieldstart|move: Electric Terrain|[from] ability: Electric Surge|[of] p1a: Scrafty',
+        ],
+      }),
+    )
+
+    expect(timeline.turns[1]?.events[0]).toMatchObject({
+      kind: 'fieldEffect',
+      effect: 'Electric Terrain',
+      phase: 'start',
+      from: 'ability: Electric Surge',
+      source: { position: 'p1a', species: 'Scrafty' },
+    })
+  })
+
+  it('reads both field effects of a real game, from the turn each began to the turn it lifted', () => {
+    // Trick Room and Psychic Terrain overlapped in this one, so the two are
+    // told apart by their own names rather than by there being only one.
+    const timeline = parseTimeline(fieldFixture.log)
+    const turnOf = (phase: 'start' | 'end', effect: string) =>
+      timeline.turns.find((turn) =>
+        turn.events.some(
+          (event) =>
+            event.kind === 'fieldEffect' && event.effect === effect && event.phase === phase,
+        ),
+      )?.number
+
+    expect(turnOf('start', 'Trick Room')).toBe(1)
+    expect(turnOf('end', 'Trick Room')).toBe(5)
+    expect(turnOf('start', 'Psychic Terrain')).toBe(2)
+    expect(turnOf('end', 'Psychic Terrain')).toBe(6)
+    // The Slowbro that set it had megaed the turn before, and the timeline
+    // says what was on the field rather than who it was.
+    expect(
+      eventsOfKind(timeline, 'fieldEffect').map((event) => event.source?.species ?? null),
+    ).toEqual(['Slowbro-Mega', null, null, null])
   })
 
   it('reads a consumed item, a triggered ability and a turn spent recharging', () => {

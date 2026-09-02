@@ -69,6 +69,13 @@ function linesOf(side: SideId) {
   ]
 }
 
+/**
+ * The effects on the whole field, on a line of their own above the two sides:
+ * Trick Room belongs to neither of them, and under one side's label it would
+ * read as that side's (#104).
+ */
+const fieldEffects = computed(() => props.snapshot.fieldEffects)
+
 /** What is left of a Pokémon, or that there is nothing left of it. */
 function hpLabel(pokemon: PokemonState) {
   if (pokemon.fainted) return t('battle.drawer.knockedOut')
@@ -85,6 +92,20 @@ function hpLabel(pokemon: PokemonState) {
     <span class="text-muted-foreground font-mono text-[9px] tracking-widest uppercase">
       {{ caption }}
     </span>
+
+    <div v-if="fieldEffects.length" class="flex flex-wrap items-center gap-2">
+      <span class="text-muted-foreground w-8 font-mono text-[9px] tracking-widest">
+        {{ t('battle.drawer.field') }}
+      </span>
+
+      <span
+        v-for="effect of fieldEffects"
+        :key="effect"
+        class="border-chart-3/50 text-chart-3 rounded border px-1 font-mono text-[9px]"
+      >
+        {{ effect }}
+      </span>
+    </div>
 
     <template v-for="side of sides" :key="side">
       <div

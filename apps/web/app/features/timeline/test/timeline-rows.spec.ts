@@ -193,6 +193,33 @@ describe('the rows one turn becomes', () => {
     expect(sidelinedCount(turnsOf(['|-ability|p1a: Scrafty|Intimidate'])[1]!)).toBe(0)
   })
 
+  it('draws a field effect going up and coming down, on the main line', () => {
+    // Trick Room decides every turn it is up, and its end has no move of its
+    // own to be read from — holding either back behind "the rest of this turn"
+    // is how the timeline came to show neither at all (#104).
+    const set = ['|-fieldstart|move: Trick Room|[of] p1a: Scrafty']
+    const lifted = ['|-fieldend|move: Trick Room']
+
+    expect(rows(set)).toMatchObject([
+      {
+        side: null,
+        // Whoever the log said set it, so the row has a face. Nothing is
+        // inferred: a terrain a move set names nobody and shows nobody.
+        species: 'Scrafty',
+        message: { key: 'fieldEffectStarted', params: { effect: 'Trick Room' } },
+      },
+    ])
+    expect(sidelinedCount(turnsOf(set)[1]!)).toBe(0)
+
+    expect(rows(lifted)).toMatchObject([
+      {
+        species: null,
+        message: { key: 'fieldEffectEnded', params: { effect: 'Trick Room' } },
+      },
+    ])
+    expect(sidelinedCount(turnsOf(lifted)[1]!)).toBe(0)
+  })
+
   it('keeps the weather an ability set, and not the turns it kept blowing', () => {
     // Measured: the line that sets it carries `[from] ability: Snow Warning`,
     // and the eight after it are `[upkeep]` — the same weather, once a turn.
