@@ -26,6 +26,13 @@ const OFFICIAL = {
   // carries it in brackets the way the games show it.
   ninetalesalola: '九尾（阿羅拉的樣子）',
   landorustherian: '土地雲（靈獸形態）',
+  // The two the official Taiwan Pokédex disagreed with PokéAPI on, pinned to
+  // the Pokédex's own strings: `仆刀將軍` was the mainland name in Traditional
+  // glyphs, `超能艷鴕` a commoner glyph for the same word. Both come from
+  // `scripts/species-names-zh-hant-official.mjs`, and `verify:species-names-zh-hant`
+  // is what would catch a third one — see docs/adr/0014-localised-species-names.md.
+  kingambit: '仆斬將軍',
+  espathra: '超能豔鴕',
 }
 
 /**

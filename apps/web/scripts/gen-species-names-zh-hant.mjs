@@ -2,9 +2,16 @@
  * Generates `id -> official Traditional Chinese name` for Showdown species
  * ids, the zh-TW half of the display-layer name tables.
  *
- * Sources, in precedence order, and why only one of them is wired up:
+ * Sources, in precedence order, and why only these are wired up:
  * docs/adr/0014-localised-species-names.md. In one line: The Pokémon Company's
- * own zh-Hant strings, as PokéAPI publishes them (`local_language_id = 4`).
+ * own zh-Hant strings, as PokéAPI publishes them (`local_language_id = 4`),
+ * with the official Taiwan Pokédex winning wherever the two disagree --
+ * `species-names-zh-hant-official.mjs` carries those, one evidence URL each,
+ * and they are substituted in before any name is composed.
+ *
+ * `verify-species-names-zh-hant.mjs` is what finds them: it diffs all 1025
+ * base species against the official Pokédex. It is a separate, deliberate,
+ * network-bound command and not part of the test suite -- CI stays hermetic.
  *
  * The output is committed for the same reason `gen-species-names.mjs`'s is:
  * the SPA is served from Workers' free plan, where a runtime lookup would
@@ -25,6 +32,7 @@
 import { writeFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { Dex } from '@pkmn/dex'
+import { OFFICIAL_ZH_HANT_NAMES } from './species-names-zh-hant-official.mjs'
 
 const OUT = fileURLToPath(
   new URL('../app/shared/lib/dex/species-names-zh-hant.json', import.meta.url),
@@ -77,6 +85,25 @@ const byNumber = new Map(
     .filter((row) => row.local_language_id === ZH_HANT)
     .map((row) => [Number(row.pokemon_species_id), row.name]),
 )
+
+// The official Pokédex wins character for character, and it wins *here* --
+// before composition -- so a forme built out of a corrected base carries the
+// corrected base too.
+let corrections = 0
+for (const [id, official] of Object.entries(OFFICIAL_ZH_HANT_NAMES)) {
+  const number = Number(official.zukanId)
+  const species = Dex.species.get(id)
+
+  // An evidence URL that names a different Pokémon than the id it is filed
+  // under would rename the wrong species, silently. It stops the run instead.
+  if (!species.exists || species.num !== number) {
+    throw new Error(`${id}: ${official.source} is #${number}, but the dex says #${species.num}`)
+  }
+  if (!byNumber.has(number)) throw new Error(`${id}: no PokéAPI zh-Hant row for #${number}`)
+
+  if (byNumber.get(number) !== official.name) corrections += 1
+  byNumber.set(number, official.name)
+}
 
 const formIdentifier = new Map(forms.map((row) => [row.id, row.identifier]))
 
@@ -157,6 +184,11 @@ console.log(
   `wrote ${total} zh-Hant names to species-names-zh-hant.json ` +
     `(${total - formesNamed} base species, ${formesNamed} formes; ` +
     `${species.length - total} of Showdown's ${species.length} species left to the English fallback)`,
+)
+
+const overridden = Object.keys(OFFICIAL_ZH_HANT_NAMES).length
+console.log(
+  `official Pokédex overrides: ${overridden} entries, ${corrections} of which PokéAPI still disagrees with`,
 )
 
 if (formesSkipped.length > 0) {

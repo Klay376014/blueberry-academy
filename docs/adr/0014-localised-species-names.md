@@ -42,24 +42,73 @@
 （`app/shared/lib/dex/species-names-zh-hant.json`），與英文名表放在一起。
 `test/nuxt/species.spec.ts` 的「keeps Pokémon names out of the i18n locales」守著這條線。
 
-### 資料來源：官方為主，社群補漏
+### 資料來源：官方台灣圖鑑逐位元組為準，PokéAPI 是量產來源
 
-1. **主表：PokéAPI 的官方繁中字串**（`data/v2/csv/`，`local_language_id = 4`）。這是
-   The Pokémon Company 自己的遊戲文本，玩家在遊戲裡看到的就是這些字。
-2. **補漏：Showdown 中文化社群資料**，只填官方沒有的 id；**衝突時官方贏**。
+1. **量產來源：PokéAPI 的繁中字串**（`data/v2/csv/`，`local_language_id = 4`）。1025 隻
+   基礎 species 加 172 個型態，一次抓完。
+2. **權威：官方台灣寶可夢圖鑑**（`https://tw.portal-pokemon.com/pokedex/`）。**兩者不一致
+   時，官方圖鑑的字串贏，一個字都不讓。** 這些字進
+   `apps/web/scripts/species-names-zh-hant-official.mjs`，每一筆帶著它的圖鑑編號與 URL。
 
-第 2 點目前**沒有實作**，理由是實測找不到繁中的社群來源。找到的是
-`SyaOtiLan/pokemon-showdown-zh-hans`：
+**第 2 點是這份 ADR 原本沒有的，而它是被實測推翻後補上的。** 原文寫著「PokéAPI 這是
+The Pokémon Company 自己的遊戲文本，玩家在遊戲裡看到的就是這些字」—— 這句話**不是逐筆
+成立的**。1025 隻基礎 species 全量比對官方圖鑑，2 筆不符：
 
 ```
-$ gh api repos/SyaOtiLan/pokemon-showdown-zh-hans/contents/localization/README.md --jq .content | base64 -d | head -1
-# Pokémon Showdown 简体中文资源
+$ pnpm --filter web verify:species-names-zh-hant     # 修正前的表
+compared 1025 base species against https://tw.portal-pokemon.com/pokedex/: 2 deviate, 0 absent from the table
+  deviate #956 espathra: table=超能艷鴕 official=超能豔鴕
+  deviate #983 kingambit: table=仆刀將軍 official=仆斬將軍
 ```
 
-它的產出檔一律叫 `*.zh-Hans.json`／`catalog.zh-Hans.json`，是簡體。把簡體轉繁體會產出
-**看起來像官方、其實不是官方**的名字（用字轉換不等於譯名轉換），這正是本專案不做的事。
-所以順位保留在紀錄裡，等有繁中來源時接在官方後面即可，程式碼裡不預先長出一個沒有輸入的
-分支。
+兩筆的性質不同，而其中一筆正是本 ADR 明文要拒絕的那個失敗模式：
+
+|          | `#983 Kingambit`                | `#956 Espathra`                             |
+| -------- | ------------------------------- | ------------------------------------------- |
+| 官方台灣 | `仆斬將軍`                      | `超能豔鴕`                                  |
+| PokéAPI  | `仆刀將軍`                      | `超能艷鴕`                                  |
+| Unihan   | `刀` 與 `斬` **無任何變體關係** | `艷`／`豔` 經 `艶` 互為變體                 |
+| 性質     | **不同的詞**                    | **同一個詞的不同字形**（官方用罕見的 `豔`） |
+
+`#983` 是關鍵那一筆：PokéAPI 同一列的 zh-Hans 是 `仆刀将军`，它的 zh-Hant 值就是那個值
+做字形轉換。也就是說 **PokéAPI 的 zh-Hant 欄位不是均勻的官方台灣文本，其中夾著「簡體名
+換字形」** —— 而「把簡體轉繁體會產出看起來像官方、其實不是官方的名字」正是本 ADR 下面
+拒絕社群簡體資料的理由。同一個瑕疵從被信任的來源進來了，而且沒有任何東西攔得住它，因為
+當時表的正確性只跟 PokéAPI 自己比。
+
+**新的保險是一支獨立的驗證器**（見下節），不是更多的來源。
+
+#### Showdown 上游的 `data/text/zh-tw/` 不算第二票
+
+ADR 原文說「實測找不到繁中的社群來源」，這一句在 2026-08-23 之後不再成立：Showdown 上游
+自己有 `data/text/zh-tw/`，用 `toID()` 當 key。但**它不是獨立佐證**，它的 README 寫著資料
+從哪裡來：
+
+```
+$ curl -sSL https://raw.githubusercontent.com/smogon/pokemon-showdown/master/data/text/README.md | grep -i 'sourced from PokeAPI'
+Translated names and descriptions sourced from PokeAPI/pokeapi commit c0a9bc75af3a455cdfa27dde21e4ec95aedd3f25
+
+$ curl -sSL https://raw.githubusercontent.com/smogon/pokemon-showdown/master/data/text/zh-tw/pokedex.ts | grep -E '^\s*(espathra|kingambit):' -A2
+	espathra: {
+		name: "超能艷鴕",
+	kingambit: {
+		name: "仆刀將軍",
+```
+
+它連上面那 2 筆偏差都一起帶著。所以**「PokéAPI 與 Showdown 一致」不是交叉驗證，它是同一
+份資料被數了兩次** —— 任何拿兩者相符當作正確性證據的推論都是無效的，包含這份 ADR 原本
+「這是官方遊戲文本」那句話所隱含的自信。要真的驗證，就得問一個不是從 PokéAPI 抄來的來源，
+而目前只有官方圖鑑符合這個條件。（Showdown zh-tw 對招式／特性／道具的價值是 #102 / #103
+的題目，不在這張票裡。）
+
+至於**簡體社群資料**（`SyaOtiLan/pokemon-showdown-zh-hans`，`*.zh-Hans.json`）：仍然不用，
+理由不變 —— 用字轉換不等於譯名轉換，`#983` 就是它會長什麼樣子的現成例子。
+
+#### 官方圖鑑是驗證器，不是資料來源
+
+它的使用條款第 1 條明文禁止拷貝、複製、修改、刊登、發佈、散佈其內容，所以那 1025 個字串
+**不會被 commit 進這個 repo**。進版控的只有「PokéAPI 與它不符的那幾個 id」—— 那是一份
+bug 回報，不是一份資料集的副本。這也是為什麼修正走 override 表而不是換來源。
 
 ### 產生器與涵蓋率
 
@@ -77,8 +126,20 @@ CSV 是**執行時抓**而不是 vendor 一份快照：三個 CSV 加起來約 1
 $ node scripts/gen-species-names-zh-hant.mjs
 wrote 1197 zh-Hant names to species-names-zh-hant.json (1025 base species, 172 formes;
 220 of Showdown's 1417 species left to the English fallback)
+official Pokédex overrides: 2 entries, 2 of which PokéAPI still disagrees with
 left to the English fallback for having a forme the bracket cannot hold: Darmanitan-Galar-Zen
 ```
+
+**修正走產生器，不是手改 JSON。** 官方圖鑑的字串放
+`scripts/species-names-zh-hant-official.mjs`，產生器在**組合任何名字之前**就把它們換進
+PokéAPI 的資料裡（所以由該基礎名組出來的型態也跟著修正），重跑不會把修正吃掉。那個檔案
+裡的每一個字都是從 `source` 那個 URL 原樣讀出來的官方字串 —— **沒有經過翻譯、音譯或字形
+轉換**，這條規則寫在檔頭，而且沒有 URL 的名字不准加進去。產生器還會拿 `zukanId` 對
+`@pkmn/dex` 的圖鑑編號：URL 指到別隻的 override 會讓整支 script 停下來，而不是靜靜地改錯
+一隻。
+
+`corrections` 那個數字（上面的 `2 of which PokéAPI still disagrees with`）是刻意印出來
+的：哪天 PokéAPI 自己修好了，它會掉到 0，那時該筆 override 就可以移除。
 
 官方繁中資料有兩種形狀，產生器據此分流：
 
@@ -102,6 +163,34 @@ left to the English fallback for having a forme the bracket cannot hold: Darmani
 
 表裡**沒有任何重複的值**（`test/nuxt/species-locale.spec.ts` 的「names no forme twice」守
 著）：一個譯名出現兩次，就是某個組合把區別掉在地上了。
+
+### 驗證器：`verify:species-names-zh-hant`
+
+`apps/web/scripts/verify-species-names-zh-hant.mjs`：抓官方圖鑑列表頁**一次**，解出
+RSC payload（`self.__next_f.push`，欄位 `zukan_id` / `zukan_sub_id` / `pokemon_name`；
+`zukan_sub_id == 0` 是基礎 species），把 1025 筆與 committed 的表逐位元組比對，印出每一筆
+偏差，有偏差就 exit 1。
+
+```
+$ pnpm --filter web verify:species-names-zh-hant
+compared 1025 base species against https://tw.portal-pokemon.com/pokedex/: 0 deviate, 0 absent from the table
+```
+
+三個實作上的坑，都是實測踩到的：
+
+- **`/play/pokedex` 回 308 到 `/pokedex/`，不跟 redirect 只拿到 9 個 byte。** 那會解出 0 筆
+  記錄、印出 0 筆偏差，長得跟通過一模一樣。所以 script 硬寫著「基礎 species 必須是 1025
+  筆」，解不到就 throw —— 這條 assert 存在的唯一理由就是讓「沒抓到」不能假裝成「沒問題」。
+- **沒有 JSON API。** `/play/pokedex/api/v1/?pokemon_no=0956` 這種路徑拿不到名字，資料只在
+  頁面 HTML 的 RSC payload 裡。
+- **官方圖鑑對型態名沒有意見**：同一隻的型態記錄（`zukan_sub_id != 0`）沿用基礎名，所以
+  驗證只覆蓋 1025 隻基礎 species，172 個組合出來的型態名它驗不到。
+
+**它刻意不在 unit test 裡。** `vp run -r test:unit` 必須是 hermetic 的：CI 不去爬第三方
+網站，也不因為 `tw.portal-pokemon.com` 慢就變紅燈。它是跟產生器並排的手動動作 —— 重跑
+產生器之後、dex 升版、新世代時各跑一次。測試套件裡守著的是**表自己的形狀**（排序、無重複
+值、基礎 species 全覆蓋、NFC），外加 `test/nuxt/species-locale.spec.ts` 把這兩筆修正後的
+字串釘死，那一半是 hermetic 的，兩者分工不重疊。
 
 ## 後果
 
