@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import { Dex } from '@pkmn/dex'
-import { effectDisplayName, moveDisplayName } from '../../app/shared/utils/moveName'
+import { moveDisplayName } from '../../app/shared/utils/moveName'
+// `effectDisplayName` moved to `battleTerms.ts` when #103 grew the chain past
+// moves; #102's assertions about the effect seam stay here, where they were
+// written (docs/adr/0016-localised-battle-vocabulary.md).
+import { effectDisplayName } from '../../app/shared/utils/battleTerms'
 import zhHant from '../../app/shared/lib/dex/move-names-zh-hant.json'
 import ambiguous from '../../app/shared/lib/dex/ambiguous-move-ids.json'
 

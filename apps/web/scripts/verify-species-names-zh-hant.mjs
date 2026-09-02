@@ -29,49 +29,20 @@
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { Dex } from '@pkmn/dex'
+import { fetchTwPokedex } from './tw-pokedex.mjs'
 
 const TABLE = fileURLToPath(
   new URL('../app/shared/lib/dex/species-names-zh-hant.json', import.meta.url),
 )
 
-/**
- * The list page carries every name, so this is one request rather than 1025.
- * `/play/pokedex` answers 308 to `/pokedex/`, so the redirect has to be
- * followed -- not following it returns 9 bytes and an empty diff that looks
- * like a pass. The count assertion below is what makes that impossible.
- */
-const PORTAL = 'https://tw.portal-pokemon.com/play/pokedex'
-
-/** A browserless UA gets a different response; this is the one measured. */
-const UA = 'Mozilla/5.0'
-
-/**
- * The page is a Next.js App Router document with no JSON API: the data is
- * inside `self.__next_f.push(...)` calls as an escaped RSC payload, so the
- * quotes are `\"`. Records with `zukan_sub_id` 0 are the base species; the
- * rest are formes, and the Pokédex gives every forme of a species the same
- * `pokemon_name`, so it has no opinion on forme names at all.
- */
-const RECORD =
-  /\\?"zukan_id\\?":\\?"(\d{4})\\?",\\?"zukan_sub_id\\?":(\d+),\\?"pokemon_name\\?":\\?"([^"\\]+)\\?"/g
-
 /** The count the page has held since gen 9; a parse that drifts fails loudly. */
 const BASE_SPECIES = 1025
 
-const response = await fetch(PORTAL, { headers: { 'user-agent': UA }, redirect: 'follow' })
-if (!response.ok) throw new Error(`${response.url}: HTTP ${response.status}`)
-
-const html = await response.text()
-
-/** Dex number -> official name. */
-const official = new Map()
-for (const [, zukanId, subId, name] of html.matchAll(RECORD)) {
-  if (subId === '0') official.set(Number(zukanId), name)
-}
+const { url, bytes, species: official } = await fetchTwPokedex()
 
 if (official.size !== BASE_SPECIES) {
   throw new Error(
-    `parsed ${official.size} base species from ${response.url} (${html.length} bytes), expected ${BASE_SPECIES} -- ` +
+    `parsed ${official.size} base species from ${url} (${bytes} bytes), expected ${BASE_SPECIES} -- ` +
       `the page shape changed, or the 308 to /pokedex/ was not followed`,
   )
 }
@@ -96,7 +67,7 @@ for (const species of Dex.species.all()) {
 }
 
 console.log(
-  `compared ${official.size - missing.length} base species against ${response.url}: ` +
+  `compared ${official.size - missing.length} base species against ${url}: ` +
     `${deviations.length} deviate, ${missing.length} absent from the table`,
 )
 

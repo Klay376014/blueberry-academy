@@ -1,20 +1,55 @@
-import { effectDisplayName } from '~/shared/utils/moveName'
+import {
+  abilityDisplayName,
+  effectDisplayName,
+  fieldConditionDisplayName,
+  itemDisplayName,
+  sourceDisplayName,
+  statDisplayName,
+  teraTypeDisplayName,
+} from '~/shared/utils/battleTerms'
 
 /**
- * The messages whose `effect` parameter is a move name.
+ * Which of a message's parameters is an identifier from the log, and which
+ * table names it.
  *
- * Every one of these carries the same shape — a bare effect name the parser
- * stripped the `move:` prefix off — so the set, and not the shape, is what
- * says which ones are localised. `weather`, `fieldEffectStarted` and
- * `fieldEffectEnded` look identical from here and are deliberately not in it:
- * #103 owns them, and the weather row says a state's name rather than a
- * move's (`下雪` against the move's `雪景`).
+ * The table is keyed by message key rather than by parameter shape because
+ * the key is the only thing that says what kind of identifier it is: `weather`
+ * and `fieldEffectStarted` and `effectHeld` all carry one string and want
+ * three different lookups. The log's own `move:` / `ability:` prefix cannot
+ * play this part — measured, it is absent on most lines and present on the
+ * same effect elsewhere — but the key is derived from the protocol line's
+ * type, which never lies about what kind of line it was.
+ *
+ * See docs/adr/0016-localised-battle-vocabulary.md.
  */
-const MOVE_NAMED = new Set(['effectStarted', 'effectHeld', 'sideEffectStarted', 'sideEffectEnded'])
+const LOCALISERS: Record<string, Record<string, (value: string, locale: string) => string>> = {
+  // A bare effect string: the move -> ability chain.
+  effectStarted: { effect: effectDisplayName },
+  effectHeld: { effect: effectDisplayName },
+  // A side condition or something on the whole field. Its name is a move's,
+  // except for the weather, which has a state name of its own.
+  sideEffectStarted: { effect: fieldConditionDisplayName },
+  sideEffectEnded: { effect: fieldConditionDisplayName },
+  fieldEffectStarted: { effect: fieldConditionDisplayName },
+  fieldEffectEnded: { effect: fieldConditionDisplayName },
+  weather: { weather: fieldConditionDisplayName },
+  // Named outright by the line that carried them.
+  ability: { ability: abilityDisplayName },
+  lostItem: { item: itemDisplayName },
+  statRose: { stat: statDisplayName },
+  statFell: { stat: statDisplayName },
+  terastallized: { type: teraTypeDisplayName },
+  // Whatever the log said was to blame, namespace and all.
+  couldNotMove: { reason: sourceDisplayName },
+}
 
 /**
- * A row's or a note's `t()` parameters, with the ones that are move names put
- * into the reader's language. See docs/adr/0015-localised-move-names.md.
+ * A row's or a note's `t()` parameters, with the identifiers among them put
+ * into the reader's language.
+ *
+ * `statusCured`'s `status` is deliberately absent: `brn` has no official noun
+ * in any source, so it stays Showdown's identifier
+ * (docs/adr/0016-localised-battle-vocabulary.md).
  */
 export function localisedParams(
   key: string,
@@ -22,7 +57,15 @@ export function localisedParams(
   locale: string,
 ): Record<string, string> {
   if (params === undefined) return {}
-  if (!MOVE_NAMED.has(key) || params.effect === undefined) return params
 
-  return { ...params, effect: effectDisplayName(params.effect, locale) }
+  const localisers = LOCALISERS[key]
+  if (localisers === undefined) return params
+
+  const localised: Record<string, string> = { ...params }
+  for (const [name, localise] of Object.entries(localisers)) {
+    const value = params[name]
+    if (value !== undefined) localised[name] = localise(value, locale)
+  }
+
+  return localised
 }

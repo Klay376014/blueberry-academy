@@ -13,8 +13,12 @@
     "gen:species-names": "node scripts/gen-species-names.mjs",
     "gen:species-names-zh-hant": "node scripts/gen-species-names-zh-hant.mjs",
     "gen:move-names-zh-hant": "node scripts/gen-move-names-zh-hant.mjs",
+    "gen:ability-names-zh-hant": "node scripts/gen-ability-names-zh-hant.mjs",
+    "gen:item-names-zh-hant": "node scripts/gen-item-names-zh-hant.mjs",
+    "gen:battle-terms-zh-hant": "node scripts/gen-battle-terms-zh-hant.mjs",
     "gen:ambiguous-move-ids": "node scripts/gen-ambiguous-move-ids.mjs",
-    "verify:species-names-zh-hant": "node scripts/verify-species-names-zh-hant.mjs"
+    "verify:species-names-zh-hant": "node scripts/verify-species-names-zh-hant.mjs",
+    "verify:ability-names-zh-hant": "node scripts/verify-ability-names-zh-hant.mjs"
   },
   "dependencies": {
     "@lucide/vue": "^1.31.0",

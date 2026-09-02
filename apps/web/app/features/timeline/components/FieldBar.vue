@@ -3,6 +3,7 @@ import { toID } from 'replay-parser'
 import type { SideId } from 'replay-parser'
 import type { FieldSnapshot, PokemonState } from '../utils/battleField'
 import { speciesLabel } from '~/shared/utils/speciesName'
+import { fieldConditionDisplayName } from '~/shared/utils/battleTerms'
 
 /**
  * How the field stood at one moment: who was out, on how much HP, and what each
@@ -30,6 +31,15 @@ const { t, locale } = useI18n()
  * kept alongside (docs/adr/0014-localised-species-names.md).
  */
 const labelled = (species: string) => speciesLabel(toID(species), locale.value)
+
+/**
+ * A screen, a terrain or a room, under the reader's name for it. Every one of
+ * these strings is a move's name — the log spells a side condition the way it
+ * spells the move that put it there — and the ones that are not are the
+ * weather's, which has a state name of its own
+ * (docs/adr/0016-localised-battle-vocabulary.md).
+ */
+const condition = (name: string) => fieldConditionDisplayName(name, locale.value)
 
 function label(side: SideId) {
   if (props.mySide === null) return side.toUpperCase()
@@ -110,7 +120,7 @@ function hpLabel(pokemon: PokemonState) {
         :key="effect"
         class="border-chart-3/50 text-chart-3 rounded border px-1 font-mono text-[9px]"
       >
-        {{ effect }}
+        {{ condition(effect) }}
       </span>
     </div>
 
@@ -153,7 +163,7 @@ function hpLabel(pokemon: PokemonState) {
           :key="screen"
           class="border-primary/50 text-primary rounded border px-1 font-mono text-[9px]"
         >
-          {{ screen }}
+          {{ condition(screen) }}
         </span>
       </div>
     </template>

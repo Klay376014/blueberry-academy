@@ -1,3 +1,4 @@
+import { toID } from 'replay-parser'
 import type { Combatant, HealthChange, SideId, TimelineEvent, TimelineTurn } from 'replay-parser'
 
 /**
@@ -340,7 +341,13 @@ export function rowOf(event: TimelineEvent): TimelineRow | null {
       }
 
     case 'weather':
-      return { ...blank(), message: { key: 'weather', params: { weather: event.weather } } }
+      // `none` is the weather running out, and it is the one value here that
+      // is not a name: no source has an official noun for it, so it is copy
+      // rather than a table lookup and takes a key of its own
+      // (docs/adr/0016-localised-battle-vocabulary.md).
+      return toID(event.weather) === 'none'
+        ? { ...blank(), message: { key: 'weatherCleared' } }
+        : { ...blank(), message: { key: 'weather', params: { weather: event.weather } } }
 
     case 'fail':
       return {
