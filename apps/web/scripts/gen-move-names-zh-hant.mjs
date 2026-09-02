@@ -42,6 +42,7 @@
 import { writeFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { Dex } from '@pkmn/dex'
+import { fetchCsv } from './pokeapi-csv.mjs'
 
 const OUT = fileURLToPath(new URL('../app/shared/lib/dex/move-names-zh-hant.json', import.meta.url))
 
@@ -73,64 +74,6 @@ const ENGLISH = '9'
  */
 const SHOWDOWN_MOVES_FLOOR = 900
 const SHOWDOWN_MOVE_NAMES_FLOOR = 900
-
-/**
- * Enough CSV for PokéAPI's tables: comma separated, `"`-quoted where a value
- * contains a comma, `""` for a literal quote inside one, no embedded newlines.
- *
- * The quoting is not hypothetical -- `move_names.csv` line 7907 at the pinned
- * ref is `719,9,"10,000,000 Volt Thunderbolt"`, and reading it on `split(',')`
- * truncates the English name to `"10`, which drops that move's PokéAPI row out
- * of the join entirely. A row that ends inside a quote throws rather than
- * being handed on truncated.
- */
-function splitRow(row, where) {
-  const cells = []
-  let cell = ''
-  let quoted = false
-
-  for (let index = 0; index < row.length; index += 1) {
-    const char = row[index]
-
-    if (quoted) {
-      if (char !== '"') {
-        cell += char
-      } else if (row[index + 1] === '"') {
-        cell += '"'
-        index += 1
-      } else {
-        quoted = false
-      }
-      continue
-    }
-
-    if (char === '"' && cell === '') {
-      quoted = true
-    } else if (char === ',') {
-      cells.push(cell)
-      cell = ''
-    } else {
-      cell += char
-    }
-  }
-
-  if (quoted) throw new Error(`${where}: row ends inside a quoted field: ${row}`)
-
-  return [...cells, cell]
-}
-
-async function fetchCsv(name) {
-  const response = await fetch(`${POKEAPI_CSV}${name}`)
-  if (!response.ok) throw new Error(`${name}: HTTP ${response.status}`)
-
-  const [header = '', ...lines] = (await response.text()).trim().split('\n')
-  const columns = splitRow(header, name)
-
-  return lines.map((line, index) => {
-    const cells = splitRow(line, `${name} line ${index + 2}`)
-    return Object.fromEntries(columns.map((column, at) => [column, cells[at] ?? '']))
-  })
-}
 
 /** The id form Showdown uses, with accents folded so `Poké Ball` reaches it. */
 const toId = (text) =>
@@ -190,7 +133,7 @@ async function fetchShowdownNames(file, entryFloor, nameFloor) {
 }
 
 const [moveNames, showdown] = await Promise.all([
-  fetchCsv('move_names.csv'),
+  fetchCsv(POKEAPI_CSV, 'move_names.csv'),
   fetchShowdownNames('moves.ts', SHOWDOWN_MOVES_FLOOR, SHOWDOWN_MOVE_NAMES_FLOOR),
 ])
 
