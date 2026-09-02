@@ -3,6 +3,8 @@ import { ArrowRightLeft, Gem, HeartPulse, Skull, Sparkles, Zap } from '@lucide/v
 import { toID } from 'replay-parser'
 import type { SideId } from 'replay-parser'
 import type { TimelineRow } from '../utils/timelineRows'
+import { localisedParams } from '../utils/rowMessage'
+import { moveDisplayName } from '~/shared/utils/moveName'
 import { speciesDisplayName, speciesLabel } from '~/shared/utils/speciesName'
 
 /**
@@ -11,8 +13,9 @@ import { speciesDisplayName, speciesLabel } from '~/shared/utils/speciesName'
  * The Pokémon is its icon and nothing else: an icon reads the same in every
  * locale, and the name it stands for is on it as a label rather than beside it
  * — in the reader's language, with the English name Showdown shows kept beside
- * it (docs/adr/0014-localised-species-names.md). The move keeps its English
- * name, which has no icon to become.
+ * it (docs/adr/0014-localised-species-names.md). The move has no icon to
+ * become, so its name is on the line in the reader's language and nowhere else
+ * (docs/adr/0015-localised-move-names.md).
  *
  * Whose it is shows in the rail down the left rather than in words, so the two
  * sides are told apart without a column of names.
@@ -50,11 +53,16 @@ const message = computed(() => {
   if (!said) return null
 
   return t(`battle.event.${said.key}`, {
-    ...said.params,
+    ...localisedParams(said.key, said.params, locale.value),
     pokemon: named(props.row.species ?? undefined),
     into: named(props.row.targets[0]?.species),
   })
 })
+
+/** The move the row is about, under the reader's name for it. */
+const move = computed(() =>
+  props.row.move === null ? null : moveDisplayName(props.row.move, locale.value),
+)
 </script>
 
 <template>
@@ -84,7 +92,7 @@ const message = computed(() => {
     <span v-else />
 
     <span class="flex min-w-0 flex-wrap items-center gap-1.5 text-sm">
-      <span v-if="row.move" class="font-medium">{{ row.move }}</span>
+      <span v-if="move" class="font-medium">{{ move }}</span>
 
       <!-- What the move did to the Pokémon using it: a Protect that went up, a
            swing that missed. -->
