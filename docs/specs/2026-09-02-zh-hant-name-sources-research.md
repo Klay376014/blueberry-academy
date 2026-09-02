@@ -18,13 +18,19 @@
 1. **招式 / 特性 / 道具在第九世代是 100%。** ADR-0014「PokéAPI 的繁中資料停在第八世代」
    這句話只對**型態名**成立，對招式 / 特性 / 道具**不成立**。#102 / #103 的資料缺口是零。
 2. **出現了 ADR-0014 寫作時還不存在的來源：Showdown 上游自己的 `data/text/zh-tw/`**，
-   2026-08-23 才進 master。用 `toID()` 當 key、MIT 授權、與 PokéAPI 繁中逐字節相同
-   （重疊 1698 筆，0 筆分歧）。它讓「join」這件事整個消失。
-3. **已 commit 的物種表有 2 筆是錯的**：`Espathra` = `超能艷鴕`（官方是 `超能豔鴕`）、
-   `Kingambit` = `仆刀將軍`（官方是 `仆斬將軍`）。錯誤來自 PokéAPI，Showdown 也一起錯。
-   這是 ADR-0014 立志拒絕的失敗模式**經由它信任的來源進來**。
-4. **有 24 筆型態名是 join 沒接上，不是資料沒有** —— 包含 ADR-0014 明文列為「已知缺口」的
-   `Ogerpon-*` 面具、`Indeedee-F`、`Necrozma-Dusk-Mane`。
+   2026-08-23 才進 master。用 `toID()` 當 key、MIT 授權、招式 / 特性 / 道具的名稱與
+   PokéAPI 繁中逐字節相同（重疊 1698 筆，0 筆分歧）。它讓 join 這件事在**這三張表上**消失。
+   **它不覆蓋型態** —— `ogerponwellspring`、`indeedeef`、`ninetalesalola`、`venusaurgmax`
+   在它的 `pokedex.ts` 裡 `name` 與 `forme` 都是 `null`（§4.2）。採用它對型態缺口毫無幫助，
+   這兩件事是兩個不同的問題。
+3. **已 commit 的物種表有 2 筆與官方台灣圖鑑不符**，而且**兩筆的性質不同**（§3.1）：
+   `kingambit` = `仆刀將軍` 對官方的 `仆斬將軍` —— `刀` 與 `斬` 在 Unihan 裡沒有任何變體
+   關係，這是**不同的詞**；`espathra` = `超能艷鴕` 對官方的 `超能豔鴕` —— `艷` 與 `豔`
+   經由 `艶` 互為 `kSemanticVariant`，這是**同一個詞的不同字形**。兩筆都源自 PokéAPI，
+   Showdown 也一起帶著（因為它的名稱就是抄 PokéAPI 的），所以**兩個來源攜帶同一個偏差**。
+4. **有 24 筆型態名是 join 沒接上，不是資料沒有** —— 修法是改 PokéAPI 的 join key
+   （§1），與第 2 點無關。包含 ADR-0014 明文列為「已知缺口」的 `Ogerpon-*` 面具、
+   `Indeedee-F`、`Necrozma-Dusk-Mane`。
 5. **狀態代碼（`brn` / `par` / …）真的沒有來源。** 官方只有句子沒有名詞，連 Showdown 自己都
    把 `StatusNames` 全部留 `null`。ADR-0014 不翻它們是對的，現在有第一手證據。
 
@@ -284,15 +290,24 @@ $ node _hans2.mjs         # 現在的 master —— 五個表都是 0 筆
 
 - `https://tw.portal-pokemon.com/play/pokedex`
 
-它是 Next.js App Router，**沒有 JSON API**（`/play/pokedex/api/v1/*` 一律 308 → 404），
-但資料就嵌在頁面 HTML 的 React Server Component payload（`self.__next_f.push(...)`）裡，
-一次 fetch 就拿得到，regex 就解得開。`robots.txt` 只 disallow `/images/` 與
-`/_next/static/media/`，圖鑑頁本身可以抓。
+它是 Next.js App Router，**沒有 JSON API**：`/play/pokedex/api/v1/?pokemon_no=0956` 這種
+路徑拿不到名字。資料嵌在頁面 HTML 的 React Server Component payload
+（`self.__next_f.push(...)`）裡，一次 GET 就拿得到，regex 就解得開。`robots.txt` 只
+disallow `/images/` 與 `/_next/static/media/`，圖鑑頁本身可以抓。
+
+**⚠ 一定要跟 redirect（`-L`）。** `/play/pokedex` 本身回 **308**，Location 是
+`/pokedex/`；不跟 redirect 只會拿到 9 個 byte，跟了才是 543,592 byte 的完整頁面。
+這是本節結論最容易複現失敗的地方。
+
+完整請求（GET，只有一個 header，沒有 body）：
 
 ```
-$ curl -sSL -o tw_pokedex.html https://tw.portal-pokemon.com/play/pokedex   # 543,592 bytes
-$ node _oracle.mjs
-official TW portal: 1025 base-species names (zukan_sub_id 0)
+$ curl -sSL -A "Mozilla/5.0" \
+    -w 'HTTP %{http_code}  bytes=%{size_download}\n  final url=%{url_effective}\n  redirects=%{num_redirects}\n' \
+    -o tw_pokedex.html "https://tw.portal-pokemon.com/play/pokedex"
+HTTP 200  bytes=543592
+  final url=https://tw.portal-pokemon.com/pokedex/
+  redirects=1
 ```
 
 記錄的形狀（原文）：
@@ -305,20 +320,120 @@ official TW portal: 1025 base-species names (zukan_sub_id 0)
 內容：**1025 隻基礎 species + 281 個特性 + 18 個屬性。招式與道具沒有。**
 特性的 key 是英文名小寫（`air lock`、`teraform zero`），join 得很乾淨。
 
-### 3.1 已 commit 的物種表有 2 筆是錯的
+### 3.1 已 commit 的物種表有 2 筆與官方不符 —— 逐步證據
+
+這一節被 review 質疑過（複現失敗），所以把原始 request 與 raw response 全部留下。
+失敗原因幾乎確定是 §3 開頭那條：**沒跟 redirect**，或用了不存在的 `api/v1` 路徑。
+
+**（a）raw response 裡的原文。** 從上面那份 543,592 byte 的 HTML 直接 grep，
+不經任何解析：
+
+```
+$ grep -o '超能[^",<]\{0,6\}' tw_pokedex.html | sort -u
+超能力\
+超能妙喵\
+超能豔鴕\
+$ grep -o '仆[^",<]\{0,6\}' tw_pokedex.html | sort -u
+仆斬將軍\
+```
+
+（行尾的 `\` 是 RSC payload 裡 JSON 字串的轉義反斜線，不是名字的一部分。）
+連同前後各 80 個 byte：
+
+```
+$ grep -o '.\{80\}超能豔鴕.\{80\}' tw_pokedex.html
+pe_name\":\"超能力\"},{\"zukan_id\":\"0956\",\"zukan_sub_id\":0,\"pokemon_name\":\"超能豔鴕\",\"pokemon_sub_name\":\"\",\"weight\":90,\"height\":1.9,\"file_name\":\"/image
+
+$ grep -o '.\{80\}仆斬將軍.\{80\}' tw_pokedex.html
+ype_name\":\"一般\"},{\"zukan_id\":\"0983\",\"zukan_sub_id\":0,\"pokemon_name\":\"仆斬將軍\",\"pokemon_sub_name\":\"\",\"weight\":120,\"height\":2,\"file_name\":\"/images
+```
+
+**`超能艷鴕` 與 `仆刀將軍` 在這份頁面裡出現 0 次。**
+
+**（b）第二條獨立路徑：個別詳細頁的 `<title>`。** 不經 RSC payload，
+直接看 HTML 的 title 標籤：
+
+```
+$ curl -sSL -A "Mozilla/5.0" https://tw.portal-pokemon.com/pokedex/0956 | grep -o '<title>[^<]*</title>'
+<title>超能豔鴕 | Pokédex | 台灣寶可夢官方網站</title>
+
+$ curl -sSL -A "Mozilla/5.0" https://tw.portal-pokemon.com/pokedex/0983 | grep -o '<title>[^<]*</title>'
+<title>仆斬將軍 | Pokédex | 台灣寶可夢官方網站</title>
+```
+
+兩條路徑（列表頁 RSC payload、詳細頁 `<title>`）給同一個答案。**主張成立，不撤回。**
+
+**（c）1025 筆全量比對，附完整指令。** 解析規則是抓 RSC payload 裡
+`zukan_sub_id` 為 0 的記錄（`zukan_sub_id` 非 0 是型態，不參與基礎名比對）：
+
+```js
+// _oracle.mjs 的 join：官方圖鑑的 zukan_id → 國家圖鑑編號，
+// 對 PokéAPI 的 pokemon_species_id、以及 @pkmn/dex 無 forme 的 species
+for (const m of src.matchAll(
+  /\{\\?"zukan_id\\?":\\?"(\d{4})\\?",\\?"zukan_sub_id\\?":(\d+),\\?"pokemon_name\\?":\\?"([^"\\]*)\\?"/g,
+))
+  if (m[2] === '0') official.set(Number(m[1]), m[3])
+```
 
 ```
 $ node _oracle.mjs
-PokeAPI zh-Hant vs official portal, base species: 1023 identical, 2 differ
+official portal: 1025 records with zukan_sub_id 0
+PokeAPI zh-Hant vs official: compared 1025, identical 1023, differ 2
   #956 PokeAPI="超能艷鴕" official="超能豔鴕"
   #983 PokeAPI="仆刀將軍" official="仆斬將軍"
-
-ADR-0014 committed table vs official portal (base species only): 2 wrong
-  Espathra  table="超能艷鴕" official="超能豔鴕"
-  Kingambit table="仆刀將軍" official="仆斬將軍"
+committed table vs official (base species): compared 1025, identical 1023, differ 2
+  espathra table="超能艷鴕" official="超能豔鴕"
+  kingambit table="仆刀將軍" official="仆斬將軍"
 ```
 
-Showdown 上游也一起錯（它的名稱來自 PokéAPI，見 §4.3）：
+**比對的是 1025 筆基礎 species 的全部，不是抽樣**；型態沒有比對（官方圖鑑的型態記錄
+`zukan_sub_id != 0` 一律沿用基礎名，見 §3 的 `1017` 四筆都是 `厄鬼椪`，
+所以它對型態名沒有意見）。
+
+### 3.1.1 兩筆的性質不同 —— 這是 review 抓出來的正確意見
+
+前一版把兩筆寫成同一個發現，這是錯的。用 Unicode UCD 17.0 的 `Unihan_Variants.txt`
+查這幾個字的關係（原始輸出，`kSemanticVariant` 等欄位名照抄）：
+
+```
+   刀 (U+5200)  kSemanticVariant     U+5202          ← 與 斬 沒有任何關係
+   斩 (U+65A9)  kTraditionalVariant  斬
+   斬 (U+65AC)  kSimplifiedVariant   斩
+   艶 (U+8276)  kSemanticVariant     豓 豔
+   豔 (U+8C54)  kSemanticVariant     艶 豓
+   艷 (U+8277)  kSimplifiedVariant   U+8273
+```
+
+|                                     | `#983 Kingambit`                | `#956 Espathra`                                |
+| ----------------------------------- | ------------------------------- | ---------------------------------------------- |
+| 官方台灣                            | `仆斬將軍`                      | `超能豔鴕`                                     |
+| PokéAPI zh-Hant / 現行表 / Showdown | `仆刀將軍`                      | `超能艷鴕`                                     |
+| PokéAPI zh-Hans（同一列的 12）      | `仆刀将军`                      | `超能艳鸵`                                     |
+| Unihan 關係                         | `刀` 與 `斬` **無任何變體關係** | `艷` 與 `豔` 經由 `艶` 互為 `kSemanticVariant` |
+| 性質                                | **不同的詞**                    | **同一個詞的不同字形**                         |
+
+兩筆的共同點是：**把 PokéAPI 自己的 zh-Hans 值做字形轉換，就會得到它的 zh-Hant 值**
+（`仆刀将军` → `仆刀將軍`；`超能艳鸵` → `超能艷鴕`）。所以兩筆都與「簡繁用字轉換」相容。
+
+但**含意不同，處理的急迫性也不同**：
+
+- **`#983` 是真的錯名。** 讀者看到的 `仆刀將軍` 不是 TPC 在台灣發佈的名字，而是對岸版本
+  的名字換了字形。這是 ADR-0014 明文拒絕的失敗模式，只是它經由 ADR-0014 信任的來源進來。
+- **`#956` 是字形選擇。** 詞是對的（`豔`／`艷`／`艶` 都是同一個「豔」字的不同寫法），
+  只是 TPC 台灣用了較罕見的 `豔`。畫面上讀者仍然讀得出是同一隻。它與官方字串不逐字節
+  相符，若目標是「畫面上就是官方字串」就該修；但把它叫「錯名」是言過其實。
+
+**沒有第一手證據能說 TPC 在 `#956` 上「有意選了 `豔`」還是「只是字形沿用」**，所以本文件
+不對此下判斷 —— 只記錄它與官方頁面不逐字節相符。
+
+### 3.1.2 與「逐字節相同」那個發現的關係
+
+§4.2 說 Showdown zh-tw 與 PokéAPI 繁中在 1698 筆重疊上零分歧。這與本節不矛盾，
+兩者合起來的結論是：
+
+**兩個來源攜帶同一個偏差。** Showdown 的名稱是抄 PokéAPI 的（§4.3 的 README 原文寫著
+sourced from PokéAPI commit `c0a9bc75`），所以「兩邊一致」不是交叉驗證，
+**它只是同一份資料被數了兩次**。這正是為什麼需要第三個、真正獨立的權威：
 
 ```
 $ grep -A2 -E '^\t(espathra|kingambit): \{' zh-tw-pokedex.ts
@@ -326,14 +441,8 @@ $ grep -A2 -E '^\t(espathra|kingambit): \{' zh-tw-pokedex.ts
 	kingambit: { name: "仆刀將軍", },
 ```
 
-**這兩筆的意義遠大於兩筆。** `仆刀將軍` 是**簡體版的官方名（仆刀将军）換成繁體字形**；
-`艷` 是 `艳` 的標準繁體字形，而台灣官方用的是 `豔`。也就是說：
-
-**PokéAPI 的繁中欄位裡還殘留著簡繁「用字轉換」的產物，而 §2.5 的 Unihan 檢查抓不到它們
-—— 因為它們每一個字都是合法的繁體字。** ADR-0014 寫「用字轉換不等於譯名轉換」時，指的是
-不要自己去轉；實測顯示**上游已經替我們轉過了一部分，而且它們現在正在畫面上。**
-
-Unihan 檢查抓字形污染，官方圖鑑抓字彙污染。**兩者都需要，而且只有後者是權威。**
+**Unihan 檢查抓字形污染（§2.5(a)），官方圖鑑抓字彙污染（本節）。兩者都需要，
+而且只有後者是權威 —— PokéAPI 與 Showdown 加起來只算一票。**
 
 ### 3.2 授權：可以當驗證器，不可以當資料來源
 
@@ -445,8 +554,54 @@ species: Showdown 1067/1417；ADR-0014 表 1197/1417；union 1216/1417
 - **重疊的 1698 筆（916 + 308 + 474）逐字節相同，零分歧。** 不是巧合 —— 見 §4.3。
 - **Showdown 把 PokéAPI join 不到的 6 筆特性補齊了**，用官方的括號寫法
   `面影輝映（碧草）`、`人馬一體（雪暴馬）`。第九世代因此三個都是 100%。
-- **物種表反過來：Showdown 比現行表差 130 筆**，`ninetalesalola` 這類阿羅拉／伽勒爾型態
-  它全是 `null`。它只補得上 7 筆第九世代合法的洞。
+- **物種表反過來：Showdown 比現行表差 130 筆。** 見下面 §4.2.1 —— 這一點很容易讀錯，
+  所以單獨列一節。
+
+### 4.2.1 ⚠ Showdown zh-tw **不覆蓋型態**
+
+這是 review 抓出來的正確意見，前一版沒有講夠清楚。`pokedex.ts` 的 1559 個條目裡
+**467 個 `name` 是 `null`**，而落空的正是型態。原文：
+
+```
+$ awk '…' zh-tw-pokedex.ts        # 逐條目印出原始碼
+	ogerpon:            { name: null, // NEEDS TRANSLATION
+	                      baseSpecies: "厄鬼椪",
+	                      forme: null, // NEEDS TRANSLATION }
+	ogerponwellspring:  { name: null, // NEEDS TRANSLATION
+	                      forme: null, // NEEDS TRANSLATION }
+	indeedeef:          { name: null, forme: null }      // 兩者皆 null
+	ninetalesalola:     { name: null, forme: null }      // 兩者皆 null
+	venusaurgmax:       { name: null, forme: null }      // 兩者皆 null
+```
+
+**`Ogerpon-Wellspring`、`Indeedee-F`、`Ninetales-Alola`、`Venusaur-Gmax` 在 Showdown
+zh-tw 裡完全沒有名字。** 阿羅拉／伽勒爾／洗翠／帕底亞那幾批型態一律 `null`。
+
+所以：
+
+> **採用 Showdown 當招式 / 特性 / 道具的來源，對型態缺口毫無幫助。**
+> 型態缺口的修法是 §1 的 join key（從 PokéAPI 回收 24 筆），與這一節無關。
+> 這是兩個不同的問題，不要把它們讀成一個。
+
+那 19 筆「Showdown 獨有」的物種是**少數有 `forme` 字串的條目**組出來的，清單如下
+（`baseSpecies` ＋ `forme` 兩個官方半段）：
+
+```
+	taurospaldeacombat:    { forme: "鬥戰種（帕底亞的樣子）" }
+	taurospaldeablaze:     { forme: "火熾種（帕底亞的樣子）" }
+	taurospaldeaaqua:      { forme: "水瀾種（帕底亞的樣子）" }
+	darmanitangalar:       { forme: "普通模式（伽勒爾的樣子）" }
+	darmanitangalarzen:    { forme: "達摩模式（伽勒爾的樣子）" }
+	ogerpontealtera:       { forme: "太晶（碧草面具）" }
+	ogerponwellspringtera: { forme: "太晶（水井面具）" }   ← 注意：非 -Tera 的那隻是 null
+	（其餘 12 筆是 Totem / Mega / Magearna-Original-Mega 等非第九世代合法的東西）
+```
+
+第九世代合法的只有 7 筆，而其中 4 筆是 `Ogerpon-*-Tera`。**真正有用的是
+`Tauros-Paldea-*` 三筆與 `Darmanitan-Galar`／`-Galar-Zen` 兩筆** ——
+剛好是 ADR-0014「一個括號只裝得下一個說明」刻意讓掉的那一類，因為官方在這裡
+把「地區 ＋ 模式」寫成了一個字串。`ogerponwellspringtera` 有 `forme` 而
+`ogerponwellspring` 沒有，是上游填表的偶然，不是覆蓋率。
 
 ### 4.3 可信度：它是 PokéAPI 的投影，不是獨立權威
 
@@ -790,10 +945,14 @@ ADR-0014 留下的「三份一起看才知道該切在哪裡」現在有答案�
 
 要，四件事，其中三件是 bug。
 
-**（1）修 2 筆錯的名字，並加一條對官方圖鑑的驗證測試。**
-`espathra` 應為 `超能豔鴕`、`kingambit` 應為 `仆斬將軍`（§3.1）。這是 ADR-0014 存在的
-理由本身出了問題：**「看起來像官方、其實是簡體用字轉換」的東西，經由它信任的來源進來了。**
-§2.5 的 Unihan 檢查抓不到它們（每個字都是合法繁體字），唯一抓得到的是官方圖鑑。
+**（1）修 2 筆與官方不符的名字，並加一條對官方圖鑑的驗證測試。**
+`kingambit` 應為 `仆斬將軍`（現行 `仆刀將軍` 是**不同的詞**，對岸版本的名字換了字形 ——
+這一筆是真的錯名，該修）；`espathra` 應為 `超能豔鴕`（現行 `超能艷鴕` 是**同一個詞的
+不同字形**，若目標是「畫面上就是官方字串」就該修，但它不是錯名）。兩筆的判別依據見
+§3.1.1。這是 ADR-0014 存在的理由本身出了問題：**「看起來像官方、其實是簡體用字轉換」的
+東西，經由它信任的來源進來了。**
+§2.5 的 Unihan 檢查抓不到它們（`艷` 與 `刀` 都不是簡化字），唯一抓得到的是官方圖鑑，
+而 PokéAPI 與 Showdown 一致並不算交叉驗證（§3.1.2）。
 驗證測試不會把官方資料 commit 進來（§3.2 的使用條款因此不成問題），
 它只在不符時紅燈並印出該修的 id。
 
@@ -805,15 +964,20 @@ ADR-0014 留下的「三份一起看才知道該切在哪裡」現在有答案�
 **（3）加一條簡體字形檢查測試。** 判準用 Unicode UCD 的 `Unihan_Variants.txt`
 （`kTraditionalVariant` 指向非自身者即簡化字），斷言表裡 0 筆命中。§2.5(a) 證明上游
 確實會混簡體進繁中欄位，而現行表乾淨純粹是時間差。這條測試守的正是 ADR-0014 的核心
-主張，而且**不需要任何判斷 —— 判準來自 Unicode，不是我們**。它與（1）互補：
-**Unihan 抓字形，官方圖鑑抓字彙，缺一不可。**
+主張，而且**不需要任何判斷 —— 判準來自 Unicode，不是我們**。
+
+它與（1）互補而**不重疊**：Unihan 只抓得到「簡化字出現在繁中欄位」（§2.5(a) 的 317 筆），
+抓不到 §3.1 那兩筆 —— `艷` 與 `刀` 都不是簡化字。反過來，官方圖鑑只涵蓋 1025 隻基礎
+species，抓不到型態、招式、道具。**兩條測試守的是不同的洞，缺一不可。**
 
 **（4）產生器 pin ref，不要抓 `master`。** `2.9.0` 與 `master` 實測差 4 筆招式；
 `master` 在 2026-08-25 之前會出簡體。ADR-0014「跑出來的東西也就是已經 committed 的那一份」
 這個保證，在抓 `master` 的前提下是假的。
 
 **可以順手做、但不急的一件事**：從 Showdown `pokedex.ts` 補那 7 筆第九世代合法的洞
-（`Tauros-Paldea-*` 三筆、`Darmanitan-Galar` / `-Galar-Zen`、`Ogerpon-*-Tera`）。
+（`Tauros-Paldea-*` 三筆、`Darmanitan-Galar` / `-Galar-Zen`、`Ogerpon-*-Tera` 四筆）。
+**這 7 筆就是 Showdown 對型態的全部貢獻** —— 它的 `pokedex.ts` 其餘型態一律 `null`
+（§4.2.1），所以這一項與（2）的 join key 修正不能互相取代，也不能互相省略。
 `Darmanitan-Galar-Zen` 的 `forme` 是單一官方字串 `達摩模式（伽勒爾的樣子）`，
 `Tauros-Paldea-Combat` 是 `鬥戰種（帕底亞的樣子）` —— **官方自己就用括號把「地區 + 模式」
 裝在一個字串裡**，ADR-0014「一個括號只裝得下一個說明」的限制因此可解。
@@ -831,16 +995,16 @@ ADR-0014 留下的「三份一起看才知道該切在哪裡」現在有答案�
 
 ### 8.4 誠實的「沒有來源」清單
 
-| 需要的東西                                            | 有沒有官方來源                                                      |
-| ----------------------------------------------------- | ------------------------------------------------------------------- |
-| 第九世代招式 / 特性 / 道具名                          | **有，100%**                                                        |
-| 天氣 / 場地 / 房間 / 我方狀況名                       | **有，100%**（天氣另有專用的狀態名）                                |
-| 太晶屬性、能力值名                                    | **有，100%**                                                        |
-| 基礎 species 名（1025 隻）                            | **有，100%**，但要對官方圖鑑驗證（現行表錯 2 筆）                   |
-| 第九世代型態名                                        | **部分**。碧之假面那批有；洗翠／帕底亞／藍之圓盤那批只在 GPL 來源裡 |
-| 組合好的型態顯示名                                    | **沒有。官方分開給，括號只能自己加**                                |
-| 狀態 chip（`brn` / `par` / …）                        | **沒有。官方只有句子，Showdown 自己也留 null**                      |
-| 協定機制值（`recoil` / `drain` / `fallen5` / `none`） | **沒有**                                                            |
+| 需要的東西                                            | 有沒有官方來源                                                                                                                                         |
+| ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 第九世代招式 / 特性 / 道具名                          | **有，100%**                                                                                                                                           |
+| 天氣 / 場地 / 房間 / 我方狀況名                       | **有，100%**（天氣另有專用的狀態名）                                                                                                                   |
+| 太晶屬性、能力值名                                    | **有，100%**                                                                                                                                           |
+| 基礎 species 名（1025 隻）                            | **有，100%**，但要對官方圖鑑驗證（現行表 2 筆不符，性質見 §3.1.1）                                                                                     |
+| 第九世代型態名                                        | **部分**。PokéAPI 有碧之假面那批（join 修好就進來）；洗翠／帕底亞／藍之圓盤那批只在 GPL 來源裡。**Showdown zh-tw 幫不上，它的型態一律 null（§4.2.1）** |
+| 組合好的型態顯示名                                    | **沒有。官方分開給，括號只能自己加**                                                                                                                   |
+| 狀態 chip（`brn` / `par` / …）                        | **沒有。官方只有句子，Showdown 自己也留 null**                                                                                                         |
+| 協定機制值（`recoil` / `drain` / `fallen5` / `none`） | **沒有**                                                                                                                                               |
 
 ---
 
@@ -849,14 +1013,14 @@ ADR-0014 留下的「三份一起看才知道該切在哪裡」現在有答案�
 調查腳本寫在 `apps/web/` 底下（`@pkmn/dex` 裝在那裡），**刻意不 commit** ——
 它們是一次性量測工具，不是產品程式碼。
 
-| 量測           | 做法                                                                                                                                                                                                                                                                   |
-| -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| fixture 識別字 | 走 `packages/replay-parser/test/fixtures/*.json` 的 `log`，按協定行的 cmd 分類收集 `-ability` / `-item` / `-weather` / `-sidestart` / `[from]` 等的值                                                                                                                  |
-| PokéAPI        | `curl raw.githubusercontent.com/PokeAPI/pokeapi/<ref>/data/v2/csv/{move,ability,item}_names.csv`、`{moves,abilities,items}.csv`、`pokemon{,_forms,_form_names,_species_names}.csv`、`languages.csv`、`type_names.csv`、`stat_names.csv`、`move_meta_ailment_names.csv` |
-| Showdown       | `curl raw.githubusercontent.com/smogon/pokemon-showdown/<sha>/data/text/zh-tw/*.ts`，**逐行**掃頂層 tab 縮排條目的 `name` / `baseSpecies` / `forme`（不要用非貪婪 regex 抓整段 body）                                                                                  |
-| 官方圖鑑       | `curl -A "Mozilla/5.0" https://tw.portal-pokemon.com/play/pokedex`，regex 抓 RSC payload 的 `{"zukan_id":…,"zukan_sub_id":0,"pokemon_name":…}`                                                                                                                         |
-| 分母           | `@pkmn/dex` 的 `Dex.forGen(9).{moves,abilities,items,species}.all()`，濾 `exists && num > 0 && !isNonstandard`                                                                                                                                                         |
-| 簡體字形檢查   | `https://www.unicode.org/Public/UCD/latest/ucd/Unihan.zip` 的 `Unihan_Variants.txt`，取 `kTraditionalVariant` 非自身者（6044 個）                                                                                                                                      |
+| 量測           | 做法                                                                                                                                                                                                                                                                                                              |
+| -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| fixture 識別字 | 走 `packages/replay-parser/test/fixtures/*.json` 的 `log`，按協定行的 cmd 分類收集 `-ability` / `-item` / `-weather` / `-sidestart` / `[from]` 等的值                                                                                                                                                             |
+| PokéAPI        | `curl raw.githubusercontent.com/PokeAPI/pokeapi/<ref>/data/v2/csv/{move,ability,item}_names.csv`、`{moves,abilities,items}.csv`、`pokemon{,_forms,_form_names,_species_names}.csv`、`languages.csv`、`type_names.csv`、`stat_names.csv`、`move_meta_ailment_names.csv`                                            |
+| Showdown       | `curl raw.githubusercontent.com/smogon/pokemon-showdown/<sha>/data/text/zh-tw/*.ts`，**逐行**掃頂層 tab 縮排條目的 `name` / `baseSpecies` / `forme`（不要用非貪婪 regex 抓整段 body）                                                                                                                             |
+| 官方圖鑑       | `curl -sSL -A "Mozilla/5.0" https://tw.portal-pokemon.com/play/pokedex`（**`-L` 不可省：該路徑回 308 轉到 `/pokedex/`，不跟 redirect 只會拿到 9 bytes**），regex 抓 RSC payload 的 `{"zukan_id":…,"zukan_sub_id":0,"pokemon_name":…}`；單隻交叉確認用 `https://tw.portal-pokemon.com/pokedex/<0000>` 的 `<title>` |
+| 分母           | `@pkmn/dex` 的 `Dex.forGen(9).{moves,abilities,items,species}.all()`，濾 `exists && num > 0 && !isNonstandard`                                                                                                                                                                                                    |
+| 簡體字形檢查   | `https://www.unicode.org/Public/UCD/latest/ucd/Unihan.zip` 的 `Unihan_Variants.txt`，取 `kTraditionalVariant` 非自身者（6044 個）                                                                                                                                                                                 |
 
 本次調查所用的 pin：
 PokéAPI `master` @ 2026-09-02（以及 `2.9.0`、`890ea227` 做對照）、
