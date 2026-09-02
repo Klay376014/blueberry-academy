@@ -77,9 +77,17 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
+      # Pinned, not `latest`: `latest` is the one path that asks the GitHub
+      # releases API which version that is, and an unauthenticated ask from a
+      # shared runner IP fails outright when the quota is gone -- measured on
+      # #106, where the job died in 7s with `rate limit exceeded` and both
+      # `supabase start` and `supabase test db` were skipped. A pin removes the
+      # request rather than making it rarer, and stops CI silently tracking a
+      # moving CLI. The token is the belt to that braces. See #107.
       - uses: supabase/setup-cli@v1
         with:
-          version: latest
+          version: 2.116.0
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 
       # supabase/.env is absent here, which is fine: without the Google
       # credentials the stack still starts and no test signs in through Google.
