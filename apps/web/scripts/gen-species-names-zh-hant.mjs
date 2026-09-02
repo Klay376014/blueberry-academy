@@ -32,6 +32,14 @@ const OUT = fileURLToPath(
 
 const POKEAPI_CSV = 'https://raw.githubusercontent.com/PokeAPI/pokeapi/master/data/v2/csv/'
 
+/**
+ * The regional forme segments Showdown spells out in a forme name. A forme
+ * that is one of these and nothing else is what PokéAPI's descriptor column
+ * covers; one that is a region plus a mode is what it does not -- see the
+ * composition rule below.
+ */
+const REGIONS = new Set(['Alola', 'Galar', 'Hisui', 'Paldea'])
+
 /** PokéAPI's own id for zh-Hant in `languages.csv`. */
 const ZH_HANT = '4'
 
@@ -90,6 +98,8 @@ const species = Dex.species
 /** @type {Record<string, string>} */
 const names = {}
 let formesNamed = 0
+/** Formes the composition rule cannot spell whole, reported rather than guessed. */
+const formesSkipped = []
 
 for (const s of species) {
   const base = byNumber.get(s.num)
@@ -110,7 +120,29 @@ for (const s of species) {
   // halves are official strings either way -- the bracket is the only thing
   // this script contributes, and it contributes it to nothing else.
   const full = forme.pokemon_name || forme.form_name
-  names[s.id] = full.includes(base) ? full : `${base}（${full}）`
+
+  if (full.includes(base)) {
+    names[s.id] = full
+    formesNamed += 1
+    continue
+  }
+
+  // The bracket holds one descriptor, so it cannot carry a forme that is a
+  // region *and* something else. `Darmanitan-Galar-Zen` is both, and PokéAPI's
+  // row for it describes the mode alone (`達摩模式`): composing it produced
+  // `達摩狒狒（達摩模式）`, byte-identical to Unovan `Darmanitan-Zen` and not
+  // the Galarian one's name at all. Silently wrong is the outcome ADR-0014
+  // exists to refuse, so this one goes to the English fallback.
+  //
+  // A forme that is several words but one thing (`Urshifu-Rapid-Strike` ->
+  // `武道熊師（連擊流）`) is not this case: the descriptor is the whole of it.
+  const parts = s.forme.split('-')
+  if (parts.length > 1 && parts.some((part) => REGIONS.has(part))) {
+    formesSkipped.push(s.name)
+    continue
+  }
+
+  names[s.id] = `${base}（${full}）`
   formesNamed += 1
 }
 
@@ -126,3 +158,9 @@ console.log(
     `(${total - formesNamed} base species, ${formesNamed} formes; ` +
     `${species.length - total} of Showdown's ${species.length} species left to the English fallback)`,
 )
+
+if (formesSkipped.length > 0) {
+  console.log(
+    `left to the English fallback for having a forme the bracket cannot hold: ${formesSkipped.join(', ')}`,
+  )
+}
