@@ -47,10 +47,14 @@ export function speciesDisplayName(id: string, locale: string): string {
  * The English name is what Showdown shows, and comparing this timeline against
  * a replay is the thing it is read alongside, so the icon is where it stays
  * reachable rather than being dropped (issue #101).
+ *
+ * A dot rather than brackets around the English half: 114 of the zh-Hant names
+ * are themselves bracketed (`九尾（阿羅拉的樣子）`), and a second pair of
+ * brackets around those reads as nesting.
  */
 export function speciesLabel(id: string, locale: string): string {
   const display = speciesDisplayName(id, locale)
   const english = speciesName(id)
 
-  return display === english ? english : `${display} (${english})`
+  return display === english ? english : `${display} · ${english}`
 }

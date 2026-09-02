@@ -75,8 +75,9 @@ CSV 是**執行時抓**而不是 vendor 一份快照：三個 CSV 加起來約 1
 
 ```
 $ node scripts/gen-species-names-zh-hant.mjs
-wrote 1198 zh-Hant names to species-names-zh-hant.json (1025 base species, 173 formes;
-219 of Showdown's 1417 species left to the English fallback)
+wrote 1197 zh-Hant names to species-names-zh-hant.json (1025 base species, 172 formes;
+220 of Showdown's 1417 species left to the English fallback)
+left to the English fallback for having a forme the bracket cannot hold: Darmanitan-Galar-Zen
 ```
 
 官方繁中資料有兩種形狀，產生器據此分流：
@@ -87,14 +88,33 @@ wrote 1198 zh-Hant names to species-names-zh-hant.json (1025 base species, 173 f
   照遊戲自己的呈現方式加括號 —— `九尾（阿羅拉的樣子）`、`土地雲（靈獸形態）`。
   **括號是這支產生器唯一貢獻的字元**，兩邊的字都是官方的。
 
+**一個括號只裝得下一個說明，所以「地區 + 模式」的型態一律跳過。** 這條是 review 抓出來
+的實測錯誤（#101 code review，finding 1）：PokéAPI 給 `Darmanitan-Galar-Zen` 的那一列只
+說了模式（`達摩模式`），組出來是 `達摩狒狒（達摩模式）` —— 與烏黑的 `Darmanitan-Zen`
+**逐位元組相同**，而伽勒爾那隻的官方名是 `伽勒爾達摩狒狒（達摩模式）`。這正是本 ADR 要
+拒絕的「靜靜地錯」，所以型態字串同時帶 `Alola`／`Galar`／`Hisui`／`Paldea` 與別的成分時
+就不收，退回英文。
+
+`Urshifu-Rapid-Strike`（`武道熊師（連擊流）`）這種**好幾個字但只有一件事**的型態不受影
+響 —— 那一列的說明就是它的全部。判準寫成「型態字串切開後多於一段，且其中一段是地區」，
+不是「多於一段」：後者會連 `武道熊師（連擊流）`、`花舞鳥（啪滋啪滋風格）` 一起丟掉，實測
+少 4 筆。
+
+表裡**沒有任何重複的值**（`test/nuxt/species-locale.spec.ts` 的「names no forme twice」守
+著）：一個譯名出現兩次，就是某個組合把區別掉在地上了。
+
 ## 後果
 
-**219 個 id 沒有繁中名，退回英文。** PokéAPI 的繁中型態資料停在第八世代前後，所以
+**220 個 id 沒有繁中名，退回英文。** PokéAPI 的繁中型態資料停在第八世代前後，所以
 第九世代的型態全在這裡面 —— 對 VGC 有感的是 `Ogerpon-*`、`Terapagos-*`、`Palafin-Hero`、
 `Indeedee-F`、`Tauros-Paldea-*`、`Maushold-Four`、`Tatsugiri-*`、`Basculegion-F`、
-`Enamorus-Therian`、`Necrozma-Dusk-Mane`。中文畫面上這些會是英文名，這是**已知缺口而不是
-bug**：查不到就退回英文、英文也查不到就退回 raw id，猜一個譯名才是靜靜地錯。哪天官方
-資料補上（或出現繁中社群來源），重跑產生器就補上了。
+`Enamorus-Therian`、`Necrozma-Dusk-Mane`，外加上面那條規則刻意讓掉的
+`Darmanitan-Galar-Zen`。中文畫面上這些會是英文名，這是**已知缺口而不是 bug**：查不到就
+退回英文、英文也查不到就退回 raw id，猜一個譯名才是靜靜地錯。哪天官方資料補上（或出現繁
+中社群來源），重跑產生器就補上了。
+
+`Darmanitan-Galar` 本來就沒有繁中列，所以那一對在中文畫面上是兩個英文名並排，而不是一個
+中文一個英文 —— 缺得整齊，比缺得像對的好。
 
 **接縫是三個函式**（`app/shared/utils/speciesName.ts`，Nuxt auto-import）：
 
@@ -102,15 +122,18 @@ bug**：查不到就退回英文、英文也查不到就退回 raw id，猜一�
 | -------------------------------- | --------------------------------------------------------- |
 | `speciesName(id)`                | 官方英文名，查不到回 raw id。**行為與這張票之前完全相同** |
 | `speciesDisplayName(id, locale)` | 該語系的名字 → 英文名 → raw id                            |
-| `speciesLabel(id, locale)`       | `顯示名 (英文名)`，兩者相同時只有一個                     |
+| `speciesLabel(id, locale)`       | `顯示名 · 英文名`，兩者相同時只有一個                     |
 
 `LOCALISED` 只有 `zh-TW` 一個 key。`nuxt.config.ts` 新增語系而還沒產生表時，它讀到的是
 英文而不是空白。
 
 **英文名沒有從畫面上消失，它退到 icon 上。** 時間軸與 FieldBar 的寶可夢本來就只有 icon
 沒有文字，`aria-label` / `title` 是它唯一說得出名字的地方；中文語系下它說
-`九尾（阿羅拉的樣子） (Ninetales-Alola)`。這是刻意的：使用者讀時間軸時常常同時開著
+`九尾（阿羅拉的樣子） · Ninetales-Alola`。這是刻意的：使用者讀時間軸時常常同時開著
 Showdown 的 replay，而 Showdown 只講英文。
+
+分隔用**點而不是括號**：1197 筆裡有 114 筆譯名自己就帶括號（`九尾（阿羅拉的樣子）`），
+再包一層括號讀起來像嵌套。
 
 **en 語系一字未變**，`app/features/timeline/test/localised-names.spec.ts` 的
 `the timeline in en` 兩條測試就是為了釘住這件事而存在的（接縫本身與表的形狀在
@@ -120,13 +143,28 @@ Showdown 的 replay，而 Showdown 只講英文。
 ```
 $ pnpm --filter web exec vitest run test/nuxt/species-locale.spec.ts app/features/timeline/test/localised-names.spec.ts
 Test Files  2 passed (2)
-     Tests  24 passed (24)
+     Tests  29 passed (29)
 ```
+
+**`SpeciesParty` 的 label 也本地化了，但 signature 沒有。** 這一條是 review 期間改的
+（#101 code review，finding 4）：`BattleDrawer` 把那排六隻畫在時間軸正上方，label 留英文
+會讓 zh-TW 的螢幕閱讀器使用者在同一個畫面聽到「Pikachu, Ninetales-Alola」與
+「皮卡丘 …… 九尾（阿羅拉的樣子）」兩套名字講同一場對戰。那個字串本來就已經是文案 ——
+它會被 `t('battle.absentPokemon', …)` 包起來 —— 而不是 signature。
+
+**`signature` prop、`toID()` 的 id、DB 欄位、隊伍分組完全沒有變**，本地化只發生在「說出
+來的那句話」上。`test/nuxt/species-locale.spec.ts` 的 `SpeciesParty` 四條測試同時釘住
+en 的輸出沒動、zh-TW 說中文、以及 prop 仍然是 `pikachu|ninetalesalola`。
 
 **簽章那條路徑沒有被碰到。** `battle-only-formes.ts`（ADR-0008）與
 `packages/replay-parser` 完全沒有進到這張票，本地化只發生在 `apps/web/app/shared/utils/`
 與兩個時間軸元件裡。時間軸顯示當下形態的規則也沒變 —— 表是按當下形態的 id 查的，
 `Ninetales-Alola` 查到的就是阿羅拉九尾。
+
+**表是靜態 import，bundle 成本這一輪不處理。** 這份 JSON 約 50KB（gzip 前），跟英文名表
+與 icon 表一樣被靜態 import 進 chunk，en 使用者也載得到。review 提過改成按語系 lazy load
+（#101 code review，finding 3），**刻意留著不做**：招式與特性表（#102 / #103）比這份大得
+多，三份一起看才知道該切在哪裡。這是留給 #102 / #103 的未決問題，不是沒想到。
 
 ## 為什麼不把譯名塞進語系檔
 

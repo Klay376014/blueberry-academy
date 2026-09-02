@@ -1,4 +1,8 @@
 import { describe, expect, it } from 'vitest'
+import { Dex } from '@pkmn/dex'
+import { mountSuspended } from '@nuxt/test-utils/runtime'
+import SpeciesParty from '../../app/shared/components/SpeciesParty.vue'
+import { speciesIcon } from '../../app/shared/utils/speciesIcon'
 import { speciesDisplayName, speciesLabel, speciesName } from '../../app/shared/utils/speciesName'
 import zhHant from '../../app/shared/lib/dex/species-names-zh-hant.json'
 import names from '../../app/shared/lib/dex/species-names.json'
@@ -68,7 +72,7 @@ describe('speciesLabel', () => {
   it('keeps the English name beside the localised one', () => {
     // The English name is what Showdown itself shows, so it stays reachable
     // for anyone comparing the two screens.
-    expect(speciesLabel('pikachu', 'zh-TW')).toBe('皮卡丘 (Pikachu)')
+    expect(speciesLabel('pikachu', 'zh-TW')).toBe('皮卡丘 · Pikachu')
   })
 
   it('does not say the same name twice when there is no translation', () => {
@@ -102,10 +106,30 @@ describe('the generated zh-Hant table', () => {
     for (const [id, name] of entries) expect(name, id).toBe(name.normalize('NFC'))
   })
 
-  it('covers every base species the official data names', () => {
-    // PokéAPI carries zh-Hant for all 1025 species. Formes are the gap, and
-    // the fallback is what covers them.
-    expect(entries.length).toBeGreaterThan(1025)
+  it('covers every base species, not a count that formes could stand in for', () => {
+    // PokéAPI carries zh-Hant for all 1025 base species, so every one of them
+    // has to be here. Counting `entries` instead would let base coverage
+    // collapse while forme coverage grew: the table holds both.
+    const missing = Dex.species
+      .all()
+      .filter((species) => species.exists && species.num > 0 && !species.forme)
+      .filter((species) => !(species.id in zhHant))
+      .map((species) => species.name)
+
+    expect(missing).toEqual([])
+  })
+
+  it('names no forme twice, which is how a composed name goes wrong', () => {
+    // `Darmanitan-Galar-Zen` used to come out as `達摩狒狒（達摩模式）` —
+    // Unovan Darmanitan-Zen's name exactly, because the bracket carried the
+    // mode and dropped the region. Two ids sharing one value is what that
+    // looks like from here.
+    const seen = new Map<string, string>()
+
+    for (const [id, name] of entries) {
+      expect(seen.get(name), `${seen.get(name)} and ${id} share a name`).toBeUndefined()
+      seen.set(name, id)
+    }
   })
 
   it('holds no English name', () => {
@@ -114,5 +138,54 @@ describe('the generated zh-Hant table', () => {
     for (const [id, name] of entries) {
       expect(name, id).not.toBe(names[id as keyof typeof names])
     }
+  })
+})
+
+/**
+ * The row of six above the timeline. Its label follows the reader's locale for
+ * the same reason the timeline does — `BattleDrawer` draws the two together,
+ * and a screen reader that heard `Pikachu` here and `皮卡丘` a line down would
+ * be describing one battle in two languages.
+ *
+ * What does not move: `signature` is still the stored ids, and nothing about
+ * team grouping reads this label.
+ */
+describe('SpeciesParty', () => {
+  const signature = 'pikachu|ninetalesalola'
+
+  it('reads the party out in English in en, unchanged', async () => {
+    const wrapper = await mountSuspended(SpeciesParty, { props: { signature }, route: '/' })
+
+    expect(wrapper.attributes('aria-label')).toBe('Pikachu, Ninetales-Alola')
+    expect(wrapper.findAll('[title]').map((icon) => icon.attributes('title'))).toEqual([
+      'Pikachu',
+      'Ninetales-Alola',
+    ])
+  })
+
+  it('reads it out in Chinese in zh-TW', async () => {
+    const wrapper = await mountSuspended(SpeciesParty, { props: { signature }, route: '/zh-TW/' })
+
+    expect(wrapper.attributes('aria-label')).toBe('皮卡丘, 九尾（阿羅拉的樣子）')
+  })
+
+  it('puts the localised name inside the localised copy for one that stayed home', async () => {
+    const wrapper = await mountSuspended(SpeciesParty, {
+      props: { signature, bring: 'pikachu' },
+      route: '/zh-TW/',
+    })
+
+    expect(wrapper.attributes('aria-label')).toBe('皮卡丘, 九尾（阿羅拉的樣子）（未出場）')
+  })
+
+  it('still looks everything else up by id, whatever the locale', async () => {
+    // The label is display text; the ids behind it are the stored column, and
+    // team grouping is keyed on those (CONTEXT.md, ADR-0014). The icon sheet is
+    // the visible proof: a localised name reaching the icon lookup would land
+    // on slot 0, Showdown's unknown-Pokémon placeholder.
+    const wrapper = await mountSuspended(SpeciesParty, { props: { signature }, route: '/zh-TW/' })
+    const { left, top } = speciesIcon('ninetalesalola')
+
+    expect(wrapper.html()).toContain(`background-position: ${left}px ${top}px`)
   })
 })

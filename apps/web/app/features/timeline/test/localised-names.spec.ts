@@ -97,8 +97,8 @@ describe('the timeline in zh-TW', () => {
     const wrapper = await mountRow('zh-TW')
 
     expect(wrapper.findAll('[title]').map((icon) => icon.attributes('title'))).toEqual([
-      '九尾（阿羅拉的樣子） (Ninetales-Alola)',
-      '皮卡丘 (Pikachu)',
+      '九尾（阿羅拉的樣子） · Ninetales-Alola',
+      '皮卡丘 · Pikachu',
     ])
   })
 
@@ -106,8 +106,8 @@ describe('the timeline in zh-TW', () => {
     const wrapper = await mountField('zh-TW')
     const icon = wrapper.get('[title]')
 
-    expect(icon.attributes('title')).toBe('九尾（阿羅拉的樣子） (Ninetales-Alola)')
-    expect(icon.attributes('aria-label')).toBe('九尾（阿羅拉的樣子） (Ninetales-Alola)')
+    expect(icon.attributes('title')).toBe('九尾（阿羅拉的樣子） · Ninetales-Alola')
+    expect(icon.attributes('aria-label')).toBe('九尾（阿羅拉的樣子） · Ninetales-Alola')
   })
 
   it('shows the forme it was in, not its base species', async () => {
@@ -116,6 +116,6 @@ describe('the timeline in zh-TW', () => {
     // Alolan Ninetales must not come back as plain 九尾.
     const wrapper = await mountField('zh-TW')
 
-    expect(wrapper.get('[title]').attributes('title')).not.toBe('九尾 (Ninetales)')
+    expect(wrapper.get('[title]').attributes('title')).not.toBe('九尾 · Ninetales')
   })
 })
