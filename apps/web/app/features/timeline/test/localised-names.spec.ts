@@ -44,6 +44,7 @@ const snapshot: FieldSnapshot = {
   ],
   offField: [],
   screens: { p1: [], p2: [] },
+  fieldEffects: [],
 }
 
 /**
