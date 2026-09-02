@@ -134,14 +134,14 @@ const CATEGORIES = [
     what: 'a single-turn effect, and what a hit was blocked by',
     strings: rows.flatMap((row) => params(row, ['effectStarted', 'effectHeld'], 'effect')),
     named: effectDisplayName,
-    from: [MOVES, ABILITIES],
+    from: [MOVES, ABILITIES, ITEMS],
     // The one category where the log states nothing. `-singleturn`,
-    // `-activate`, `-start` and `-end` carry a `move:` or `ability:` prefix
-    // sometimes and not others — measured over 1803 replays, 15 of the 118
-    // distinct strings arrive both ways — so the dex is what says which
+    // `-activate`, `-start` and `-end` carry a `move:`, `ability:` or `item:`
+    // prefix sometimes and not others — measured over 1803 replays, 15 of the
+    // 118 distinct strings arrive both ways — so the dex is what says which
     // namespace a name may come from, and a name it spells for two of them is
     // declined rather than guessed.
-    dex: ['move', 'ability'],
+    dex: ['move', 'ability', 'item'],
   },
   {
     what: 'a side condition going up or coming down',
@@ -282,9 +282,8 @@ const CATEGORIES = [
  *
  * A whitelist rather than a tolerated count: one more of these appearing has
  * to be looked at, not absorbed. The test below keeps it from going stale, and
- * measured it does — `frz`, `fallen5`, `recharge` and `none` were on this list
- * from a wider corpus and it caught all four, because these nine logs do not
- * show them.
+ * measured it does — `fallen5`, `recharge` and `none` were on this list from a
+ * wider corpus and it caught all three, because these logs do not show them.
  */
 const EXPECTED_GAPS = new Set([
   'brn',
@@ -292,6 +291,7 @@ const EXPECTED_GAPS = new Set([
   'psn',
   'tox',
   'slp',
+  'frz',
   'confusion',
   'Recoil',
   'drain',

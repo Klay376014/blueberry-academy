@@ -75,21 +75,28 @@ export function teraTypeDisplayName(type: string, locale: string): string {
  * The name to show for an effect string the log named with no namespace on it
  * -- a single-turn effect, whatever a `blocked by` line points at.
  *
- * The chain is the move table, then the ability table. `effectNameOf` has
- * already stripped any `move:` / `ability:` / `item:` prefix, and measured
- * over 1803 public replays that prefix could not be trusted anyway: 15 of the
- * 118 distinct effect strings arrive both prefixed and bare (`Protect` 3770
- * times bare against 116 prefixed; `Protosynthesis` 108 bare against 71
- * `ability:`), so keying the lookup on it would say the same effect's name in
- * Chinese on one line and English on the next. The dex is the better judge,
- * and over the same corpus it never disagreed with a prefix the log did carry.
+ * The chain is the move table, then the ability table, then the item table --
+ * one link per namespace `effectNameOf` strips, and an item really does arrive
+ * here: `|-activate|p2b: Slowbro|item: Quick Claw` in
+ * `gen9championsvgc2026regmb-2674448634`, and Custap Berry announces itself
+ * the same way.
+ *
+ * `effectNameOf` has already stripped that prefix, and measured over 1803
+ * public replays it could not be trusted anyway: 15 of the 118 distinct effect
+ * strings arrive both prefixed and bare (`Protect` 3770 times bare against 116
+ * prefixed; `Protosynthesis` 108 bare against 71 `ability:`), so keying the
+ * lookup on it would say the same effect's name in Chinese on one line and
+ * English on the next. The dex is the better judge, and over the same corpus
+ * it never disagreed with a prefix the log did carry.
  *
  * What the dex cannot judge is an id it spells for two namespaces at once, and
  * there is measurably one: `confusion` is the condition 混亂 and the move
  * Confusion 念力. Those ids are declined outright rather than guessed at --
  * `AMBIGUOUS` is derived from `@pkmn/dex` by
- * `scripts/gen-ambiguous-move-ids.mjs` and re-derived under test. No ability
- * id is also a move id, so adding the second link added no new ambiguity.
+ * `scripts/gen-ambiguous-move-ids.mjs` and re-derived under test. Neither of
+ * the later links widened that: measured against `@pkmn/dex`, no ability id is
+ * also a move id or an item id, and the one id that is both an item and a move
+ * is `metronome`, which `AMBIGUOUS` already declines.
  *
  * See docs/adr/0016-localised-battle-vocabulary.md.
  */
@@ -97,8 +104,11 @@ export function effectDisplayName(effect: string, locale: string): string {
   if (AMBIGUOUS.has(toID(effect))) return effect
 
   const move = moveDisplayName(effect, locale)
+  if (move !== effect) return move
 
-  return move === effect ? abilityDisplayName(effect, locale) : move
+  const ability = abilityDisplayName(effect, locale)
+
+  return ability === effect ? itemDisplayName(effect, locale) : ability
 }
 
 /**
@@ -126,6 +136,21 @@ export function fieldConditionDisplayName(name: string, locale: string): string 
 const NAMESPACED = /^(move|ability|item|pokemon):\s*/
 
 /**
+ * The reader's name for a species a `[from] pokemon:` named.
+ *
+ * The trap the other three tables do not have: ADR-0014's table is keyed by id
+ * and its own miss is the *id*, not the string handed in, so an unknown
+ * species would leave `fluffyboi` on screen in both locales rather than
+ * falling back the way everything else here does.
+ */
+function speciesSourceName(name: string, locale: string): string {
+  const id = toID(name)
+  const display = speciesDisplayName(id, locale)
+
+  return display === id ? name : display
+}
+
+/**
  * The name to show for what the log said caused a change: `[from] item: Life
  * Orb` on a damage row, or the reason a Pokémon could not move.
  *
@@ -139,7 +164,8 @@ const NAMESPACED = /^(move|ability|item|pokemon):\s*/
  * effect one. Measured, of the 28 distinct bare values the two the dex finds
  * ambiguous are `Sandstorm` (weather damage, 869 times) and `confusion`;
  * neither is ever a move being used, so reading a bare source as a condition
- * first is what the corpus says.
+ * first is what the corpus says. That chain ends at the item table, so a
+ * source that arrives without its `item:` prefix is still named.
  *
  * When nothing names the source the *whole original string* comes back, prefix
  * and all. That is what keeps en byte-identical to what it was, and it is also
@@ -158,7 +184,7 @@ export function sourceDisplayName(from: string, locale: string): string {
         ? abilityDisplayName(name, locale)
         : prefix[1] === 'item'
           ? itemDisplayName(name, locale)
-          : speciesDisplayName(toID(name), locale)
+          : speciesSourceName(name, locale)
 
   return named === name ? from : named
 }

@@ -127,7 +127,7 @@ describe('statDisplayName and teraTypeDisplayName', () => {
   })
 })
 
-describe('effectDisplayName, the move -> ability chain', () => {
+describe('effectDisplayName, the move -> ability -> item chain', () => {
   it('says an effect string that is a move name in Chinese', () => {
     expect(effectDisplayName('Stealth Rock', 'zh-TW')).toBe('隱形岩')
     expect(effectDisplayName('Wide Guard', 'zh-TW')).toBe('廣域防守')
@@ -139,6 +139,23 @@ describe('effectDisplayName, the move -> ability chain', () => {
     expect(effectDisplayName('Supreme Overlord', 'zh-TW')).toBe('大將')
     expect(effectDisplayName('Toxic Debris', 'zh-TW')).toBe('毒滿地')
     expect(effectDisplayName('Protosynthesis', 'zh-TW')).toBe('古代活性')
+  })
+
+  it('reaches the item table for an item that announced itself as an effect', () => {
+    // The third link. `effectNameOf` strips `item:` alongside the other two,
+    // so an item reaches this seam with nothing left to say it was one:
+    // `|-activate|p2b: Slowbro|item: Quick Claw` in
+    // `gen9championsvgc2026regmb-2674448634`, and Custap Berry the same way.
+    expect(effectDisplayName('Quick Claw', 'zh-TW')).toBe('先制之爪')
+    expect(effectDisplayName('Custap Berry', 'zh-TW')).toBe('釋陀果')
+  })
+
+  it('leaves the one id that is both an item and a move English', () => {
+    // The whole cost of the item link: measured against `@pkmn/dex`, items and
+    // moves share exactly `metronome` (the item 節拍器 against the move 揮指),
+    // and items and abilities share nothing at all. That id was already in
+    // `AMBIGUOUS` before the link existed.
+    expect(effectDisplayName('Metronome', 'zh-TW')).toBe('Metronome')
   })
 
   it('prefers the move when the dex knows the name only as a move', () => {
@@ -154,7 +171,15 @@ describe('effectDisplayName, the move -> ability chain', () => {
   })
 
   it('leaves en on the English string in every case', () => {
-    for (const name of ['Stealth Rock', 'Supreme Overlord', 'confusion', 'Protosynthesis']) {
+    for (const name of [
+      'Stealth Rock',
+      'Supreme Overlord',
+      'confusion',
+      'Protosynthesis',
+      'Quick Claw',
+      'Custap Berry',
+      'Metronome',
+    ]) {
       expect(effectDisplayName(name, 'en')).toBe(name)
     }
   })
@@ -222,12 +247,28 @@ describe('sourceDisplayName, what a [from] said caused a change', () => {
     expect(sourceDisplayName('pokemon: Pikachu', 'zh-TW')).toBe('皮卡丘')
   })
 
+  it('keeps the whole string for a species no table knows, in both locales', () => {
+    // ADR-0014's table is keyed by id and answers an unknown id with the id,
+    // so this is the one branch where the whole-string fallback had to be
+    // re-established rather than inherited. Latent today -- every gen 9 forme
+    // is in the table -- and a dex bump ahead of the generator is what would
+    // reach it.
+    expect(sourceDisplayName('pokemon: Fluffy Boi', 'en')).toBe('pokemon: Fluffy Boi')
+    expect(sourceDisplayName('pokemon: Fluffy Boi', 'zh-TW')).toBe('pokemon: Fluffy Boi')
+  })
+
+  it('names a bare source that is an item, which the chain now reaches', () => {
+    expect(sourceDisplayName('Life Orb', 'zh-TW')).toBe('生命寶珠')
+    expect(sourceDisplayName('Life Orb', 'en')).toBe('Life Orb')
+  })
+
   it('keeps the whole string, namespace included, when nothing names it', () => {
     // The en output has to be byte-identical to what it was, and the prefix is
     // part of it. A zh-TW reader whose source has no name gets the same thing
     // rather than a half-stripped string.
     expect(sourceDisplayName('ability: Regenerator', 'en')).toBe('ability: Regenerator')
     expect(sourceDisplayName('item: Life Orb', 'en')).toBe('item: Life Orb')
+    expect(sourceDisplayName('pokemon: Pikachu', 'en')).toBe('pokemon: Pikachu')
     expect(sourceDisplayName('brn', 'en')).toBe('brn')
     expect(sourceDisplayName('brn', 'zh-TW')).toBe('brn')
     expect(sourceDisplayName('item: Staraptite', 'zh-TW')).toBe('item: Staraptite')

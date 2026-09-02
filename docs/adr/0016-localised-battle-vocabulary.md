@@ -102,18 +102,37 @@ log 說的命名空間與 dex 不符：0
 （`[from] pokemon: Mimikyu-Busted`，14 次）。它是物種名，ADR-0014 的表已經回答得了，
 所以順手接上。
 
-### 查表的鏈：場上狀況 → 招式 → 特性 → 英文 → raw id
+### 查表的鏈：場上狀況 → 招式 → 特性 → 道具 → 英文 → raw id
 
 票上寫的是「招式 → 特性 → 手寫的場上狀況表」。**實測之後順序反了一半，而那一半是重點。**
 
 `effectDisplayName`（裸的效果字串，`-singleturn` / `-activate` 那一批）
-= **招式表 → 特性表 → 英文**。
+= **招式表 → 特性表 → 道具表 → 英文**。
+
+> **修訂（review 之後）：原本這條鏈只到特性表就停了，而那是一個真的洞。**
+> `effectNameOf` 剝掉三個前綴（`move:` / `ability:` / `item:`），鏈卻只有兩段，所以
+> **一個道具名走到這裡就沒有表可查了** —— 實測
+> `|-activate|p2b: Slowbro|item: Quick Claw`（新抓進 fixture 的
+> `gen9championsvgc2026regmb-2674448634`）在 zh-TW 畫面上是英文的 `Quick Claw`，
+> 而 `item-names-zh-hant.json` 裡明擺著 `quickclaw = 先制之爪`。Custap Berry
+> （`custapberry = 釋陀果`）也是同一條路。**一段前綴一段表**，現在是三段。
 
 - `Toxic Debris`、`Supreme Overlord`、`Protosynthesis`、`Quark Drive`、`Illusion`
-  這些 #102 的白名單客戶，第二段就接到了。
-- **加上特性表沒有帶來任何新的歧義**：`gen-ambiguous-move-ids.mjs` 實測「招式 id 與特性
-  id 相撞」是 **0** 個（研究筆記與該產生器的輸出都是這個答案），所以「招式優先」這個順序
-  在真實資料上永遠不會被行使。測試裡有一條釘住它沒有被反過來寫。
+  這些 #102 的白名單客戶，第二段就接到了；`Quick Claw` / `Custap Berry` 第三段。
+- **加上特性表與道具表都沒有帶來任何新的歧義。** 實測 `@pkmn/dex`（935 招式 / 320 特性 /
+  583 道具）：
+
+  ```
+  items ∩ moves:      [ 'metronome' ]
+  items ∩ abilities:  []
+  abilities ∩ moves:  []
+  ```
+
+  所以「招式優先於特性」這個順序在真實資料上永遠不會被行使（測試裡有一條釘住它沒有被
+  反過來寫），而道具與招式唯一相撞的 `metronome`（道具 節拍器 / 招式 揮指）**在道具那一段
+  接上以前就已經在 `AMBIGUOUS` 裡了** —— `gen-ambiguous-move-ids.mjs` 一開始就把道具算進
+  它的 `others`。**`ambiguous-move-ids.json` 一個位元組都不必動。**
+
 - 歧義守衛不變：dex 對同一個 id 給出多於一個命名空間就原樣退回英文。
 
 `fieldConditionDisplayName`（天氣列、`fieldEffectStarted` / `fieldEffectEnded`、
@@ -296,33 +315,52 @@ ADR-0015 寫著「那條鏈的位置在這裡（`moveName.ts`），不在元件�
 這既讓 en 逐位元組不動，也是 zh-TW 該有的答案 —— 把 `item: Staraptite` 半剝成
 `Staraptite` 會丟掉那一行僅剩的資訊。
 
+> **修訂（review 之後）：`pokemon:` 那一段原本破了上面這條不變式。** 另外三張表的
+> fallback 是「原樣回傳參數」，但 ADR-0014 的物種表**是以 id 為鍵、查不到時回傳的是
+> id**，所以 `sourceDisplayName('pokemon: Fluffy Boi')` 兩個語系都會回
+> `"fluffyboi"` —— 既不是中文名、也不是 log 給的字串，而是一個經過 `toID()` 壓爛的
+> 識別碼。**今天的表碰不到**（第九世代每一個樣子都在表裡），會碰到它的是「dex 升版帶進
+> 一個新物種、而產生器還沒重跑」那個時間差。修法是把它接回同一條不變式：物種查不到就
+> 回傳整個原字串，`battle-terms-locale.spec.ts` 兩個語系各釘一條。
+
 ### 把關測試就是驗收測試
 
-`app/features/timeline/test/name-coverage.spec.ts` 從 3 個類別長到 **13 個**，走同樣的
-9 份 committed fixture，而且新增了 `fieldSnapshots` 那一段 —— **FieldBar 的 chips 不在
+`app/features/timeline/test/name-coverage.spec.ts` 從 3 個類別長到 **13 個**，走
+committed fixture，而且新增了 `fieldSnapshots` 那一段 —— **FieldBar 的 chips 不在
 任何一列上**，只走 rows 的話它們永遠不會被檢查到（ADR-0015 列的第 4 個洞就是這樣漏的）。
 
+> **修訂（review 之後）：fixture 從 9 份變 10 份，因為 9 份**通不過**這條把關。**
+> 原本那 9 份 log 帶 `item:` 的地方**全部在 `[from]` 行上**（Leftovers、Life Orb、
+> Toxic Orb、Sitrus Berry、Rocky Helmet —— 都由 `sourceDisplayName` 讀命名空間那條路
+> 處理掉了），`-activate` / `-singleturn` 上**一個都沒有**。所以道具那個洞在報表上
+> 完全看不見：沒有任何字串走到需要第三段的位置。新抓的
+> `gen9championsvgc2026regmb-2674448634`（公開、無密碼、5.6KB log）帶
+> `|-activate|p2b: Slowbro|item: Quick Claw` 兩次，把那個位置補上 —— 修之前它讓
+> `Quick Claw` 出現在「表沒接到」的清單裡，修之後它是被 `先制之爪` 蓋掉的。
+> 順帶帶進 `frz`（冰凍），與 `brn` / `par` / `slp` / `tox` 同一類「官方沒有名詞」，
+> 所以進 `EXPECTED_GAPS`。
+
 實測（`pnpm --filter web exec vitest run app/features/timeline/test/name-coverage.spec.ts`，
-1530 列、201 個 field snapshot、61 條斷言）：
+10 份 fixture、1659 列、211 個 field snapshot、61 條斷言）：
 
-| 類別                              | 相異字串 | 畫面上是中文 | 留英文                       |
-| --------------------------------- | -------- | ------------ | ---------------------------- |
-| 招式列自己的名稱                  | 77       | 77           | —                            |
-| 單回合效果 / 被擋下               | 9        | 8            | `confusion`                  |
-| 我方場地效果展開／結束            | 4        | 4            | —                            |
-| 全場效果展開／結束                | 2        | 2            | —                            |
-| 天氣                              | 2        | 2            | —                            |
-| 特性發動列                        | 3        | 3            | —                            |
-| 失去道具列                        | 4        | 4            | —                            |
-| `[from]` 的來源                   | 12       | 8            | `Recoil` `brn` `drain` `psn` |
-| 無法行動的原因                    | 1        | 0            | `flinch`                     |
-| 能力值名                          | 6        | 6            | —                            |
-| 太晶屬性                          | 2        | 2            | —                            |
-| FieldBar 的 screens / field chips | 6        | 6            | —                            |
-| 狀態 chip                         | 4        | 0            | `brn` `par` `slp` `tox`      |
-| **去重後的聯集**                  | **113**  | **104**      | **9**                        |
+| 類別                              | 相異字串 | 畫面上是中文 | 留英文                        |
+| --------------------------------- | -------- | ------------ | ----------------------------- |
+| 招式列自己的名稱                  | 81       | 81           | —                             |
+| 單回合效果 / 被擋下               | 10       | 9            | `confusion`                   |
+| 我方場地效果展開／結束            | 5        | 5            | —                             |
+| 全場效果展開／結束                | 2        | 2            | —                             |
+| 天氣                              | 3        | 3            | —                             |
+| 特性發動列                        | 3        | 3            | —                             |
+| 失去道具列                        | 4        | 4            | —                             |
+| `[from]` 的來源                   | 12       | 8            | `Recoil` `brn` `drain` `psn`  |
+| 無法行動的原因                    | 3        | 0            | `flinch` `frz` `par`          |
+| 能力值名                          | 6        | 6            | —                             |
+| 太晶屬性                          | 2        | 2            | —                             |
+| FieldBar 的 screens / field chips | 7        | 7            | —                             |
+| 狀態 chip                         | 5        | 0            | `brn` `frz` `par` `slp` `tox` |
+| **去重後的聯集**                  | **120**  | **110**      | **10**                        |
 
-留英文的 9 個就是 `EXPECTED_GAPS`，**每一個都是「官方沒有這個名詞」而不是「表還沒補」**。
+留英文的 10 個就是 `EXPECTED_GAPS`，**每一個都是「官方沒有這個名詞」而不是「表還沒補」**。
 #102 的三個白名單客戶：`Supreme Overlord` 與 `Toxic Debris` 被特性表接走了，`confusion`
 留著。
 
@@ -337,8 +375,9 @@ ADR-0015 寫著「那條鏈的位置在這裡（`moveName.ts`），不在元件�
    `Psychic` 是招式 —— 太晶屬性那一格問 dex 只會得到噪音）。**裸的效果字串那一個類別
    照舊問**，而且那是唯一真的有風險的地方。
 
-另外兩條沿用：`EXPECTED_GAPS` 不准過期（實測有效 —— 我從大語料帶進來的 `frz`、
-`fallen5`、`recharge`、`none` 四個，這條當場抓出來，因為這 9 份 log 沒有它們），
+另外兩條沿用：`EXPECTED_GAPS` 不准過期（實測有效 —— 我從大語料帶進來的
+`fallen5`、`recharge`、`none` 三個，這條當場抓出來，因為這些 log 沒有它們；`frz`
+本來也在那一批裡被抓出來，第 10 份 fixture 進來之後它真的出現了，所以回到白名單上），
 以及每個類別「en 逐字不動」。
 
 **一件實測到的事：`-start` / `-end` 兩種行解析器根本沒讀**（`timeline.ts` 只有
@@ -411,4 +450,4 @@ stat-names-zh-hant.json        8 entries  raw    165 B  gzip    134 B
 - **道具表收兩個來源的聯集**（與特性表一致）。2055 筆對 522 筆，多出來的 1500 筆是招式
   學習器與活動門票，永遠不會出現在對戰 log 裡。一致性不值 1500 筆 bundle。
 - **假造一個道具／招式的 oracle**（爬 wiki、簡繁轉換）。ADR-0015 已經拒絕過，理由不變。
-- **等官方補上狀態名詞再做這張票。** 沒有任何跡象會出現，而其餘 104 個識別字今天就能讀。
+- **等官方補上狀態名詞再做這張票。** 沒有任何跡象會出現，而其餘 110 個識別字今天就能讀。
