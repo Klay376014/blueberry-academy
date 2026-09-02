@@ -10,7 +10,8 @@
     "postinstall": "nuxt prepare",
     "test:unit": "vp test",
     "type-check": "nuxt typecheck",
-    "gen:species-names": "node scripts/gen-species-names.mjs"
+    "gen:species-names": "node scripts/gen-species-names.mjs",
+    "gen:species-names-zh-hant": "node scripts/gen-species-names-zh-hant.mjs"
   },
   "dependencies": {
     "@lucide/vue": "^1.31.0",

@@ -1,0 +1,128 @@
+/**
+ * Generates `id -> official Traditional Chinese name` for Showdown species
+ * ids, the zh-TW half of the display-layer name tables.
+ *
+ * Sources, in precedence order, and why only one of them is wired up:
+ * docs/adr/0014-localised-species-names.md. In one line: The Pokémon Company's
+ * own zh-Hant strings, as PokéAPI publishes them (`local_language_id = 4`).
+ *
+ * The output is committed for the same reason `gen-species-names.mjs`'s is:
+ * the SPA is served from Workers' free plan, where a runtime lookup would
+ * spend one of the 50 subrequests on data that never changes between deploys.
+ * An id this table has no entry for is not guessed at -- it falls back to the
+ * English name, and then to the raw id (`speciesDisplayName`).
+ *
+ * The CSVs are fetched rather than vendored: they are ~1.5MB of source for a
+ * ~50KB committed answer, and regenerating is a deliberate act (a dex bump, a
+ * new generation) rather than part of install or build.
+ *
+ * Plain ESM rather than TypeScript on purpose -- it runs under bare `node`
+ * with no build step or loader.
+ *
+ *   node scripts/gen-species-names-zh-hant.mjs   (or: pnpm --filter web gen:species-names-zh-hant)
+ */
+
+import { writeFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
+import { Dex } from '@pkmn/dex'
+
+const OUT = fileURLToPath(
+  new URL('../app/shared/lib/dex/species-names-zh-hant.json', import.meta.url),
+)
+
+const POKEAPI_CSV = 'https://raw.githubusercontent.com/PokeAPI/pokeapi/master/data/v2/csv/'
+
+/** PokéAPI's own id for zh-Hant in `languages.csv`. */
+const ZH_HANT = '4'
+
+/**
+ * Enough CSV for PokéAPI's tables: comma separated, no quoting, no embedded
+ * newlines. Verified over the three files this script reads -- a row count that
+ * disagrees with the line count would show up as a missing name, not as silent
+ * corruption.
+ */
+async function fetchCsv(name) {
+  const response = await fetch(`${POKEAPI_CSV}${name}`)
+  if (!response.ok) throw new Error(`${name}: HTTP ${response.status}`)
+
+  const [header = '', ...lines] = (await response.text()).trim().split('\n')
+  const columns = header.split(',')
+
+  return lines.map((line) => {
+    const cells = line.split(',')
+    return Object.fromEntries(columns.map((column, index) => [column, cells[index] ?? '']))
+  })
+}
+
+/** The id form Showdown uses, so a PokéAPI identifier can be matched to it. */
+const toId = (text) => text.toLowerCase().replaceAll(/[^a-z0-9]+/g, '')
+
+const [speciesNames, formNames, forms] = await Promise.all([
+  fetchCsv('pokemon_species_names.csv'),
+  fetchCsv('pokemon_form_names.csv'),
+  fetchCsv('pokemon_forms.csv'),
+])
+
+/** Dex number -> zh-Hant name. The 1025 base species, all of them named. */
+const byNumber = new Map(
+  speciesNames
+    .filter((row) => row.local_language_id === ZH_HANT)
+    .map((row) => [Number(row.pokemon_species_id), row.name]),
+)
+
+const formIdentifier = new Map(forms.map((row) => [row.id, row.identifier]))
+
+/** Showdown id -> the zh-Hant forme row PokéAPI has for it. */
+const byFormId = new Map(
+  formNames
+    .filter((row) => row.local_language_id === ZH_HANT)
+    .flatMap((row) => {
+      const identifier = formIdentifier.get(row.pokemon_form_id)
+      return identifier === undefined ? [] : [[toId(identifier), row]]
+    }),
+)
+
+const species = Dex.species
+  .all()
+  .filter((s) => s.exists && s.num > 0)
+  .sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
+
+/** @type {Record<string, string>} */
+const names = {}
+let formesNamed = 0
+
+for (const s of species) {
+  const base = byNumber.get(s.num)
+  if (base === undefined) continue
+
+  if (!s.forme) {
+    names[s.id] = base
+    continue
+  }
+
+  const forme = byFormId.get(s.id)
+  if (forme === undefined) continue
+
+  // Two shapes live in this one column. A Mega's row is a complete name
+  // (`超級妙蛙花`), which the base name being a substring of it is what marks;
+  // a regional forme's is a descriptor of the forme alone (`阿羅拉的樣子`),
+  // which the games themselves show parenthesised after the species. Both
+  // halves are official strings either way -- the bracket is the only thing
+  // this script contributes, and it contributes it to nothing else.
+  const full = forme.pokemon_name || forme.form_name
+  names[s.id] = full.includes(base) ? full : `${base}（${full}）`
+  formesNamed += 1
+}
+
+/** One entry per line, matching `gen-species-names.mjs` so both diff alike. */
+const lines = Object.entries(names).map(
+  ([id, name]) => `  ${JSON.stringify(id)}: ${JSON.stringify(name)}`,
+)
+writeFileSync(OUT, `{\n${lines.join(',\n')}\n}\n`)
+
+const total = Object.keys(names).length
+console.log(
+  `wrote ${total} zh-Hant names to species-names-zh-hant.json ` +
+    `(${total - formesNamed} base species, ${formesNamed} formes; ` +
+    `${species.length - total} of Showdown's ${species.length} species left to the English fallback)`,
+)
