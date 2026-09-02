@@ -2,7 +2,7 @@
 import { toID } from 'replay-parser'
 import type { SideId } from 'replay-parser'
 import type { FieldSnapshot, PokemonState } from '../utils/battleField'
-import { speciesName } from '~/shared/utils/speciesName'
+import { speciesLabel } from '~/shared/utils/speciesName'
 
 /**
  * How the field stood at one moment: who was out, on how much HP, and what each
@@ -22,7 +22,14 @@ const props = defineProps<{ snapshot: FieldSnapshot; mySide: SideId | null; capt
 /** Mine first when either side is mine, and p1 first when neither is. */
 const sides = computed<SideId[]>(() => (props.mySide === 'p2' ? ['p2', 'p1'] : ['p1', 'p2']))
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
+
+/**
+ * The icon says the whole name here — there is no room beside it for one — so
+ * it says it in the reader's language with the English name Showdown shows
+ * kept alongside (docs/adr/0014-localised-species-names.md).
+ */
+const labelled = (species: string) => speciesLabel(toID(species), locale.value)
 
 function label(side: SideId) {
   if (props.mySide === null) return side.toUpperCase()
@@ -104,7 +111,7 @@ function hpLabel(pokemon: PokemonState) {
         >
           <SpeciesIcon
             :id="toID(state.species)"
-            :label="speciesName(toID(state.species))"
+            :label="labelled(state.species)"
             :size="line.size"
           />
           <span

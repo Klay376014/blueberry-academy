@@ -3,14 +3,16 @@ import { ArrowRightLeft, Gem, HeartPulse, Skull, Sparkles, Zap } from '@lucide/v
 import { toID } from 'replay-parser'
 import type { SideId } from 'replay-parser'
 import type { TimelineRow } from '../utils/timelineRows'
-import { speciesName } from '~/shared/utils/speciesName'
+import { speciesDisplayName, speciesLabel } from '~/shared/utils/speciesName'
 
 /**
  * One thing that happened, on one line.
  *
  * The Pokémon is its icon and nothing else: an icon reads the same in every
- * locale, and the English name it stands for is on it as a label rather than
- * beside it. The move keeps its English name, which has no icon to become.
+ * locale, and the name it stands for is on it as a label rather than beside it
+ * — in the reader's language, with the English name Showdown shows kept beside
+ * it (docs/adr/0014-localised-species-names.md). The move keeps its English
+ * name, which has no icon to become.
  *
  * Whose it is shows in the rail down the left rather than in words, so the two
  * sides are told apart without a column of names.
@@ -31,7 +33,12 @@ const MARKS = {
 const mark = computed(() => MARKS[props.row.mark])
 const mine = computed(() => props.row.side !== null && props.row.side === props.mySide)
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
+
+/** The reader's name for a species, and the icon's fuller label for it. */
+const named = (species: string | undefined) =>
+  species === undefined ? '' : speciesDisplayName(toID(species), locale.value)
+const labelled = (species: string) => speciesLabel(toID(species), locale.value)
 
 /**
  * The row in words. The names are passed in as parameters because the icons
@@ -41,9 +48,6 @@ const { t } = useI18n()
 const message = computed(() => {
   const said = props.row.message
   if (!said) return null
-
-  const named = (species: string | undefined) =>
-    species === undefined ? '' : speciesName(toID(species))
 
   return t(`battle.event.${said.key}`, {
     ...said.params,
@@ -74,7 +78,7 @@ const message = computed(() => {
     <SpeciesIcon
       v-if="row.species"
       :id="toID(row.species)"
-      :label="speciesName(toID(row.species))"
+      :label="labelled(row.species)"
       :size="40"
     />
     <span v-else />
@@ -97,7 +101,7 @@ const message = computed(() => {
         >
           <SpeciesIcon
             :id="toID(target.species)"
-            :label="speciesName(toID(target.species))"
+            :label="labelled(target.species)"
             :size="row.mark === 'switch' ? 40 : 30"
           />
           <BattleRowNotes :notes="target.notes" />
@@ -120,7 +124,7 @@ const message = computed(() => {
       >
         <SpeciesIcon
           :id="toID(bystander.species)"
-          :label="speciesName(toID(bystander.species))"
+          :label="labelled(bystander.species)"
           :size="30"
         />
         <BattleRowNotes :notes="bystander.notes" />
