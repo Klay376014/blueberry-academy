@@ -32,6 +32,7 @@
 import { writeFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { Dex } from '@pkmn/dex'
+import { fetchCsv } from './pokeapi-csv.mjs'
 import { OFFICIAL_ZH_HANT_NAMES } from './species-names-zh-hant-official.mjs'
 
 const OUT = fileURLToPath(
@@ -51,32 +52,13 @@ const REGIONS = new Set(['Alola', 'Galar', 'Hisui', 'Paldea'])
 /** PokéAPI's own id for zh-Hant in `languages.csv`. */
 const ZH_HANT = '4'
 
-/**
- * Enough CSV for PokéAPI's tables: comma separated, no quoting, no embedded
- * newlines. Verified over the three files this script reads -- a row count that
- * disagrees with the line count would show up as a missing name, not as silent
- * corruption.
- */
-async function fetchCsv(name) {
-  const response = await fetch(`${POKEAPI_CSV}${name}`)
-  if (!response.ok) throw new Error(`${name}: HTTP ${response.status}`)
-
-  const [header = '', ...lines] = (await response.text()).trim().split('\n')
-  const columns = header.split(',')
-
-  return lines.map((line) => {
-    const cells = line.split(',')
-    return Object.fromEntries(columns.map((column, index) => [column, cells[index] ?? '']))
-  })
-}
-
 /** The id form Showdown uses, so a PokéAPI identifier can be matched to it. */
 const toId = (text) => text.toLowerCase().replaceAll(/[^a-z0-9]+/g, '')
 
 const [speciesNames, formNames, forms] = await Promise.all([
-  fetchCsv('pokemon_species_names.csv'),
-  fetchCsv('pokemon_form_names.csv'),
-  fetchCsv('pokemon_forms.csv'),
+  fetchCsv(POKEAPI_CSV, 'pokemon_species_names.csv'),
+  fetchCsv(POKEAPI_CSV, 'pokemon_form_names.csv'),
+  fetchCsv(POKEAPI_CSV, 'pokemon_forms.csv'),
 ])
 
 /** Dex number -> zh-Hant name. The 1025 base species, all of them named. */
