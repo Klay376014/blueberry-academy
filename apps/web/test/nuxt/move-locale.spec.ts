@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { Dex } from '@pkmn/dex'
-import { moveDisplayName } from '../../app/shared/utils/moveName'
+import { effectDisplayName, moveDisplayName } from '../../app/shared/utils/moveName'
 import zhHant from '../../app/shared/lib/dex/move-names-zh-hant.json'
+import ambiguous from '../../app/shared/lib/dex/ambiguous-move-ids.json'
 
 /**
  * The lookup seam every localised move name goes through, and the shape of the
@@ -59,6 +60,84 @@ describe('moveDisplayName', () => {
     // silently wrong and a blank would lose the only name there is.
     expect(moveDisplayName('Supreme Overlord', 'zh-TW')).toBe('Supreme Overlord')
     expect(moveDisplayName('notamove', 'zh-TW')).toBe('notamove')
+  })
+})
+
+describe('effectDisplayName', () => {
+  it('says an effect string that is a move name in Chinese', () => {
+    // The four keys of #102 -- a side condition going up, a single-turn
+    // effect, a hit blocked -- all arrive here.
+    expect(effectDisplayName('Stealth Rock', 'zh-TW')).toBe('隱形岩')
+    expect(effectDisplayName('Wide Guard', 'zh-TW')).toBe('廣域防守')
+  })
+
+  it('leaves a bare condition name that a move is also called in English', () => {
+    // Measured, `|-activate|p2b: Garchomp|confusion` is a confused Pokémon
+    // failing to move (混亂), and 念力 is the move Confusion -- a different
+    // string for a different thing. The line establishes no namespace, so the
+    // reader gets the English one rather than the wrong Chinese one.
+    expect(effectDisplayName('confusion', 'zh-TW')).toBe('confusion')
+    expect(effectDisplayName('Confusion', 'zh-TW')).toBe('Confusion')
+  })
+
+  it('leaves every ambiguous id English, not just the one that reached a bug', () => {
+    for (const id of ambiguous) expect(effectDisplayName(id, 'zh-TW'), id).toBe(id)
+  })
+
+  it('still says the move under its own name when the move row says it', () => {
+    // The guard is on the effect seam only. A Pokémon that actually uses
+    // Confusion is a move row, and that name is not in doubt.
+    expect(moveDisplayName('Confusion', 'zh-TW')).toBe('念力')
+    expect(moveDisplayName('Metronome', 'zh-TW')).toBe('揮指')
+  })
+
+  it('leaves en on the English string in every case', () => {
+    for (const name of ['Stealth Rock', 'confusion', 'Supreme Overlord']) {
+      expect(effectDisplayName(name, 'en')).toBe(name)
+    }
+  })
+})
+
+describe('the generated ambiguous-id guard', () => {
+  /**
+   * The same derivation the generator performs, written a second time so the
+   * committed file is checked against `@pkmn/dex` rather than against itself.
+   * `Dex.data.Conditions` and not `Dex.conditions.get()`: the getter answers
+   * for a move's own volatile too, and a volatile a move brought with it is
+   * that move's name.
+   */
+  const derived = (() => {
+    const moves = new Set<string>(
+      Dex.moves
+        .all()
+        .filter((move) => move.exists && move.num > 0)
+        .map((move) => move.id),
+    )
+    const others: string[] = [
+      ...Object.keys(Dex.data.Conditions),
+      ...Dex.abilities
+        .all()
+        .filter((ability) => ability.exists)
+        .map((ability) => ability.id),
+      ...Dex.items
+        .all()
+        .filter((item) => item.exists)
+        .map((item) => item.id),
+    ]
+
+    return [...new Set(others.filter((id) => moves.has(id)))].sort()
+  })()
+
+  it('is what @pkmn/dex says it is', () => {
+    // A dex bump that widens the collision set has to fail here rather than
+    // put the wrong namespace's name on screen.
+    expect(ambiguous).toEqual(derived)
+  })
+
+  it('holds only ids the move table would otherwise have renamed', () => {
+    // An id with no zh-Hant name needs no guard: the fallback already leaves
+    // it alone. One sitting here for nothing would hide that it is stale.
+    expect(ambiguous.filter((id) => !(id in zhHant))).toEqual([])
   })
 })
 
