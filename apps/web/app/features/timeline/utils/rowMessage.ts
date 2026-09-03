@@ -26,6 +26,8 @@ const LOCALISERS: Record<string, Record<string, (value: string, locale: string) 
   // A bare effect string: the move -> ability chain.
   effectStarted: { effect: effectDisplayName },
   effectHeld: { effect: effectDisplayName },
+  volatileStarted: { effect: effectDisplayName },
+  volatileEnded: { effect: effectDisplayName },
   // A side condition or something on the whole field. Its name is a move's,
   // except for the weather, which has a state name of its own.
   sideEffectStarted: { effect: fieldConditionDisplayName },
@@ -35,6 +37,7 @@ const LOCALISERS: Record<string, Record<string, (value: string, locale: string) 
   weather: { weather: fieldConditionDisplayName },
   // Named outright by the line that carried them.
   ability: { ability: abilityDisplayName },
+  abilityEnded: { ability: abilityDisplayName },
   lostItem: { item: itemDisplayName },
   statRose: { stat: statDisplayName },
   statFell: { stat: statDisplayName },

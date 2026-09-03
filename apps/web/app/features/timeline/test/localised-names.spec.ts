@@ -39,6 +39,7 @@ const snapshot: FieldSnapshot = {
       hp: 100,
       status: null,
       boosts: {},
+      volatiles: [],
       teraType: null,
       fainted: false,
     },
@@ -287,7 +288,15 @@ const damageRow: TimelineRow = {
 
 const fieldWithConditions: FieldSnapshot = {
   ...snapshot,
-  slots: [{ ...snapshot.slots[0]!, status: 'brn', boosts: { atk: 1 }, teraType: 'Fire' }],
+  slots: [
+    {
+      ...snapshot.slots[0]!,
+      status: 'brn',
+      boosts: { atk: 1 },
+      teraType: 'Fire',
+      volatiles: ['Substitute', 'confusion'],
+    },
+  ],
   screens: { p1: ['Reflect'], p2: [] },
   fieldEffects: ['Trick Room'],
   weather: 'Snowscape',
@@ -348,6 +357,8 @@ describe('the rest of the vocabulary in en', () => {
       'Tera Fire',
       'Snowscape',
       'Fairy Aura',
+      'Substitute',
+      'confusion',
     ]) {
       expect(text, chip).toContain(chip)
     }
@@ -397,9 +408,20 @@ describe('the rest of the vocabulary in zh-TW', () => {
     const wrapper = await mountFieldOf(fieldWithConditions, 'zh-TW')
     const text = wrapper.text().replaceAll(/\s+/gu, ' ')
 
-    for (const chip of ['戲法空間', '反射壁', '攻擊 +1', '太晶 火', '下雪', '妖精氣場']) {
+    for (const chip of ['戲法空間', '反射壁', '攻擊 +1', '太晶 火', '下雪', '妖精氣場', '替身']) {
       expect(text, chip).toContain(chip)
     }
+  })
+
+  it('leaves a volatile the dex spells two ways in English', async () => {
+    // `confusion` is the condition 混亂 and the move Confusion 念力, and
+    // ADR-0016 declines an id it cannot tell apart rather than guessing. So
+    // the chip says `confusion`, like the condition chips beside it.
+    const wrapper = await mountFieldOf(fieldWithConditions, 'zh-TW')
+    const text = wrapper.text()
+
+    expect(text).toContain('confusion')
+    expect(text).not.toContain('念力')
   })
 
   it("says the weather chip under the state's name, not the move's", async () => {

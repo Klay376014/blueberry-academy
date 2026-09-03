@@ -144,6 +144,25 @@ const CATEGORIES = [
     dex: ['move', 'ability', 'item'],
   },
   {
+    what: 'a lasting effect on one Pokémon, on its chip and on its row',
+    strings: [
+      ...rows.flatMap((row) => params(row, ['volatileStarted', 'volatileEnded'], 'effect')),
+      ...snapshots.flatMap((snapshot) => [
+        ...snapshot.slots.flatMap((slot) => slot.volatiles),
+        // Always empty — a volatile is lost on the way out — so this is here
+        // to fail loudly if that ever stops being true.
+        ...snapshot.offField.flatMap((pokemon) => pokemon.volatiles),
+      ]),
+    ],
+    named: effectDisplayName,
+    from: [MOVES, ABILITIES, ITEMS],
+    // Same as the single-turn effects: `-start` and `-end` carry a `move:`
+    // prefix sometimes and not others, so the dex is what says which
+    // namespace a name may come from, and `confusion` — the condition and the
+    // move Confusion — is declined rather than guessed (ADR-0016).
+    dex: ['move', 'ability', 'item'],
+  },
+  {
     what: 'a side condition going up or coming down',
     strings: rows.flatMap((row) => params(row, ['sideEffectStarted', 'sideEffectEnded'], 'effect')),
     named: fieldConditionDisplayName,
@@ -176,7 +195,7 @@ const CATEGORIES = [
   {
     what: 'an ability the log announced by name',
     strings: [
-      ...rows.flatMap((row) => params(row, ['ability'], 'ability')),
+      ...rows.flatMap((row) => params(row, ['ability', 'abilityEnded'], 'ability')),
       // The whole-field ones again, as the FieldBar's chips (#119). These
       // fixtures show no aura and no Ruin — the field row's own names are
       // checked in localised-names.spec.ts — so this adds coverage for

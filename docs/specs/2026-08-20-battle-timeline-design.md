@@ -106,8 +106,8 @@ DB 那份是匯入當時的解析結果，timeline 這份是現在解的。單�
 只解析畫面要用的型別：`move`、`switch`/`drag`/`replace`/`swap`、`-damage`/`-heal`、
 `faint`、`-terastallize`/`-mega`/`detailschange`/`-formechange`、`-crit`/`-supereffective`/
 `-resisted`/`-immune`/`-miss`/`-fail`、`-status`、`-weather`、`-boost`/`-unboost`、`cant`、
-`-singleturn`/`-activate`、`-sidestart`/`-sideend`、`-fieldstart`/`-fieldend`、`-enditem`、
-`-ability`、`-mustrecharge`。
+`-singleturn`/`-activate`、`-start`/`-end`、`-sidestart`/`-sideend`、`-fieldstart`/`-fieldend`、
+`-enditem`、`-ability`/`-endability`、`-mustrecharge`。
 
 其餘一律保留為 `{ kind: 'unknown', raw }`，UI 預設不顯示。理由與 gametype-agnostic
 同一條：**不認得的東西要留著而不是消失**，否則 Showdown 加一種訊息、使用者就少看到一段，
@@ -143,6 +143,59 @@ DB 那份是匯入當時的解析結果，timeline 這份是現在解的。單�
 
 場地效果同時進**主線**（結束那行沒有招式可以依附，藏在「這回合還有 N 個」後面等於看不到）
 與**狀態列**（`fieldEffects`，接在兩邊之上而不是掛在某一邊底下 —— 戲法空間不屬於任何一邊）。
+
+**清單第三次擴充：`-start`/`-end`/`-endability`（#120）。** 前兩次補的是「一邊的場地」與
+「整張場地」，漏掉的是**一隻身上的持續狀態** —— 寄生種子、替身、挑釁、混亂、纏繞這類
+「還在牠身上」的東西。它們在畫面上不存在，於是回合總結說得出「牠還在灼傷」卻說不出
+「牠還被寄生種子吸著」，而後者同樣決定牠這回合會不會掉血、能不能動。
+
+實測 repo 內 10 份 fixture（1631 個事件）：`-start`/`-end` 共 17 行，其中 5 行帶
+`[silent]`（`fallen5` 開關各一、古代活性與夸克充能的結束、熔岩風暴的結束）——
+**這些在既有的 silent 規則下本來就被丟掉，Showdown 自己也不畫**，所以剩下 12 行成為
+事件：混亂開始 3、挑釁開始 2、替身開始 2，以及纏繞／混亂／挑釁／替身／幻覺的結束各 1。
+unknown 從 368 降到 356，正好是這 12 個。
+
+`-endability`（胃酸炸彈、特性互換、木乃伊把一隻的特性拿掉）在這 10 份 fixture 裡出現
+**0 次**，收它的理由不是頻率而是 #119 留下的破洞：場地列會顯示全場特性（妖精氣場、
+災禍四體…），存續規則是「持有者在場上」，而特性被拿掉、持有者還站著時，沒有任何
+其他事件說得出這件事 —— 那枚 chip 會留到對戰結束。它是這條路徑上唯一的解法。
+
+三個實測到的形狀，決定了事件的樣子：
+
+- `|-start|p1a: Big Boy|move: Taunt` 與 `|-start|p1a: Gliscor|Substitute` —— 同一對
+  protocol 行上 `move:` 前綴時有時無，照 `effectNameOf` 剝掉。
+- `|-start|p1a: Gliscor|Substitute` 在第 15 回合、第 17 回合各一次而中間結束過一次 ——
+  所以狀態是集合而不是旗標，重複開始只算一次。
+- `|-end|p2b: Gholdengo|Infestation|[partiallytrapped]` —— 結束行會帶額外的機制標記，
+  事件不讀它們。
+
+**`-start` 是雜物袋，不是全部都收。** 兩種形狀在牠還在場上時永遠不會有對應的 `-end`：
+變幻自如／自由者每使出一個招式就重報一次 `|-start|…|typechange|Water`，而滅亡之歌是
+每回合一行新的 `-start` 倒數（`perish3`、`perish2`…，吞下與大將同理）。當成持續狀態讀
+的話它們會不斷堆積、沒有任何東西拿得掉，而且用的是任何辭典都沒有的內部 id。這些
+**保留為 `unknown` 而不是丟掉** —— 變幻自如變成什麼屬性、滅亡還剩幾回合都是真實資訊，
+只是倒數需要「取代」而不是「累加」的狀態，那不是這張票的工作。
+
+**持續狀態的結束不無條件折進上一個招式。** 沒有任何東西會在招式與招式之間關閉一個
+open action（只有 `move` 與 `switch` 會），所以回合末的結算階段仍然在最後一個招式的
+作用域裡。實測兩個真實案例都因此掛到錯的行上：`gen9ou-2667296078` 第 10 回合的挑釁
+在結算時解除，被折進毫不相干的衝浪；`-2667169457` 第 14 回合的纏繞倒數結束，被折進
+纏繞持有者自己使出的暗影球。因此 `-end` 只折進**招式指名的目標**（替身被打破那種，
+招式是唯一可能的原因），其餘各自成行 —— 這條規則只會少折，不會折錯，而「一行不主張
+log 沒說的因果」是這個檔案的既有原則。
+
+**幻覺的結束不畫第二行。** `|replace|` 後面緊接著 `|-end|…|Illusion`（實測相鄰），
+兩行是同一件事，揭穿那行已經說了。
+
+**`-start` 不能與 `-singleturn` 共用同一個事件型別。** 兩者都是「一隻身上的效果」，
+但守住在該回合結束就沒了、`-activate` 更是發動當下就結束，而 `-start` 會一直掛著。
+共用型別的話狀態層分不出來，畫面上的守住會變成一枚永遠不消失的 chip。所以
+`-singleturn`/`-activate` 留在 `effect`，`-start`/`-end` 是新的 `volatile`。
+
+持續狀態**不進主線**：它們幾乎都是某個招式的結果（寄生種子、挑釁、混亂），折進那個招式
+的行裡；招式自己已經說了名字的那些（寄生種子）標成 quiet。`-endability` 則進主線 ——
+理由與 `-ability` 同一條：特性沒了會決定後面每一個回合，而狀態列上沒有任何地方讀得出
+「而且它還是沒了」。
 
 `swap`（Ally Switch）與 `-formechange`（Aegislash、Mimikyu、Morpeko 的型態切換）也不在
 原始清單上，但它們**會改變場上狀態** —— 不讀的話後續事件會掛到錯的那隻身上，或整場
