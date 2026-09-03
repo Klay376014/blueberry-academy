@@ -36,10 +36,12 @@ const OFFICIAL = {
 }
 
 /**
- * A species the official zh-Hant data does not reach. Every gen 9 forme is in
- * this position, so it is the common case rather than a curiosity.
+ * A species none of the three sources reaches. It used to be
+ * `ogerponwellspring`, until the calculator's table filled that one in (issue
+ * #115); what is left in this position is a forme no source names at all --
+ * Arceus' 17 type formes, Vivillon's patterns, the Gmax and Totem formes.
  */
-const UNTRANSLATED = 'ogerponwellspring'
+const UNTRANSLATED = 'necrozmaduskmane'
 
 describe('speciesDisplayName', () => {
   for (const [id, name] of Object.entries(OFFICIAL)) {
@@ -61,7 +63,7 @@ describe('speciesDisplayName', () => {
   })
 
   it('falls back to the English name for an id the locale table has not reached', () => {
-    expect(speciesDisplayName(UNTRANSLATED, 'zh-TW')).toBe('Ogerpon-Wellspring')
+    expect(speciesDisplayName(UNTRANSLATED, 'zh-TW')).toBe('Necrozma-Dusk-Mane')
   })
 
   it('falls back to the raw id when neither table knows it', () => {
@@ -83,7 +85,7 @@ describe('speciesLabel', () => {
   })
 
   it('does not say the same name twice when there is no translation', () => {
-    expect(speciesLabel(UNTRANSLATED, 'zh-TW')).toBe('Ogerpon-Wellspring')
+    expect(speciesLabel(UNTRANSLATED, 'zh-TW')).toBe('Necrozma-Dusk-Mane')
   })
 })
 

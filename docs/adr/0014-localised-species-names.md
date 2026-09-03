@@ -110,6 +110,57 @@ $ curl -sSL https://raw.githubusercontent.com/smogon/pokemon-showdown/master/dat
 **不會被 commit 進這個 repo**。進版控的只有「PokéAPI 與它不符的那幾個 id」—— 那是一份
 bug 回報，不是一份資料集的副本。這也是為什麼修正走 override 表而不是換來源。
 
+### 第三層來源：姊妹專案的手維護表，只補洞（#115）
+
+PokéAPI 的繁中**型態**資料實質停在第八世代，而時間軸畫的是**當下型態** —— 帶厄鬼椪的隊
+每一場都會出現 `Ogerpon-Wellspring`，跳跳鯨變身後是 `Palafin-Hero`。所以那批缺口不是邊角，
+是固定露在畫面上的英文。
+
+同一台機器上的姊妹專案 `PokemonTool-DamageCalculator` 有一份 1250 筆的繁中名表
+（`app/locales/zhHant.json` 的 `pokemon`），補得上其中 80 個型態。它在優先序裡**排最後**，
+理由是它的性質與前兩層不同：
+
+| 層級                     | 是什麼                            | 地位                     |
+| ------------------------ | --------------------------------- | ------------------------ |
+| 官方台灣圖鑑             | 權威，逐位元組為準                | 只當驗證器（不可再散布） |
+| PokéAPI                  | 官方字串的社群搬運                | 量產來源                 |
+| DamageCalculator zh-Hant | **repo owner 自維護，出處無記錄** | 只補前兩層沒有的 id      |
+
+那份檔案 git 上是 2026-04-19 隨一次 Nuxt 升版進來的，之後有 `fix: Surf in Chinese` 這類
+手改 commit，**沒有記錄它的來源**。但它顯然不是 PokéAPI 的下游：`kingambit` 在那裡是
+`仆斬將軍`，也就是官方的正確譯名，而 PokéAPI 與 Showdown 在這一筆都是錯的。基礎種比對
+1025 筆：985 筆與本表相同、34 筆它沒有、6 筆不同 —— 而那 6 筆裡 5 筆是它把型態寫進基礎名
+（`Ogerpon` → `厄鬼椪（碧草面具）`），真正的分歧只有 `Espathra`（它 `超能艷鴕`，官方
+`超能豔鴕`）。**這一筆就是「只補洞、永不覆寫」的理由**：讓它覆寫會把已經對齊官方的名字改壞。
+
+兩邊的 key 命名不同（Showdown 的 `ogerponwellspring` vs `@smogon/calc` 的
+`ogerpon-wellspring-mask`、`indeedee-female`、`maushold-family-of-four`），沒有規則能互轉，
+所以對照方式是：候選 = 以基礎種 id 開頭的 key，再要求**型態的每個詞都以完整的詞出現在該
+key 裡**，且**只能命中一個**。命中兩個或零個就報出來而不選 —— `Necrozma-Dusk-Mane` 是
+「零個」的實測例子（那份表把它鍵成 `necrozma-dusk`，`mane` 在任何 key 裡都不存在）。
+
+三條規則各自擋掉一種在 review 中實際發生過的錯配：
+
+1. **候選若本身是「別的物種的 id」就先剔除。** 沒有這條，`Darmanitan-Galar`（型態 `Galar`）
+   會同時命中 `darmanitan-galar-standard` 與 `darmanitan-galar-zen`、因歧義而放棄，於是畫面
+   上出現英文的 `Darmanitan-Galar` 配上中文的達摩模式 —— 正是本文件想避免的「一半翻一半沒
+   翻」。而 `-zen` 那個 key 不是歧義的證據，它已經被 `Darmanitan-Galar-Zen` 認領了。
+2. **型態詞要比對完整的詞，不是子字串。** `Meowstic-M-Mega` 的 `m` 曾經比中通用的
+   `meowstic-mega` —— 那是另一隻寶可夢的條目。
+3. **性別型態的單字母另有對照**（`F`→`female`、`M`→`male`）。性別是 dex 裡唯一用單一字母
+   表示的型態，而單一字母正是最容易誤中長字的東西 —— 所以它需要規則，而不是靠子字串巧合
+   命中（`Indeedee-F` 之前就是靠巧合）。
+
+**名字相撞就跳過。** 那份表裡 `Avalugg-Hisui` 是 `冰岩怪`，也就是基礎種自己的名字（型態詞
+掉了）；照收會讓兩隻不同的寶可夢同名，正是組合規則讓掉 `Darmanitan-Galar-Zen` 的那個病
+（而那一筆本身現在由這層來源補上了 —— 它有完整的名字 `達摩狒狒（達摩模式-伽勒爾）`）。
+實測共擋掉三筆：`Avalugg-Hisui`、`Eevee-Starter`、`Pikachu-Starter`。這條防護是機制而不是
+記憶 —— `species-locale.spec.ts` 的「表裡沒有重複的名字」因此依然成立。
+
+**不 vendor 進本 repo。** 它屬於另一個專案，複製過來就是分叉。路徑可用 `CALC_ZH_HANT`
+覆寫，預設是相對於本 repo 的姊妹目錄；**檔案不存在時產生器照樣跑完**（那 80 筆退回英文並
+印出訊息），所以沒有那個 checkout 的人仍然重跑得出一份完整可用的表。
+
 ### 產生器與涵蓋率
 
 `apps/web/scripts/gen-species-names-zh-hant.mjs`，`pnpm --filter web gen:species-names-zh-hant`
@@ -124,9 +175,14 @@ CSV 是**執行時抓**而不是 vendor 一份快照：三個 CSV 加起來約 1
 
 ```
 $ node scripts/gen-species-names-zh-hant.mjs
-wrote 1197 zh-Hant names to species-names-zh-hant.json (1025 base species, 172 formes;
-220 of Showdown's 1417 species left to the English fallback)
+wrote 1277 zh-Hant names to species-names-zh-hant.json (1025 base species, 172 formes,
+80 formes gap-filled; 140 of Showdown's 1417 species left to the English fallback)
 official Pokédex overrides: 2 entries, 2 of which PokéAPI still disagrees with
+gap-filled from the calculator's table: 80 formes
+  skipped Avalugg-Hisui: 冰岩怪 already names another Pokémon
+  skipped Eevee-Starter: 伊布 already names another Pokémon
+  skipped Pikachu-Starter: 皮卡丘 already names another Pokémon
+  still English (137): Absol-Mega-Z, Alcremie-Caramel-Swirl, ...
 left to the English fallback for having a forme the bracket cannot hold: Darmanitan-Galar-Zen
 ```
 
@@ -194,16 +250,20 @@ compared 1025 base species against https://tw.portal-pokemon.com/pokedex/: 0 dev
 
 ## 後果
 
-**220 個 id 沒有繁中名，退回英文。** PokéAPI 的繁中型態資料停在第八世代前後，所以
-第九世代的型態全在這裡面 —— 對 VGC 有感的是 `Ogerpon-*`、`Terapagos-*`、`Palafin-Hero`、
-`Indeedee-F`、`Tauros-Paldea-*`、`Maushold-Four`、`Tatsugiri-*`、`Basculegion-F`、
-`Enamorus-Therian`、`Necrozma-Dusk-Mane`，外加上面那條規則刻意讓掉的
-`Darmanitan-Galar-Zen`。中文畫面上這些會是英文名，這是**已知缺口而不是 bug**：查不到就
-退回英文、英文也查不到就退回 raw id，猜一個譯名才是靜靜地錯。哪天官方資料補上（或出現繁
-中社群來源），重跑產生器就補上了。
+**140 個 id 沒有繁中名，退回英文**（修訂：#115 之前是 220）。中文畫面上這些會是英文名，
+這是**已知缺口而不是 bug**：查不到就退回英文、英文也查不到就退回 raw id，猜一個譯名才是
+靜靜地錯。
 
-`Darmanitan-Galar` 本來就沒有繁中列，所以那一對在中文畫面上是兩個英文名並排，而不是一個
-中文一個英文 —— 缺得整齊，比缺得像對的好。
+剩下的 140 個裡，會真的出現在對戰畫面上的只有少數 —— 絕大多數是 Mega、超極巨化、霸主
+（前世代限定，第九世代的 replay 不會有），以及純外觀型態（Vivillon 的 20 種花紋、
+阿爾宙斯 17 屬性、Alcremie 的奶油、皮卡丘的帽子、Deerling 四季）。**仍然缺、而且會上畫面**
+的是 `Necrozma-Dusk-Mane` / `-Dawn-Wings`（計算機那份把它們鍵成 `necrozma-dusk`，型態詞
+`mane` 在任何 key 裡都找不到，所以對照不起來）、以及 `Ogerpon-*-Tera` 四個（那份沒有太晶化
+後的條目）。
+
+**同一族的型態要嘛整族有名字、要嘛整族沒有。** 缺得整齊比缺得像對的好，而
+`species-locale.spec.ts` 現在把達摩狒狒與超能妙喵那兩對釘成「兩邊有無一致」，因為那正是
+review 抓到的錯配長出來的樣子。
 
 **接縫是三個函式**（`app/shared/utils/speciesName.ts`，Nuxt auto-import）：
 
@@ -221,7 +281,7 @@ compared 1025 base species against https://tw.portal-pokemon.com/pokedex/: 0 dev
 `九尾（阿羅拉的樣子） · Ninetales-Alola`。這是刻意的：使用者讀時間軸時常常同時開著
 Showdown 的 replay，而 Showdown 只講英文。
 
-分隔用**點而不是括號**：1197 筆裡有 114 筆譯名自己就帶括號（`九尾（阿羅拉的樣子）`），
+分隔用**點而不是括號**：表裡有大量譯名自己就帶括號（`九尾（阿羅拉的樣子）`），
 再包一層括號讀起來像嵌套。
 
 **en 語系一字未變**，`app/features/timeline/test/localised-names.spec.ts` 的

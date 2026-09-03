@@ -29,15 +29,28 @@
  *   node scripts/gen-species-names-zh-hant.mjs   (or: pnpm --filter web gen:species-names-zh-hant)
  */
 
-import { writeFileSync } from 'node:fs'
+import { readFileSync, writeFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { Dex } from '@pkmn/dex'
+import { fillFormeNames, indexCalcNames } from './calc-forme-names.mjs'
 import { fetchCsv } from './pokeapi-csv.mjs'
 import { OFFICIAL_ZH_HANT_NAMES } from './species-names-zh-hant-official.mjs'
 
 const OUT = fileURLToPath(
   new URL('../app/shared/lib/dex/species-names-zh-hant.json', import.meta.url),
 )
+
+/**
+ * The sibling project whose zh-Hant table fills the formes PokéAPI has no row
+ * for -- see `calc-forme-names.mjs` for what it is and why it comes last.
+ * Overridable because it is a path on one machine and not a fact about this
+ * repo; absent, the run still finishes and those formes stay English.
+ */
+const CALC_ZH_HANT =
+  process.env.CALC_ZH_HANT ??
+  fileURLToPath(
+    new URL('../../../../PokemonTool-DamageCalculator/app/locales/zhHant.json', import.meta.url),
+  )
 
 const POKEAPI_CSV = 'https://raw.githubusercontent.com/PokeAPI/pokeapi/master/data/v2/csv/'
 
@@ -54,6 +67,20 @@ const ZH_HANT = '4'
 
 /** The id form Showdown uses, so a PokéAPI identifier can be matched to it. */
 const toId = (text) => text.toLowerCase().replaceAll(/[^a-z0-9]+/g, '')
+
+/**
+ * The calculator's locale file, or null when this machine has no checkout of
+ * it. Null rather than a throw: it is another project's file, so a run without
+ * it is a smaller answer and not a broken one.
+ */
+function readCalcTable() {
+  try {
+    return JSON.parse(readFileSync(CALC_ZH_HANT, 'utf8'))
+  } catch (error) {
+    if (error.code === 'ENOENT') return null
+    throw error
+  }
+}
 
 const [speciesNames, formNames, forms] = await Promise.all([
   fetchCsv(POKEAPI_CSV, 'pokemon_species_names.csv'),
@@ -155,16 +182,33 @@ for (const s of species) {
   formesNamed += 1
 }
 
-/** One entry per line, matching `gen-species-names.mjs` so both diff alike. */
-const lines = Object.entries(names).map(
-  ([id, name]) => `  ${JSON.stringify(id)}: ${JSON.stringify(name)}`,
-)
+// Last, and only into holes: everything above is either the official Pokédex
+// or PokéAPI publishing official strings, and this is neither.
+const calcTable = readCalcTable()
+const gapFilled = fillFormeNames({
+  names,
+  species,
+  calcNames: calcTable === null ? {} : indexCalcNames(calcTable.pokemon ?? {}),
+})
+Object.assign(names, gapFilled.names)
+
+/**
+ * One entry per line, matching `gen-species-names.mjs` so both diff alike.
+ * Sorted here rather than relying on insertion order: the gap-filled formes
+ * are merged in after the main pass, and an id-sorted file is what makes a dex
+ * bump read as a few added lines instead of a reordering.
+ */
+const lines = Object.entries(names)
+  .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+  .map(([id, name]) => `  ${JSON.stringify(id)}: ${JSON.stringify(name)}`)
 writeFileSync(OUT, `{\n${lines.join(',\n')}\n}\n`)
 
 const total = Object.keys(names).length
+const gapCount = Object.keys(gapFilled.names).length
 console.log(
   `wrote ${total} zh-Hant names to species-names-zh-hant.json ` +
-    `(${total - formesNamed} base species, ${formesNamed} formes; ` +
+    `(${total - formesNamed - gapCount} base species, ${formesNamed} formes, ` +
+    `${gapCount} formes gap-filled; ` +
     `${species.length - total} of Showdown's ${species.length} species left to the English fallback)`,
 )
 
@@ -173,8 +217,34 @@ console.log(
   `official Pokédex overrides: ${overridden} entries, ${corrections} of which PokéAPI still disagrees with`,
 )
 
-if (formesSkipped.length > 0) {
+// Without the table there is nothing to report but where it was looked for:
+// every unnamed forme lands in `unresolved` then, so a count would claim the
+// calculator could have named all 220 of them, and the list would print them.
+if (calcTable === null) {
+  console.log(`no calculator table at ${CALC_ZH_HANT}: no formes gap-filled`)
+} else {
+  console.log(`gap-filled from the calculator's table: ${gapCount} formes`)
+
+  // Both lists are printed rather than counted: what is still English is the
+  // only thing that says what a next pass would have to find, and a collision
+  // is a name this script refused to put on two Pokémon at once.
+  for (const { name, clash } of gapFilled.collided) {
+    console.log(`  skipped ${name}: ${clash} already names another Pokémon`)
+  }
+  if (gapFilled.unresolved.length > 0) {
+    console.log(
+      `  still English (${gapFilled.unresolved.length}): ${gapFilled.unresolved.join(', ')}`,
+    )
+  }
+}
+
+// Filtered against the fill, which runs after this list is built:
+// `Darmanitan-Galar-Zen` is skipped by the composition rule and then named by
+// the calculator's table, and a line saying it fell back to English while it
+// sits in the file is worse than no line at all.
+const stillSkipped = formesSkipped.filter((name) => names[toId(name)] === undefined)
+if (stillSkipped.length > 0) {
   console.log(
-    `left to the English fallback for having a forme the bracket cannot hold: ${formesSkipped.join(', ')}`,
+    `left to the English fallback for having a forme the bracket cannot hold: ${stillSkipped.join(', ')}`,
   )
 }
