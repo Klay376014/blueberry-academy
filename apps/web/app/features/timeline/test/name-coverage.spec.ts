@@ -161,7 +161,11 @@ const CATEGORIES = [
   },
   {
     what: 'the weather',
-    strings: rows.flatMap((row) => params(row, ['weather'], 'weather')),
+    strings: [
+      ...rows.flatMap((row) => params(row, ['weather'], 'weather')),
+      // The same identifier on the FieldBar's own chip, which no row draws.
+      ...snapshots.flatMap((snapshot) => (snapshot.weather === null ? [] : [snapshot.weather])),
+    ],
     named: fieldConditionDisplayName,
     from: [WEATHER, MOVES],
     // Every weather id is also a move id: `snowscape` is the state 下雪 and
@@ -171,7 +175,14 @@ const CATEGORIES = [
   },
   {
     what: 'an ability the log announced by name',
-    strings: rows.flatMap((row) => params(row, ['ability'], 'ability')),
+    strings: [
+      ...rows.flatMap((row) => params(row, ['ability'], 'ability')),
+      // The whole-field ones again, as the FieldBar's chips (#119). These
+      // fixtures show no aura and no Ruin — the field row's own names are
+      // checked in localised-names.spec.ts — so this adds coverage for
+      // whatever a later fixture brings rather than anything today.
+      ...snapshots.flatMap((snapshot) => snapshot.fieldAbilities),
+    ],
     named: abilityDisplayName,
     from: [ABILITIES],
     dex: null,

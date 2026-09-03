@@ -302,3 +302,177 @@ describe('the Pokémon that are off the field', () => {
     ])
   })
 })
+
+describe('the weather', () => {
+  /** The weather standing at the end of the last turn of `lines`. */
+  function weatherAt(lines: string[]) {
+    return fieldSnapshots(parseTimeline(log(lines))).at(-1)?.weather
+  }
+
+  it('holds the weather until the log says there is none', () => {
+    expect(weatherAt(['|-weather|Snowscape'])).toBe('Snowscape')
+    expect(weatherAt(['|-weather|Snowscape', '|turn|2', '|-weather|none'])).toBeNull()
+  })
+
+  it('reads an ability’s weather the same as a move’s', () => {
+    // Measured, every weather in the fixtures came from an ability:
+    // `|-weather|Snowscape|[from] ability: Snow Warning|[of] p1a: Ninetales`.
+    // Who set it is the log's business; the row says what is standing.
+    expect(weatherAt(['|-weather|RainDance|[from] ability: Drizzle|[of] p2a: Whimsicott'])).toBe(
+      'RainDance',
+    )
+  })
+
+  it('keeps one weather when the upkeep line repeats it every turn', () => {
+    // Showdown re-sends the same weather each turn with `[upkeep]`. Two chips
+    // reading 下雪 would be the reader's problem, not the log's.
+    const lines = ['|-weather|Snowscape', '|turn|2', '|-weather|Snowscape|[upkeep]']
+
+    expect(weatherAt(lines)).toBe('Snowscape')
+  })
+
+  it('replaces the weather a new one overrode', () => {
+    expect(weatherAt(['|-weather|Snowscape', '|turn|2', '|-weather|RainDance'])).toBe('RainDance')
+  })
+
+  it('says nothing for a weather line with no weather on it', () => {
+    // Only reachable from a truncated log, and an empty chip under the FIELD
+    // label is worse than no row at all.
+    expect(weatherAt(['|-weather|'])).toBeNull()
+  })
+
+  it('reads a real game turn by turn', () => {
+    // Snow from turn 5, gone on 9, and a second Ninetales brought it back on
+    // 10 — so a weather that ran out must not be remembered, and one that came
+    // back must not need a second reader.
+    const snapshots = fieldSnapshots(parseTimeline(ladderReplay.log))
+    const at = (turn: number) => snapshots.find((snapshot) => snapshot.turn === turn)?.weather
+
+    expect(at(4)).toBeNull()
+    expect(at(5)).toBe('Snowscape')
+    expect(at(8)).toBe('Snowscape')
+    expect(at(9)).toBeNull()
+    expect(at(10)).toBe('Snowscape')
+  })
+})
+
+describe('the abilities that stand on the whole field', () => {
+  /** A Xerneas alongside Scrafty, and the aura it announces on arrival. */
+  const XERNEAS = ['|switch|p1b: Xerneas|Xerneas, L50|100/100', '|-ability|p1b: Xerneas|Fairy Aura']
+
+  function abilitiesAt(lines: string[]) {
+    return fieldSnapshots(parseTimeline(log(lines))).at(-1)?.fieldAbilities
+  }
+
+  it('holds an aura for as long as its holder is out', () => {
+    expect(
+      abilitiesAt([...XERNEAS, '|turn|2', '|move|p1a: Scrafty|Fake Out|p2a: Whimsicott']),
+    ).toEqual(['Fairy Aura'])
+  })
+
+  it('drops it when its holder leaves the field', () => {
+    // The aura is the whole field's, but it lives and dies with one Pokémon.
+    const lines = [...XERNEAS, '|turn|2', '|switch|p1b: Toxapex|Toxapex, L50, M|100/100']
+
+    expect(abilitiesAt(lines)).toEqual([])
+  })
+
+  it('drops it when its holder faints, before anything replaces it', () => {
+    // A fainted Pokémon stays on its square until the switch, and nothing a
+    // fainted Pokémon has is still in effect.
+    expect(abilitiesAt([...XERNEAS, '|turn|2', '|faint|p1b: Xerneas'])).toEqual([])
+  })
+
+  it('ignores an ability that fires once and is over', () => {
+    // `|-ability|` announces Intimidate the same way it announces an aura. A
+    // chip reading 威嚇 from turn 1 to the end of the game would be a lie.
+    expect(abilitiesAt(['|-ability|p1a: Scrafty|Intimidate'])).toEqual([])
+  })
+
+  it('says an aura once when both sides brought the same one', () => {
+    const lines = [
+      ...XERNEAS,
+      '|switch|p2b: Xerneas|Xerneas, L50|100/100',
+      '|-ability|p2b: Xerneas|Fairy Aura',
+    ]
+
+    expect(abilitiesAt(lines)).toEqual(['Fairy Aura'])
+  })
+
+  it('keeps it with the body an Illusion turned out to be', () => {
+    // Not reachable in a game — Illusion copies the look and not the ability,
+    // so no aura is announced under a worn name. Asserted because this is the
+    // same handover as the stat changes and the Tera type, and the three must
+    // not drift apart.
+    const lines = [
+      '|-ability|p2a: Whimsicott|Fairy Aura',
+      '|turn|2',
+      '|replace|p2a: Zoroark|Zoroark-Hisui, L50, M',
+    ]
+
+    expect(abilitiesAt(lines)).toEqual(['Fairy Aura'])
+  })
+
+  it('waits for the log to announce it again when its holder comes back', () => {
+    // Not carried across the bench, though it is intrinsic to a Xerneas:
+    // whether the Pokémon that returns still has the ability is the log's to
+    // say, and every one of these announces itself on arrival. A Porygon2 that
+    // traced Fairy Aura, left, and came back tracing Intimidate is the case
+    // that carrying it over gets wrong — and nothing would ever clear it,
+    // because an arrival can only ever set it.
+    const away = [
+      ...XERNEAS,
+      '|turn|2',
+      '|switch|p1b: Toxapex|Toxapex, L50, M|100/100',
+      '|turn|3',
+      '|switch|p1b: Xerneas|Xerneas, L50|100/100',
+    ]
+
+    expect(abilitiesAt(away)).toEqual([])
+    expect(abilitiesAt([...away, '|-ability|p1b: Xerneas|Fairy Aura'])).toEqual(['Fairy Aura'])
+  })
+
+  it('holds a weather-ignoring ability, which the weather chip cannot say alone', () => {
+    // 下雪 with an Air Lock out is snow that does nothing. The row cannot show
+    // that the weather is suppressed, but it can at least show the reason.
+    const lines = [
+      '|switch|p1b: Rayquaza|Rayquaza, L50|100/100',
+      '|-ability|p1b: Rayquaza|Air Lock',
+      '|-weather|Snowscape',
+    ]
+
+    expect(abilitiesAt(lines)).toEqual(['Air Lock'])
+  })
+
+  it('says only the Neutralizing Gas when it is out, because it negates the rest', () => {
+    // A Ruin chip beside the chip for the thing that switches every ability
+    // off is two contradictory claims on one row. Common in these formats, not
+    // an edge case.
+    const lines = [
+      '|switch|p1b: Chi-Yu|Chi-Yu, L50|100/100',
+      '|-ability|p1b: Chi-Yu|Beads of Ruin',
+      '|turn|2',
+      '|switch|p2b: Weezing|Weezing-Galar, L50, M|100/100',
+      '|-ability|p2b: Weezing|Neutralizing Gas',
+    ]
+
+    expect(abilitiesAt(lines)).toEqual(['Neutralizing Gas'])
+  })
+
+  it('gives the rest back when the Neutralizing Gas leaves', () => {
+    // Showdown re-announces what comes back on: this only has to stop lying
+    // while the gas is out.
+    const lines = [
+      '|switch|p1b: Chi-Yu|Chi-Yu, L50|100/100',
+      '|-ability|p1b: Chi-Yu|Beads of Ruin',
+      '|turn|2',
+      '|switch|p2b: Weezing|Weezing-Galar, L50, M|100/100',
+      '|-ability|p2b: Weezing|Neutralizing Gas',
+      '|turn|3',
+      '|switch|p2b: Whimsicott|Whimsicott, L50, M|100/100',
+      '|-ability|p1b: Chi-Yu|Beads of Ruin',
+    ]
+
+    expect(abilitiesAt(lines)).toEqual(['Beads of Ruin'])
+  })
+})

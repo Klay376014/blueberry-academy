@@ -46,6 +46,8 @@ const snapshot: FieldSnapshot = {
   offField: [],
   screens: { p1: [], p2: [] },
   fieldEffects: [],
+  weather: null,
+  fieldAbilities: [],
 }
 
 /**
@@ -288,6 +290,8 @@ const fieldWithConditions: FieldSnapshot = {
   slots: [{ ...snapshot.slots[0]!, status: 'brn', boosts: { atk: 1 }, teraType: 'Fire' }],
   screens: { p1: ['Reflect'], p2: [] },
   fieldEffects: ['Trick Room'],
+  weather: 'Snowscape',
+  fieldAbilities: ['Fairy Aura'],
 }
 
 async function mountFieldOf(field: FieldSnapshot, locale: string) {
@@ -336,7 +340,15 @@ describe('the rest of the vocabulary in en', () => {
     const wrapper = await mountFieldOf(fieldWithConditions, 'en')
     const text = wrapper.text().replaceAll(/\s+/gu, ' ')
 
-    for (const chip of ['Trick Room', 'Reflect', 'brn', 'atk +1', 'Tera Fire']) {
+    for (const chip of [
+      'Trick Room',
+      'Reflect',
+      'brn',
+      'atk +1',
+      'Tera Fire',
+      'Snowscape',
+      'Fairy Aura',
+    ]) {
       expect(text, chip).toContain(chip)
     }
   })
@@ -385,9 +397,17 @@ describe('the rest of the vocabulary in zh-TW', () => {
     const wrapper = await mountFieldOf(fieldWithConditions, 'zh-TW')
     const text = wrapper.text().replaceAll(/\s+/gu, ' ')
 
-    for (const chip of ['戲法空間', '反射壁', '攻擊 +1', '太晶 火']) {
+    for (const chip of ['戲法空間', '反射壁', '攻擊 +1', '太晶 火', '下雪', '妖精氣場']) {
       expect(text, chip).toContain(chip)
     }
+  })
+
+  it("says the weather chip under the state's name, not the move's", async () => {
+    // The same trap the weather row has: 下雪 is the state Snowscape, 雪景 the
+    // move of that name. The chip means the state.
+    const wrapper = await mountFieldOf(fieldWithConditions, 'zh-TW')
+
+    expect(wrapper.text()).not.toContain('雪景')
   })
 
   it('leaves the condition chip as Showdown spells it', async () => {

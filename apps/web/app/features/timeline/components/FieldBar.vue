@@ -3,7 +3,7 @@ import { toID } from 'replay-parser'
 import type { SideId } from 'replay-parser'
 import type { FieldSnapshot, PokemonState } from '../utils/battleField'
 import { speciesLabel } from '~/shared/utils/speciesName'
-import { fieldConditionDisplayName } from '~/shared/utils/battleTerms'
+import { abilityDisplayName, fieldConditionDisplayName } from '~/shared/utils/battleTerms'
 
 /**
  * How the field stood at one moment: who was out, on how much HP, and what each
@@ -86,12 +86,31 @@ function linesOf(side: SideId) {
   ]
 }
 
+/** An ability standing over the whole field, under the reader's name for it. */
+const ability = (name: string) => abilityDisplayName(name, locale.value)
+
 /**
- * The effects on the whole field, on a line of their own above the two sides:
- * Trick Room belongs to neither of them, and under one side's label it would
- * read as that side's (#104).
+ * What is standing on the whole field, on a line of their own above the two
+ * sides: Trick Room belongs to neither of them, and under one side's label it
+ * would read as that side's (#104). The weather and an aura are the same
+ * argument — an aura is held up by one Pokémon but applies to everyone, so it
+ * is here rather than beside its holder (#119).
+ *
+ * Three kinds on one row, told apart by the chip's colour.
  */
-const fieldEffects = computed(() => props.snapshot.fieldEffects)
+const field = computed(() => ({
+  effects: props.snapshot.fieldEffects,
+  weather: props.snapshot.weather,
+  abilities: props.snapshot.fieldAbilities,
+}))
+
+/** Whether the row has anything to say at all. */
+const hasField = computed(
+  () =>
+    field.value.effects.length > 0 ||
+    field.value.weather !== null ||
+    field.value.abilities.length > 0,
+)
 
 /** What is left of a Pokémon, or that there is nothing left of it. */
 function hpLabel(pokemon: PokemonState) {
@@ -110,18 +129,22 @@ function hpLabel(pokemon: PokemonState) {
       {{ caption }}
     </span>
 
-    <div v-if="fieldEffects.length" class="flex flex-wrap items-center gap-2">
+    <div v-if="hasField" class="flex flex-wrap items-center gap-2">
       <span class="text-muted-foreground w-8 font-mono text-[9px] tracking-widest">
         {{ t('battle.drawer.field') }}
       </span>
 
-      <span
-        v-for="effect of fieldEffects"
-        :key="effect"
-        class="border-chart-3/50 text-chart-3 rounded border px-1 font-mono text-[9px]"
-      >
+      <BattleConditionChip v-for="effect of field.effects" :key="effect" kind="field">
         {{ condition(effect) }}
-      </span>
+      </BattleConditionChip>
+
+      <BattleConditionChip v-if="field.weather !== null" kind="weather">
+        {{ condition(field.weather) }}
+      </BattleConditionChip>
+
+      <BattleConditionChip v-for="name of field.abilities" :key="name" kind="ability">
+        {{ ability(name) }}
+      </BattleConditionChip>
     </div>
 
     <template v-for="side of sides" :key="side">
@@ -158,13 +181,9 @@ function hpLabel(pokemon: PokemonState) {
           <BattleStateChips :pokemon="state" />
         </span>
 
-        <span
-          v-for="screen of line.screens"
-          :key="screen"
-          class="border-primary/50 text-primary rounded border px-1 font-mono text-[9px]"
-        >
+        <BattleConditionChip v-for="screen of line.screens" :key="screen" kind="screen">
           {{ condition(screen) }}
-        </span>
+        </BattleConditionChip>
       </div>
     </template>
   </div>
