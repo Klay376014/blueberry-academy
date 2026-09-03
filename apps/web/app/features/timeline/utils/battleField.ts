@@ -27,6 +27,12 @@ export interface PokemonState {
   status: string | null
   /** Only the stats that are not at zero, so nothing renders `atk 0`. */
   boosts: Record<string, number>
+  /**
+   * The lasting effects it is carrying — a Substitute, Leech Seed, Taunt,
+   * confusion — in the order the log put them on. Lost on the way out, like
+   * the stat changes, so this is always empty off the field.
+   */
+  volatiles: string[]
   teraType: string | null
   fainted: boolean
 }
@@ -93,12 +99,8 @@ export interface FieldSnapshot {
  * snow with an Air Lock out is snow that does nothing, and the row would
  * otherwise show only the half of that which misleads.
  *
- * **The known limit: an ability lost while its holder stays out.** Gastro Acid,
- * Skill Swap, Mummy and Worry Seed all take one off and Showdown says so with
- * `|-endability|` — which the parser does not read at all, so nothing here can
- * react to it (it arrives as `unknown`). Reading it means a parser event plus a
- * message for the row it would then draw, which is #120's work rather than this
- * one's. Until then a suppressed aura keeps its chip.
+ * One taken off a holder that stays out — Gastro Acid, Skill Swap, Mummy —
+ * goes when `-endability` says it does (#120).
  */
 const FIELD_ABILITIES = new Set(
   [
@@ -143,6 +145,8 @@ interface Body {
   hp: number | null
   status: string | null
   boosts: Map<string, number>
+  /** A set, because the log can start one that is already on (measured). */
+  volatiles: Set<string>
   teraType: string | null
   fainted: boolean
   /** The whole-field ability this one announced, or null. */
@@ -206,8 +210,11 @@ export function fieldSnapshots(timeline: BattleTimeline): FieldSnapshot[] {
       return
     }
 
-    // Whoever was there is gone, and its stat changes with it.
-    if (before) before.boosts.clear()
+    // Whoever was there is gone, and its stat changes and volatiles with it.
+    if (before) {
+      before.boosts.clear()
+      before.volatiles.clear()
+    }
 
     const returning = bodies.get(key)
     bodies.set(key, {
@@ -216,6 +223,7 @@ export function fieldSnapshots(timeline: BattleTimeline): FieldSnapshot[] {
       hp: event.hp,
       status: event.status,
       boosts: new Map(),
+      volatiles: new Set(),
       // Terastallizing is announced once and lasts the game, so it survives a
       // trip to the bench.
       teraType: returning?.teraType ?? null,
@@ -279,6 +287,16 @@ export function fieldSnapshots(timeline: BattleTimeline): FieldSnapshot[] {
       case 'ability':
         if (FIELD_ABILITIES.has(toID(event.ability))) body.fieldAbility = event.ability
         break
+      case 'endAbility':
+        // Whatever the line named, this Pokémon has lost the ability it had.
+        // The name is not checked against what is held: a body can only ever
+        // be holding up the one, and the log leaves the name out sometimes.
+        body.fieldAbility = null
+        break
+      case 'volatile':
+        if (event.phase === 'start') body.volatiles.add(event.effect)
+        else body.volatiles.delete(event.effect)
+        break
       case 'terastallize':
         body.teraType = event.teraType
         break
@@ -289,6 +307,7 @@ export function fieldSnapshots(timeline: BattleTimeline): FieldSnapshot[] {
         body.fainted = true
         body.hp = 0
         body.boosts.clear()
+        body.volatiles.clear()
         break
       case 'swap': {
         // The log reports the move of one Pokémon, so the ally that was traded
@@ -313,6 +332,7 @@ export function fieldSnapshots(timeline: BattleTimeline): FieldSnapshot[] {
       hp: body.hp,
       status: body.status,
       boosts: Object.fromEntries([...body.boosts].filter(([, stages]) => stages !== 0)),
+      volatiles: [...body.volatiles],
       teraType: body.teraType,
       fainted: body.fainted,
     }

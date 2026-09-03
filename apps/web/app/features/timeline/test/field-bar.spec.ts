@@ -21,6 +21,7 @@ const EMPTY: FieldSnapshot = {
       hp: 100,
       status: null,
       boosts: {},
+      volatiles: [],
       teraType: null,
       fainted: false,
     },
@@ -48,6 +49,31 @@ async function chips(snapshot: Partial<FieldSnapshot>) {
     tone: chip.classes().join(' '),
   }))
 }
+
+/** The chips on one Pokémon, which are drawn beside it rather than on the row. */
+async function chipsOn(volatiles: string[]) {
+  const wrapper = await mountField({ slots: [{ ...EMPTY.slots[0]!, volatiles }] })
+
+  return wrapper.findAll('[data-condition="volatile"]').map((chip) => chip.text())
+}
+
+describe('what a Pokémon’s own chips show', () => {
+  it('draws a chip per lasting effect it is carrying', async () => {
+    expect(await chipsOn(['Substitute', 'Leech Seed'])).toEqual(['Substitute', 'Leech Seed'])
+  })
+
+  it('draws none when it is carrying nothing', async () => {
+    expect(await chipsOn([])).toEqual([])
+  })
+
+  it('does not put them on the whole field’s row', async () => {
+    // A Leech Seed is one Pokémon's problem. On the field row it would read as
+    // everybody's, which is the mistake #119 kept the aura out of.
+    const wrapper = await mountField({ slots: [{ ...EMPTY.slots[0]!, volatiles: ['Leech Seed'] }] })
+
+    expect(wrapper.findAll('[data-condition="field"]')).toEqual([])
+  })
+})
 
 describe('what the field row shows', () => {
   it('draws nothing when nothing is standing on the field', async () => {

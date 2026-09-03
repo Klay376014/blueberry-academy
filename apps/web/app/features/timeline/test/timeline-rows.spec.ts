@@ -330,6 +330,114 @@ describe('the results an action gathers onto its own row', () => {
       },
     ])
   })
+  it('folds a volatile the move put on onto that move’s row', () => {
+    // Leech Seed's row already says Leech Seed, so the note the target carries
+    // is the same word twice: quiet, like the Protect that goes up.
+    const seeded = [
+      '|move|p1a: Scrafty|Leech Seed|p2a: Whimsicott',
+      '|-start|p2a: Whimsicott|move: Leech Seed',
+    ]
+
+    expect(rows(seeded)).toMatchObject([
+      {
+        move: 'Leech Seed',
+        targets: [
+          {
+            species: 'Whimsicott',
+            notes: [{ key: 'volatileStarted', params: { effect: 'Leech Seed' }, quiet: true }],
+          },
+        ],
+      },
+    ])
+  })
+
+  it('says a volatile the move did not name, and one wearing off', () => {
+    // Confuse Ray leaves `confusion`, which is not the move's name, so the
+    // note has something to add. A volatile coming off has no move open at
+    // all: it happens at the end of the turn, on a row of its own.
+    const confused = [
+      '|move|p2a: Whimsicott|Confuse Ray|p1a: Scrafty',
+      '|-start|p1a: Scrafty|confusion',
+    ]
+
+    expect(rows(confused)[0]?.targets[0]?.notes).toEqual([
+      { key: 'volatileStarted', params: { effect: 'confusion' }, quiet: false },
+    ])
+
+    expect(rows(['|-end|p1a: Scrafty|move: Taunt'], true)).toMatchObject([
+      { species: 'Scrafty', message: { key: 'volatileEnded', params: { effect: 'Taunt' } } },
+    ])
+  })
+
+  it('keeps a volatile that ran out on the residual off the last move’s row', () => {
+    // Measured in `gen9ou-2667296078` turn 10: a Taunt wore off after the
+    // turn's last move, and folding it there made the row read as though Surf
+    // had removed it. Nothing closes an action but a move or a switch, so the
+    // residual phase is still inside the last one — and this file's own rule
+    // is that a row never claims causality.
+    const lines = [
+      '|move|p1a: Scrafty|Knock Off|p2a: Whimsicott',
+      '|-damage|p2a: Whimsicott|38/100',
+      '|-end|p1a: Scrafty|move: Taunt',
+    ]
+
+    expect(rows(lines, true)).toMatchObject([
+      { move: 'Knock Off', notes: [] },
+      { species: 'Scrafty', message: { key: 'volatileEnded', params: { effect: 'Taunt' } } },
+    ])
+  })
+
+  it('folds a Substitute the move broke onto that move’s row', () => {
+    // The other half of the same line: on a Pokémon the move was aimed at,
+    // the move is the only thing that could have taken it off.
+    const lines = [
+      '|-start|p2a: Whimsicott|Substitute',
+      '|turn|2',
+      '|move|p1a: Scrafty|Knock Off|p2a: Whimsicott',
+      '|-end|p2a: Whimsicott|Substitute',
+    ]
+    const turn = turnsOf(lines)[2]!
+
+    expect(rowsOf(turn, { detailed: false })).toMatchObject([
+      {
+        move: 'Knock Off',
+        targets: [
+          {
+            species: 'Whimsicott',
+            notes: [{ key: 'volatileEnded', params: { effect: 'Substitute' }, quiet: false }],
+          },
+        ],
+      },
+    ])
+  })
+
+  it('says an Illusion breaking once, not twice', () => {
+    // Showdown sends `|replace|` and then `|-end|…|Illusion` for the one
+    // thing, measured in `gen9championsvgc2026regmb-2667169457` turn 2. The
+    // reveal row already says it.
+    const lines = ['|replace|p2a: Zoroark|Zoroark-Hisui, L50, M']
+
+    expect(rows([...lines, '|-end|p2a: Zoroark|Illusion'], true)).toEqual(rows(lines, true))
+  })
+
+  it('says an ability that was taken off, and nothing when the log did not name it', () => {
+    const named = [
+      '|move|p2a: Whimsicott|Gastro Acid|p1a: Scrafty',
+      '|-endability|p1a: Scrafty|Fairy Aura|[from] move: Gastro Acid',
+    ]
+
+    // On the main line: an ability going away decides the turns after it as
+    // much as the `|-ability|` that announced it does.
+    expect(rows(named)).toMatchObject([
+      { move: 'Gastro Acid' },
+      { species: 'Scrafty', message: { key: 'abilityEnded', params: { ability: 'Fairy Aura' } } },
+    ])
+
+    // Nothing named means nothing to say, so there is no row rather than a row
+    // with a hole in it.
+    expect(rows(['|-endability|p1a: Scrafty'], true)).toEqual([])
+  })
+
   it('folds a miss and a failure onto the move that missed or failed', () => {
     const missed = [
       '|move|p1a: Scrafty|Knock Off|p2a: Whimsicott',

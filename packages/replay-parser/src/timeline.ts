@@ -1,6 +1,6 @@
 import type { ProtocolLine } from './protocol.ts'
 import type { SideId } from './replay.ts'
-import { speciesOfDetails } from './species.ts'
+import { speciesOfDetails, toID } from './species.ts'
 
 /**
  * A Pokémon as it appeared on the field at the moment of an event.
@@ -35,6 +35,24 @@ const HIT_RESULTS = new Map<string, HitResult>([
   ['-resisted', 'resisted'],
   ['-immune', 'immune'],
 ])
+
+/**
+ * The `-start` subtypes that are not a lasting state on one Pokémon, and so
+ * are not volatiles however much they share a protocol line with them.
+ *
+ * `-start` is a grab-bag. Two of its shapes never get an `-end` while their
+ * Pokémon is out: Protean and Libero re-announce `typechange` on every move
+ * they make, and Perish Song counts down with a fresh `-start` per turn
+ * (`perish3`, `perish2`, …), as Stockpile and Supreme Overlord do with their
+ * own counters. Read as volatiles they pile up state that nothing ever takes
+ * off, under ids no dex has a name for.
+ *
+ * Kept as `unknown` rather than dropped: the type a Protean turned into and
+ * the turns left on a Perish count are both real, and a counter needs a state
+ * that replaces rather than one that accumulates. Neither is this ticket's
+ * (#120).
+ */
+const NOT_VOLATILE = /^(typechange|typeadd|perish\d|stockpile\d|fallen\d)$/
 
 export type TimelineEvent =
   /**
@@ -77,6 +95,17 @@ export type TimelineEvent =
   | { kind: 'swap'; pokemon: Combatant; from: string }
   /** An effect on one Pokémon: Protect going up, then Protect stopping a move. */
   | { kind: 'effect'; pokemon: Combatant; effect: string; phase: 'start' | 'activate' }
+  /**
+   * A lasting effect on one Pokémon, on and then off: Leech Seed, a Substitute,
+   * Taunt, confusion, a partial trap.
+   *
+   * A kind of its own rather than another phase of `effect`, because the pair
+   * of protocol lines is a different pair: `-singleturn` is over by the end of
+   * the turn and `-activate` the moment it fires, while this one holds until
+   * the log says otherwise. Whatever draws state has to be able to tell them
+   * apart — a Protect that lasted would be a lie about the field (#120).
+   */
+  | { kind: 'volatile'; pokemon: Combatant; effect: string; phase: 'start' | 'end' }
   /** An effect on one side of the field: Reflect, Light Screen, Tailwind. */
   | { kind: 'sideEffect'; side: SideId; effect: string; phase: 'start' | 'end' }
   /**
@@ -95,6 +124,12 @@ export type TimelineEvent =
     }
   | { kind: 'endItem'; pokemon: Combatant; item: string }
   | { kind: 'ability'; pokemon: Combatant; ability: string }
+  /**
+   * An ability taken off a Pokémon that is still out: Gastro Acid, Skill Swap,
+   * Mummy. `ability` is what the line named, which is usually the ability and
+   * is sometimes nothing at all — the event says what the log said.
+   */
+  | { kind: 'endAbility'; pokemon: Combatant; ability: string }
   /** A turn spent recharging after Hyper Beam and its like. */
   | { kind: 'mustRecharge'; pokemon: Combatant }
   /** A line this parser does not read, kept verbatim rather than dropped. */
@@ -364,6 +399,35 @@ export function buildTimeline(lines: ProtocolLine[]): BattleTimeline {
           effect: effectNameOf(args[1] ?? ''),
           phase: type === '-singleturn' ? 'start' : 'activate',
         })
+        break
+      }
+
+      case '-start':
+      case '-end': {
+        if (NOT_VOLATILE.test(toID(args[1] ?? ''))) {
+          push({ kind: 'unknown', raw: rawOf(type, args) })
+          break
+        }
+
+        // The `move:` prefix comes and goes on the same pair — measured over
+        // the fixtures, `|-start|p1a: Big Boy|move: Taunt` against
+        // `|-start|p1a: Gliscor|Substitute` — so it is stripped like every
+        // other effect name. The silent ones are already gone by here: those
+        // are Showdown's own bookkeeping and it draws none of them.
+        const pokemon = occupant(field, args[0] ?? '')
+        if (!pokemon) break
+        push({
+          kind: 'volatile',
+          pokemon,
+          effect: effectNameOf(args[1] ?? ''),
+          phase: type === '-start' ? 'start' : 'end',
+        })
+        break
+      }
+
+      case '-endability': {
+        const pokemon = occupant(field, args[0] ?? '')
+        if (pokemon) push({ kind: 'endAbility', pokemon, ability: args[1] ?? '' })
         break
       }
 

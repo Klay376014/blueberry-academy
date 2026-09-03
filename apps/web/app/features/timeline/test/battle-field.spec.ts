@@ -3,6 +3,7 @@ import { parseTimeline } from 'replay-parser'
 import { fieldSnapshots } from '../utils/battleField'
 import ladderReplay from '../../../../../../packages/replay-parser/test/fixtures/gen9championsvgc2026regmb-2667169457.json'
 import fieldReplay from '../../../../../../packages/replay-parser/test/fixtures/gen9championsvgc2026regmb-2674299387.json'
+import volatileReplay from '../../../../../../packages/replay-parser/test/fixtures/gen9ou-2667299955.json'
 
 /**
  * A doubles log with one Pokémon a side already out, so each test adds only the
@@ -300,6 +301,131 @@ describe('the Pokémon that are off the field', () => {
       expect.objectContaining({ species: 'Zoroark-Hisui', hp: 0, fainted: true }),
       expect.objectContaining({ species: 'Gholdengo', hp: 90, fainted: false }),
     ])
+  })
+})
+
+describe('the lasting effects on one Pokémon', () => {
+  it('holds a volatile until the log takes it off', () => {
+    expect(slotAt(['|-start|p1a: Scrafty|move: Taunt'], 'p1a')?.volatiles).toEqual(['Taunt'])
+    expect(
+      slotAt(
+        ['|-start|p1a: Scrafty|move: Taunt', '|turn|2', '|-end|p1a: Scrafty|move: Taunt'],
+        'p1a',
+      )?.volatiles,
+    ).toEqual([])
+  })
+
+  it('holds several at once, in the order they went on', () => {
+    const lines = ['|-start|p1a: Scrafty|Substitute', '|-start|p1a: Scrafty|move: Leech Seed']
+
+    expect(slotAt(lines, 'p1a')?.volatiles).toEqual(['Substitute', 'Leech Seed'])
+  })
+
+  it('says one once when the log starts it twice', () => {
+    const lines = ['|-start|p1a: Scrafty|confusion', '|turn|2', '|-start|p1a: Scrafty|confusion']
+
+    expect(slotAt(lines, 'p1a')?.volatiles).toEqual(['confusion'])
+  })
+
+  it('leaves them behind when the Pokémon leaves the field', () => {
+    // A volatile is lost on a switch out, the same as a stat change — so it
+    // cannot come back with the Pokémon, and it cannot follow it to the bench.
+    const lines = [
+      '|-start|p1a: Scrafty|move: Leech Seed',
+      '|turn|2',
+      '|switch|p1a: Toxapex|Toxapex, L50, M|100/100',
+      '|turn|3',
+      '|switch|p1a: Scrafty|Scrafty, L50, F|100/100',
+    ]
+
+    expect(slotAt(lines, 'p1a')?.volatiles).toEqual([])
+    expect(offFieldAt(lines.slice(0, 3))[0]?.volatiles).toEqual([])
+  })
+
+  it('drops them when the Pokémon faints', () => {
+    const lines = ['|-start|p1a: Scrafty|Substitute', '|turn|2', '|faint|p1a: Scrafty']
+
+    expect(slotAt(lines, 'p1a')?.volatiles).toEqual([])
+  })
+
+  it('carries them to the square an Ally Switch moved the Pokémon to', () => {
+    // They belong to the Pokémon, not to the square, like the stat changes.
+    const lines = [
+      '|switch|p1b: Garchomp|Garchomp, L50, F|100/100',
+      '|-start|p1a: Scrafty|Substitute',
+      '|turn|2',
+      '|move|p1a: Scrafty|Ally Switch|p1a: Scrafty',
+      '|swap|p1a: Scrafty|1',
+    ]
+
+    expect(slotAt(lines, 'p1b')).toMatchObject({ species: 'Scrafty', volatiles: ['Substitute'] })
+    expect(slotAt(lines, 'p1a')).toMatchObject({ species: 'Garchomp', volatiles: [] })
+  })
+
+  it('hands them to the body an Illusion turned out to be', () => {
+    const lines = [
+      '|-start|p2a: Whimsicott|move: Leech Seed',
+      '|turn|2',
+      '|replace|p2a: Zoroark|Zoroark-Hisui, L50, M',
+    ]
+
+    expect(slotAt(lines, 'p2a')).toMatchObject({
+      species: 'Zoroark-Hisui',
+      volatiles: ['Leech Seed'],
+    })
+  })
+
+  it('reads a real game turn by turn', () => {
+    // `2667299955`: Gliscor put a Substitute up on 15, lost it on 16, put a
+    // second one up on 17 and was taunted in the same turn. So one coming off
+    // must not take the next one with it, and two on one Pokémon must both be
+    // there.
+    const snapshots = fieldSnapshots(parseTimeline(volatileReplay.log))
+    const at = (turn: number) =>
+      snapshots
+        .find((snapshot) => snapshot.turn === turn)
+        ?.slots.find((slot) => slot.species === 'Gliscor')?.volatiles
+
+    expect(at(15)).toEqual(['Substitute'])
+    expect(at(16)).toEqual([])
+    expect(at(17)).toEqual(['Substitute', 'Taunt'])
+  })
+})
+
+describe('an ability taken off a Pokémon that stays out', () => {
+  const XERNEAS_AURA = [
+    '|switch|p1b: Xerneas|Xerneas, L50|100/100',
+    '|-ability|p1b: Xerneas|Fairy Aura',
+  ]
+
+  it('takes the whole-field chip down with it', () => {
+    // #119's stated limit, and the reason this ticket owns `-endability`: the
+    // holder is still standing, so nothing else here would ever clear it.
+    const lines = [
+      ...XERNEAS_AURA,
+      '|turn|2',
+      '|-endability|p1b: Xerneas|Fairy Aura|[from] move: Gastro Acid',
+    ]
+
+    expect(fieldSnapshots(parseTimeline(log(lines))).at(-1)?.fieldAbilities).toEqual([])
+  })
+
+  it('takes it down when the log did not name what ended', () => {
+    const lines = [...XERNEAS_AURA, '|turn|2', '|-endability|p1b: Xerneas']
+
+    expect(fieldSnapshots(parseTimeline(log(lines))).at(-1)?.fieldAbilities).toEqual([])
+  })
+
+  it('gives the row back the one that replaced it', () => {
+    // Skill Swap ends one and announces the next in the same breath.
+    const lines = [
+      ...XERNEAS_AURA,
+      '|turn|2',
+      '|-endability|p1b: Xerneas|Fairy Aura',
+      '|-ability|p1b: Xerneas|Dark Aura',
+    ]
+
+    expect(fieldSnapshots(parseTimeline(log(lines))).at(-1)?.fieldAbilities).toEqual(['Dark Aura'])
   })
 })
 

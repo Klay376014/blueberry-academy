@@ -112,6 +112,10 @@ const MAIN_LINE = new Set<TimelineEvent['kind']>([
   'miss',
   'status',
   'ability',
+  // An ability going away decides the turns after it as much as the line that
+  // announced it does — and unlike a volatile, nothing on the bar can be read
+  // as "and it is still gone" (#120).
+  'endAbility',
   // Trick Room and the terrains decide every turn they are up, and the line
   // that lifts one has no move of its own to be read from.
   'fieldEffect',
@@ -291,6 +295,30 @@ export function rowOf(event: TimelineEvent): TimelineRow | null {
         },
       }
 
+    case 'volatile':
+      return {
+        ...blank(),
+        side: event.pokemon.side,
+        species: event.pokemon.species,
+        message: {
+          key: event.phase === 'start' ? 'volatileStarted' : 'volatileEnded',
+          params: { effect: event.effect },
+        },
+      }
+
+    case 'endAbility':
+      // A line that named nothing has nothing to say. The state behind the bar
+      // still takes it — the ability is gone either way — but a row reading
+      // "lost" with a blank where the name goes is worse than no row.
+      return event.ability === ''
+        ? null
+        : {
+            ...blank(),
+            side: event.pokemon.side,
+            species: event.pokemon.species,
+            message: { key: 'abilityEnded', params: { ability: event.ability } },
+          }
+
     case 'sideEffect':
       return {
         ...blank(),
@@ -388,7 +416,7 @@ export interface RowOptions {
 }
 
 /**
- * Whether this event is only how the next one was carried out.
+ * Whether this event is only how another one was carried out.
  *
  * A Mega Evolution arrives as `detailschange` and then `-mega`, which is one
  * thing happening: megaing is the event, changing forme is how it is done, and
@@ -398,11 +426,27 @@ export interface RowOptions {
 function isPlumbingFor(events: TimelineEvent[], index: number): boolean {
   const event = events[index]
   const next = events[index + 1]
+  const before = events[index - 1]
 
-  return (
+  if (
     event?.kind === 'formeChange' &&
     next?.kind === 'mega' &&
     next.pokemon.position === event.pokemon.position
+  ) {
+    return true
+  }
+
+  // An Illusion breaking is `|replace|` and then `|-end|…|Illusion`, measured
+  // adjacent in `gen9championsvgc2026regmb-2667169457` turn 2. The reveal row
+  // already says it, and a second row saying it again is one more thing behind
+  // "show the rest of this turn" that nobody needed.
+  return (
+    event?.kind === 'volatile' &&
+    event.phase === 'end' &&
+    toID(event.effect) === 'illusion' &&
+    before?.kind === 'switch' &&
+    before.how === 'replace' &&
+    before.pokemon.position === event.pokemon.position
   )
 }
 
@@ -488,9 +532,45 @@ function resultOf(
         },
       }
 
+    // A volatile a move put on is that move's result: Leech Seed's own row
+    // says Leech Seed, so the note is quiet there and speaks up for a
+    // Confuse Ray, whose `confusion` is not the move's name.
+    case 'volatile':
+      return {
+        pokemon: event.pokemon,
+        note: {
+          key: event.phase === 'start' ? 'volatileStarted' : 'volatileEnded',
+          params: { effect: event.effect },
+          quiet: event.phase === 'start' && event.effect === move,
+        },
+      }
+
     default:
       return null
   }
+}
+
+/**
+ * Whether a result may fold onto the open action at all.
+ *
+ * Only a volatile coming off is asked, and only because a `-end` arrives from
+ * two different places: the move that took it off — a Substitute broken by
+ * the hit — and the residual phase at the end of the turn, which nothing here
+ * closes the action before. Measured in the fixtures, both of the real ones
+ * are residual and both land on the wrong row: a Taunt that wore off after a
+ * Surf (`gen9ou-2667296078` turn 10) and an Infestation that timed out under
+ * its own user's Shadow Ball (`-2667169457` turn 14).
+ *
+ * So it folds only onto a Pokémon the move was aimed at, where the move is
+ * the only thing that could have done it — the same gate the damage uses.
+ * Everything else keeps a row of its own: unfolded says less than the wrong
+ * subject says wrongly, and this file claims no causality the log did not
+ * state.
+ */
+function foldsHere(action: OpenAction, event: TimelineEvent): boolean {
+  if (event.kind !== 'volatile' || event.phase !== 'end') return true
+
+  return action.slots.get(event.pokemon.position)?.target === true
 }
 
 /**
@@ -501,6 +581,7 @@ function resultOf(
 function pin(action: OpenAction, event: TimelineEvent): boolean {
   const result = resultOf(event, action.row.move)
   if (!result) return false
+  if (!foldsHere(action, event)) return false
 
   slotFor(action, result.pokemon).notes.push(result.note)
   return true

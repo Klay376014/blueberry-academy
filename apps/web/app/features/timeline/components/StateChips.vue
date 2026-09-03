@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { PokemonState } from '../utils/battleField'
-import { statDisplayName, teraTypeDisplayName } from '~/shared/utils/battleTerms'
+import { effectDisplayName, statDisplayName, teraTypeDisplayName } from '~/shared/utils/battleTerms'
 
 /**
  * What a Pokémon is carrying right now: its condition, the stat stages it is
@@ -25,6 +25,19 @@ const props = defineProps<{ pokemon: PokemonState }>()
 const STATS = ['atk', 'def', 'spa', 'spd', 'spe', 'accuracy', 'evasion']
 
 const { t, locale } = useI18n()
+
+/**
+ * A lasting effect, under the reader's name for it. The move → ability → item
+ * chain, which declines an id it cannot tell apart: `confusion` is both the
+ * condition and the move Confusion, so it stays as Showdown spells it, like
+ * the condition chip beside it (docs/adr/0016-localised-battle-vocabulary.md).
+ */
+const volatiles = computed(() =>
+  props.pokemon.volatiles.map((effect) => ({
+    effect,
+    said: effectDisplayName(effect, locale.value),
+  })),
+)
 
 const stages = computed(() =>
   STATS.flatMap((stat) => {
@@ -60,6 +73,10 @@ const STATUS_TONE: Record<string, string> = {
     >
       {{ pokemon.status }}
     </span>
+
+    <BattleConditionChip v-for="held of volatiles" :key="held.effect" kind="volatile">
+      {{ held.said }}
+    </BattleConditionChip>
 
     <span
       v-for="boost of stages"

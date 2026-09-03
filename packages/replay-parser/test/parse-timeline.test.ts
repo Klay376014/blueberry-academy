@@ -571,6 +571,109 @@ describe('parseTimeline', () => {
     })
   })
 
+  it('reads a lasting effect on one Pokémon going on and coming off', () => {
+    // `-start`/`-end` are the volatiles: Taunt, Substitute, confusion, the
+    // partial traps. Measured across the ten fixtures, the prefix comes and
+    // goes on the same pair — `|-start|p1a: Big Boy|move: Taunt` against
+    // `|-start|p1a: Gliscor|Substitute` — so the name is stripped the way
+    // every other effect name is (#120).
+    const timeline = parseTimeline(
+      log({
+        lines: [
+          '|-start|p1a: Scrafty|move: Taunt',
+          '|-start|p2a: Whimsicott|confusion',
+          '|-end|p1a: Scrafty|move: Taunt',
+        ],
+      }),
+    )
+
+    expect(timeline.turns[1]?.events).toMatchObject([
+      { kind: 'volatile', effect: 'Taunt', phase: 'start', pokemon: { species: 'Scrafty' } },
+      { kind: 'volatile', effect: 'confusion', phase: 'start', pokemon: { species: 'Whimsicott' } },
+      { kind: 'volatile', effect: 'Taunt', phase: 'end', pokemon: { species: 'Scrafty' } },
+    ])
+  })
+
+  it('keeps a volatile apart from a single-turn effect, which is over the moment it lands', () => {
+    // Both arrive as an effect on one Pokémon, and only one of them lasts. A
+    // Protect that became a chip would still be up eight turns later.
+    const timeline = parseTimeline(
+      log({ lines: ['|-singleturn|p1a: Scrafty|Protect', '|-start|p1a: Scrafty|Substitute'] }),
+    )
+
+    expect(timeline.turns[1]?.events).toMatchObject([
+      { kind: 'effect', effect: 'Protect', phase: 'start' },
+      { kind: 'volatile', effect: 'Substitute', phase: 'start' },
+    ])
+  })
+
+  it('drops the volatiles Showdown drew nothing for', () => {
+    // `fallen5` is Supreme Overlord's own counter and Protosynthesis ends
+    // `[silent]`; the log sends both and the client shows neither. Dropped by
+    // the same rule that has always dropped a silent line (#120).
+    const timeline = parseTimeline(
+      log({
+        lines: [
+          '|-start|p1a: Scrafty|fallen5|[silent]',
+          '|-end|p2a: Whimsicott|Protosynthesis|[silent]',
+        ],
+      }),
+    )
+
+    expect(timeline.turns[1]?.events).toEqual([])
+  })
+
+  it('keeps the `-start` lines that are not a lasting state out of the volatiles', () => {
+    // `-start` is a grab-bag, and two of its shapes have no `-end` at all:
+    // Protean re-announces `typechange` on every single move, and Perish Song
+    // counts down with a new `-start` per turn (`perish3`, `perish2`, …). Read
+    // as volatiles they pile up chips that never come off, under names no dex
+    // has a row for. Kept as `unknown` rather than dropped, so a later ticket
+    // can read them: the type a Protean took is real information.
+    const timeline = parseTimeline(
+      log({
+        lines: [
+          '|-start|p1a: Scrafty|typechange|Water|[from] ability: Protean',
+          '|-start|p2a: Whimsicott|perish3',
+          '|-start|p1a: Scrafty|Substitute',
+        ],
+      }),
+    )
+
+    expect(timeline.turns[1]?.events).toMatchObject([
+      { kind: 'unknown', raw: '|-start|p1a: Scrafty|typechange|Water|[from] ability: Protean' },
+      { kind: 'unknown', raw: '|-start|p2a: Whimsicott|perish3' },
+      { kind: 'volatile', effect: 'Substitute', phase: 'start' },
+    ])
+  })
+
+  it('reads an ability being taken off a Pokémon that is still out', () => {
+    // Gastro Acid, Skill Swap, Mummy. Without it a Fairy Aura chip stays up
+    // for the rest of the game after the aura is gone (#119's stated limit).
+    const timeline = parseTimeline(
+      log({
+        lines: [
+          '|move|p2a: Whimsicott|Gastro Acid|p1a: Scrafty',
+          '|-endability|p1a: Scrafty|Fairy Aura|[from] move: Gastro Acid',
+        ],
+      }),
+    )
+
+    expect(timeline.turns[1]?.events[1]).toMatchObject({
+      kind: 'endAbility',
+      ability: 'Fairy Aura',
+      pokemon: { species: 'Scrafty' },
+    })
+  })
+
+  it('reads an ability ending that the log did not name', () => {
+    // Showdown sends the name most of the time and not always; the event says
+    // what the line said and nothing more.
+    const timeline = parseTimeline(log({ lines: ['|-endability|p1a: Scrafty'] }))
+
+    expect(timeline.turns[1]?.events[0]).toMatchObject({ kind: 'endAbility', ability: '' })
+  })
+
   it('reads a screen going up and coming down as belonging to a side, not a Pokémon', () => {
     // Reflect, Light Screen and Tailwind sit on a side of the field. The name
     // arrives with or without a `move:` prefix depending on the effect.
