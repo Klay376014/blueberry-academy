@@ -2,7 +2,7 @@
 
 - 狀態：Accepted
 - 日期：2026-09-02
-- 相關：#101、#102、#103；推翻主設計文件 §3 的一句話
+- 相關：#101、#102、#103、#112；推翻主設計文件 §3 的一句話
 
 ## 脈絡
 
@@ -170,6 +170,36 @@ serialiser，兩份表 diff 起來長得一樣）。
 CSV 是**執行時抓**而不是 vendor 一份快照：三個 CSV 加起來約 1.5MB，換來的答案約 50KB，
 而重跑是刻意的動作（dex 升版、新世代），不在 install 或 build 的路徑上。任何人只要有網路
 都跑得起來，跑出來的東西也就是已經 committed 的那一份。
+
+**上游 ref 釘死在 commit sha，不讀 `master`（#112）。** 上一句「跑出來的東西也就是已經
+committed 的那一份」只有在「重跑會拿到同一份輸入」時才成立，而 `master` 會動。這不是假想
+的風險，本文件上面那段就記著實測前例：PokéAPI 的繁中欄位到 2026-08-25 之前混著簡體字形。
+同一種變動若在今天發生，物種表會在某次無關的重跑裡靜靜改掉內容，而 diff 會出現在一個完全
+沒預期它的 PR 裡 —— 也就是本文件從頭到尾在拒絕的那個失敗模式。
+
+**選的是 `c8dbd727fffc44783653e899ef2700c72e5449cf`**，也就是
+`gen-move-names-zh-hant.mjs` 的 `POKEAPI_REF` 已經在用的那一個（PokéAPI @ 2026-09-02）。
+兩個候選都量過，而量出來的結果讓這個選擇不用取捨：
+
+```
+$ curl -sS https://api.github.com/repos/PokeAPI/pokeapi/commits/master | head -2
+  "sha": "4c738538445410b83861a8ba251f30f110396778",     # master @ 2026-09-02
+
+# 本產生器讀的三個 CSV，兩個 ref 逐位元組比對
+pokemon_species_names.csv   404502 bytes   IDENTICAL
+pokemon_form_names.csv      140994 bytes   IDENTICAL
+pokemon_forms.csv            63721 bytes   IDENTICAL
+```
+
+三個檔案在 `4c73853`（當時的 `master`）與 `c8dbd72` 完全相同，所以「釘住現況」與「兩張表
+同一個上游快照」在今天是同一件事，不存在需要逐筆解釋的名稱 diff。釘定後重跑兩次，
+committed 的 `species-names-zh-hant.json` 逐位元組不變（sha256
+`d054abb…`，`git diff` 為空）。
+
+既然內容相同，就挑**說得清楚的那一個**：物種表與招式表從同一個上游快照長出來，升級時是
+一個 sha 動、兩張表一起重跑，而不是兩條各自漂移的時間線。代價是有人得記得升 sha —— 產生器
+裡那段註解就是為此而寫的（`ci.yml` 的 #107 是同一類問題：釘死的東西被「順手」改回浮動的
+名字）。
 
 實測輸出：
 

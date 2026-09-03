@@ -52,7 +52,17 @@ const CALC_ZH_HANT =
     new URL('../../../../PokemonTool-DamageCalculator/app/locales/zhHant.json', import.meta.url),
   )
 
-const POKEAPI_CSV = 'https://raw.githubusercontent.com/PokeAPI/pokeapi/master/data/v2/csv/'
+/**
+ * PokéAPI @ 2026-09-02, the same ref `gen-move-names-zh-hant.mjs` pins -- both
+ * name tables grow out of one upstream snapshot. Pinned, not `master`: the
+ * committed bytes are only reproducible if a re-run reads the same input, and
+ * `master` moves under the table's content. Measured, it has: PokéAPI's
+ * Traditional column carried Simplified glyphs until 2026-08-25 (ADR-0014).
+ * Bumping it is a deliberate act with a diff to read, so do not "tidy" this
+ * back to a branch name.
+ */
+const POKEAPI_REF = 'c8dbd727fffc44783653e899ef2700c72e5449cf'
+const POKEAPI_CSV = `https://raw.githubusercontent.com/PokeAPI/pokeapi/${POKEAPI_REF}/data/v2/csv/`
 
 /**
  * The regional forme segments Showdown spells out in a forme name. A forme
