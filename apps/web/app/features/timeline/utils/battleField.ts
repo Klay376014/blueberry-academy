@@ -1,3 +1,4 @@
+import { toID } from 'replay-parser'
 import type { BattleTimeline, SideId, TimelineEvent } from 'replay-parser'
 
 /**
@@ -60,7 +61,62 @@ export interface FieldSnapshot {
    * Neither side's, so they are not under `screens`.
    */
   fieldEffects: string[]
+  /**
+   * The weather standing right now, as the log spelled it, or null when there
+   * is none. One value rather than a list: there is only ever one weather, and
+   * a new one replaces the old one rather than joining it.
+   */
+  weather: string | null
+  /**
+   * The abilities in effect across the whole field — an aura, a Ruin, a
+   * Neutralizing Gas — in the order their holders first appeared.
+   *
+   * Whole-field like `fieldEffects`, but held up by one Pokémon rather than by
+   * the field itself: gone the moment its holder leaves or falls. Said once
+   * however many holders there are, because what the reader needs is whether
+   * it is up.
+   */
+  fieldAbilities: string[]
 }
+
+/**
+ * The abilities that stand on the whole field for as long as their holder is
+ * out, as opposed to the ones that fire once and are over — Intimidate, Trace,
+ * Speed Boost — which `|-ability|` announces in exactly the same shape.
+ *
+ * Hand-written, because no upstream carries the distinction: `@pkmn/dex` has
+ * no whole-field flag on an ability, so unlike `battle-only-formes` or
+ * `ambiguous-move-ids` there is nothing here to re-derive a table from. Ten
+ * names and a reason beat a generated guess.
+ *
+ * Air Lock and Cloud Nine earn their place from the weather chip beside them:
+ * snow with an Air Lock out is snow that does nothing, and the row would
+ * otherwise show only the half of that which misleads.
+ *
+ * **The known limit: an ability lost while its holder stays out.** Gastro Acid,
+ * Skill Swap, Mummy and Worry Seed all take one off and Showdown says so with
+ * `|-endability|` — which the parser does not read at all, so nothing here can
+ * react to it (it arrives as `unknown`). Reading it means a parser event plus a
+ * message for the row it would then draw, which is #120's work rather than this
+ * one's. Until then a suppressed aura keeps its chip.
+ */
+const FIELD_ABILITIES = new Set(
+  [
+    'Fairy Aura',
+    'Dark Aura',
+    'Aura Break',
+    'Beads of Ruin',
+    'Sword of Ruin',
+    'Tablets of Ruin',
+    'Vessel of Ruin',
+    'Neutralizing Gas',
+    'Air Lock',
+    'Cloud Nine',
+  ].map(toID),
+)
+
+/** The one that turns the others off while it is out. */
+const NEUTRALIZING_GAS = toID('Neutralizing Gas')
 
 /**
  * State is kept per Pokémon rather than per position, because that is what the
@@ -89,6 +145,8 @@ interface Body {
   boosts: Map<string, number>
   teraType: string | null
   fainted: boolean
+  /** The whole-field ability this one announced, or null. */
+  fieldAbility: string | null
 }
 
 /** Gives a body a new key in the place it already holds, order and all. */
@@ -120,6 +178,8 @@ export function fieldSnapshots(timeline: BattleTimeline): FieldSnapshot[] {
   const screens: Record<SideId, Set<string>> = { p1: new Set(), p2: new Set() }
   /** What is on the whole field: Trick Room, a terrain. */
   const fieldEffects = new Set<string>()
+  /** The weather, of which there is at most one. */
+  let weather: string | null = null
 
   function bodyAt(event: TimelineEvent): Body | null {
     const pokemon = positionOf(event)
@@ -159,6 +219,11 @@ export function fieldSnapshots(timeline: BattleTimeline): FieldSnapshot[] {
       // Terastallizing is announced once and lasts the game, so it survives a
       // trip to the bench.
       teraType: returning?.teraType ?? null,
+      // Not carried back from the bench the way the Tera type is: an arrival
+      // can only ever set this, so a stale one would never be cleared — and a
+      // Porygon2 that traced Fairy Aura can come back having traced Intimidate.
+      // Everything in `FIELD_ABILITIES` announces itself on arrival.
+      fieldAbility: null,
       fainted: false,
     })
     standing.set(pokemon.position, key)
@@ -174,6 +239,17 @@ export function fieldSnapshots(timeline: BattleTimeline): FieldSnapshot[] {
       const side = screens[event.side]
       if (event.phase === 'start') side.add(event.effect)
       else side.delete(event.effect)
+      return
+    }
+
+    if (event.kind === 'weather') {
+      // `|-weather|none` is the log saying there is none, not a weather by
+      // that name. The `[upkeep]` line every turn re-sends the one standing,
+      // which lands on the same value.
+      // A line with nothing on it is not a weather either: the parser hands
+      // over `''` for a truncated `|-weather|`, and an empty chip under the
+      // field's label is worse than no row.
+      weather = event.weather === 'none' || event.weather === '' ? null : event.weather
       return
     }
 
@@ -199,6 +275,9 @@ export function fieldSnapshots(timeline: BattleTimeline): FieldSnapshot[] {
         break
       case 'boost':
         body.boosts.set(event.stat, (body.boosts.get(event.stat) ?? 0) + event.stages)
+        break
+      case 'ability':
+        if (FIELD_ABILITIES.has(toID(event.ability))) body.fieldAbility = event.ability
         break
       case 'terastallize':
         body.teraType = event.teraType
@@ -256,12 +335,28 @@ export function fieldSnapshots(timeline: BattleTimeline): FieldSnapshot[] {
       .filter(([key]) => !onField.has(key))
       .map(([, body]) => stateOf(body))
 
+    // Only what a standing, living holder is holding up: an aura leaves with
+    // its Pokémon, and a fainted one keeps its square until the switch without
+    // keeping anything else.
+    const standingAbilities = new Set(
+      [...bodies]
+        .filter(([key, body]) => onField.has(key) && !body.fainted)
+        .flatMap(([, body]) => (body.fieldAbility === null ? [] : [body.fieldAbility])),
+    )
+
+    // A Neutralizing Gas switches every other ability off while it is out, so
+    // a Ruin chip beside it would be two contradictory claims on one row.
+    const gas = [...standingAbilities].find((name) => toID(name) === NEUTRALIZING_GAS)
+    const fieldAbilities = gas === undefined ? standingAbilities : new Set([gas])
+
     return {
       turn,
       slots,
       offField,
       screens: { p1: [...screens.p1], p2: [...screens.p2] },
       fieldEffects: [...fieldEffects],
+      weather,
+      fieldAbilities: [...fieldAbilities],
     }
   }
 
