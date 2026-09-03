@@ -57,7 +57,22 @@ const others = [
 
 const ids = [...new Set(others.filter((id) => moves.has(id)))].sort()
 
-/** One id per line, so a dex bump that widens the set reads as a diff. */
-writeFileSync(OUT, `[\n${ids.map((id) => `  ${JSON.stringify(id)}`).join(',\n')}\n]\n`)
+/**
+ * The shape oxfmt already agrees with, so re-running the generator leaves the
+ * committed file byte-identical. Measured against `vp check --fix`: it packs an
+ * array onto one line while the line stays within 100 columns -- which the
+ * seven ids currently do -- and breaks it to one entry per line the moment it
+ * does not. Writing one id per line unconditionally is what made this file
+ * dirty after every run; see #113 and `gen-species-names.mjs`'s `serialise`.
+ *
+ * @param {string[]} values
+ */
+function serialise(values) {
+  const oneLine = `[${values.map((id) => JSON.stringify(id)).join(', ')}]`
+  if (oneLine.length <= 100) return `${oneLine}\n`
+  return `[\n${values.map((id) => `  ${JSON.stringify(id)}`).join(',\n')}\n]\n`
+}
+
+writeFileSync(OUT, serialise(ids))
 
 console.log(`wrote ${ids.length} ambiguous move ids to ambiguous-move-ids.json: ${ids.join(', ')}`)
