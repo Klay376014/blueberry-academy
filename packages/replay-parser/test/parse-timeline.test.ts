@@ -396,6 +396,63 @@ describe('parseTimeline', () => {
     expect(timeline.turns[1]?.events[3]).toMatchObject({ kind: 'boost', stat: 'spa', stages: -1 })
   })
 
+  it('reads the lines that rewrite stat changes, not only the ones that add to them', () => {
+    // The whole family, and each keeps what makes it different: a set is not a
+    // rise, an inversion is neither, and two of them are about two Pokémon
+    // (#123).
+    const timeline = parseTimeline(
+      log({
+        lines: [
+          '|-clearallboost',
+          '|-clearboost|p1a: Scrafty',
+          '|-clearpositiveboost|p1a: Scrafty|p2a: Whimsicott|move: Spectral Thief',
+          '|-setboost|p1a: Scrafty|atk|6|[from] move: Belly Drum',
+          '|-invertboost|p2a: Whimsicott',
+          '|-swapboost|p1a: Scrafty|p2a: Whimsicott|atk, spa|[from] move: Power Swap',
+          '|-swapboost|p1a: Scrafty|p2a: Whimsicott|[from] move: Heart Swap',
+          '|-copyboost|p1a: Scrafty|p2a: Whimsicott|[from] move: Psych Up',
+        ],
+      }),
+    )
+
+    expect(timeline.turns[1]?.events).toMatchObject([
+      { kind: 'clearAllBoosts' },
+      { kind: 'clearBoosts', pokemon: { position: 'p1a' }, only: null },
+      { kind: 'clearBoosts', pokemon: { position: 'p1a' }, only: 'positive' },
+      { kind: 'setBoost', pokemon: { position: 'p1a' }, stat: 'atk', stages: 6 },
+      { kind: 'invertBoosts', pokemon: { position: 'p2a' } },
+      {
+        kind: 'swapBoosts',
+        pokemon: { position: 'p1a' },
+        target: { position: 'p2a' },
+        stats: ['atk', 'spa'],
+      },
+      // Heart Swap leaves the stats column out, and the kwarg that stands in
+      // its place is not a list of stats.
+      { kind: 'swapBoosts', target: { position: 'p2a' }, stats: [] },
+      { kind: 'copyBoosts', pokemon: { position: 'p1a' }, target: { position: 'p2a' } },
+    ])
+  })
+
+  it('holds a stat a line pushed past the top of the scale down to it', () => {
+    // Anger Point says 12, which is Showdown's word for "as far as it goes"
+    // rather than a number of stages. +12 on the bar is a battle state that
+    // cannot exist (#123).
+    const timeline = parseTimeline(
+      log({ lines: ['|-setboost|p1a: Scrafty|atk|12|[from] ability: Anger Point'] }),
+    )
+
+    expect(timeline.turns[1]?.events[0]).toMatchObject({ kind: 'setBoost', stages: 6 })
+  })
+
+  it('keeps a White Herb out of the timeline, because Showdown draws nothing for it', () => {
+    // `-clearnegativeboost` always carries `[silent]`. It is not an unread
+    // line — it is the silent rule doing what it is for (#123).
+    const timeline = parseTimeline(log({ lines: ['|-clearnegativeboost|p1a: Scrafty|[silent]'] }))
+
+    expect(timeline.turns[1]?.events).toEqual([])
+  })
+
   it('parses a real Bo3 game end to end', () => {
     // The shortest fixture, so the whole event stream stays readable. The other
     // fixtures are held by named assertions instead: a snapshot nobody can read

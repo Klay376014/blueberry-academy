@@ -270,6 +270,19 @@ const teraRow: TimelineRow = {
   message: { key: 'terastallized', params: { type: 'Fire' } },
 }
 
+/** Belly Drum, which says where a stat now stands rather than how far it moved. */
+const setBoostRow: TimelineRow = {
+  ...abilityRow,
+  message: { key: 'boostSet', params: { stat: 'atk', stages: '+6' } },
+}
+
+/** Power Swap: the one row whose parameter is several stat names at once. */
+const swapBoostRow: TimelineRow = {
+  ...abilityRow,
+  targets: [{ species: 'Pikachu', notes: [], health: [] }],
+  message: { key: 'boostsSwapped', params: { stats: 'atk,spa' } },
+}
+
 /** A damage row whose source the log named, namespace and all. */
 const damageRow: TimelineRow = {
   ...abilityRow,
@@ -325,6 +338,8 @@ describe('the rest of the vocabulary in en', () => {
       boostRow,
       teraRow,
       damageRow,
+      setBoostRow,
+      swapBoostRow,
     ]
 
     // One at a time: the locale is global to the app instance, so mounting
@@ -342,6 +357,10 @@ describe('the rest of the vocabulary in en', () => {
       'atk +1',
       'terastallized Fire',
       '100% → 90% item: Life Orb',
+      'atk set to +6',
+      // The arrow is the row pointing at the other Pokémon of the trade; the
+      // stat list is joined for the sentence, each name in it English.
+      '→swapped atk · spa with Pikachu',
     ])
   })
 
@@ -395,6 +414,12 @@ describe('the rest of the vocabulary in zh-TW', () => {
   it('says a stat change and a Tera type in Chinese', async () => {
     expect(await said(boostRow, 'zh-TW')).toBe('攻擊 +1')
     expect(await said(teraRow, 'zh-TW')).toBe('太晶化 火')
+  })
+
+  it('says a stat a line wrote outright, and every stat a swap traded', async () => {
+    expect(await said(setBoostRow, 'zh-TW')).toBe('攻擊 變成 +6')
+    // Several identifiers in one parameter, each named on its own (#123).
+    expect(await said(swapBoostRow, 'zh-TW')).toContain('互換 攻擊 · 特攻')
   })
 
   it("says what a [from] blamed under the reader's name for it", async () => {

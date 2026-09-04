@@ -153,6 +153,26 @@ interface Body {
   fieldAbility: string | null
 }
 
+/**
+ * Trades two Pokémon's stat changes: the ones a swap line named, or all of
+ * them when it named none (Heart Swap). A stat one of them did not hold is
+ * traded as a zero rather than left alone, and zeroes are what `stateOf` drops.
+ */
+function swapBoosts(one: Body, other: Body, stats: string[]): void {
+  if (stats.length === 0) {
+    const held = one.boosts
+    one.boosts = other.boosts
+    other.boosts = held
+    return
+  }
+
+  for (const stat of stats) {
+    const held = one.boosts.get(stat) ?? 0
+    one.boosts.set(stat, other.boosts.get(stat) ?? 0)
+    other.boosts.set(stat, held)
+  }
+}
+
 /** Gives a body a new key in the place it already holds, order and all. */
 function rename(bodies: Map<string, Body>, from: string, to: string, body: Body): void {
   const renamed = [...bodies].map(([key, value]) => (key === from ? [to, body] : [key, value]))
@@ -185,13 +205,16 @@ export function fieldSnapshots(timeline: BattleTimeline): FieldSnapshot[] {
   /** The weather, of which there is at most one. */
   let weather: string | null = null
 
-  function bodyAt(event: TimelineEvent): Body | null {
-    const pokemon = positionOf(event)
-    if (!pokemon) return null
-
+  function bodyOf(pokemon: Combatant): Body | null {
     const key = standing.get(pokemon.position)
 
     return key ? (bodies.get(key) ?? null) : null
+  }
+
+  function bodyAt(event: TimelineEvent): Body | null {
+    const pokemon = positionOf(event)
+
+    return pokemon ? bodyOf(pokemon) : null
   }
 
   function enter(event: Extract<TimelineEvent, { kind: 'switch' }>): void {
@@ -261,6 +284,20 @@ export function fieldSnapshots(timeline: BattleTimeline): FieldSnapshot[] {
       return
     }
 
+    if (event.kind === 'clearAllBoosts') {
+      // Haze, which names nobody because it is about everybody. Every body
+      // rather than every standing one: the ones on the bench hold no stat
+      // changes to lose, so the shorter sentence is the same sentence (#123).
+      //
+      // What that rests on is `enter` emptying a Pokémon's stat changes on the
+      // way out, which Baton Pass and Shed Tail are the exception to — and
+      // Showdown sends no line for the transfer at all, so a passed +2 is
+      // already gone from the bar before this. Stated rather than fixed here:
+      // reading it needs the pass itself, not the Haze.
+      for (const body of bodies.values()) body.boosts.clear()
+      return
+    }
+
     if (event.kind === 'fieldEffect') {
       if (event.phase === 'start') fieldEffects.add(event.effect)
       else fieldEffects.delete(event.effect)
@@ -284,6 +321,29 @@ export function fieldSnapshots(timeline: BattleTimeline): FieldSnapshot[] {
       case 'boost':
         body.boosts.set(event.stat, (body.boosts.get(event.stat) ?? 0) + event.stages)
         break
+      case 'clearBoosts':
+        if (event.only === null) body.boosts.clear()
+        // Spectral Thief takes the raised stats and leaves the lowered ones,
+        // which is the whole of what the move does.
+        else for (const [stat, stages] of body.boosts) if (stages > 0) body.boosts.delete(stat)
+        break
+      case 'setBoost':
+        // Belly Drum is +6, not six more than what was there.
+        body.boosts.set(event.stat, event.stages)
+        break
+      case 'invertBoosts':
+        for (const [stat, stages] of body.boosts) body.boosts.set(stat, -stages)
+        break
+      case 'copyBoosts': {
+        const copied = bodyOf(event.target)
+        if (copied) body.boosts = new Map(copied.boosts)
+        break
+      }
+      case 'swapBoosts': {
+        const other = bodyOf(event.target)
+        if (other) swapBoosts(body, other, event.stats)
+        break
+      }
       case 'ability':
         if (FIELD_ABILITIES.has(toID(event.ability))) body.fieldAbility = event.ability
         break

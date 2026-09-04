@@ -86,6 +86,28 @@ export type TimelineEvent =
   | { kind: 'cureStatus'; pokemon: Combatant; status: string }
   /** A stat change, in stages. Negative for a drop. */
   | { kind: 'boost'; pokemon: Combatant; stat: string; stages: number }
+  /**
+   * Every stat change on the field gone at once: Haze. Nobody's, so it carries
+   * no Pokémon — the line itself carries none either (#123).
+   */
+  | { kind: 'clearAllBoosts' }
+  /**
+   * One Pokémon's stat changes gone: Clear Smog, or — with `only: 'positive'`
+   * — the raised ones only, which is Spectral Thief taking them.
+   */
+  | { kind: 'clearBoosts'; pokemon: Combatant; only: 'positive' | null }
+  /** A stat change written outright rather than added to: Belly Drum's +6. */
+  | { kind: 'setBoost'; pokemon: Combatant; stat: string; stages: number }
+  /** Every stat change turned the other way round: Topsy-Turvy. */
+  | { kind: 'invertBoosts'; pokemon: Combatant }
+  /**
+   * Two Pokémon trading stat changes: Heart Swap, Guard Swap, Power Swap.
+   * `stats` is the ones the line named, and empty for all of them — Heart Swap
+   * leaves the column out (#123).
+   */
+  | { kind: 'swapBoosts'; pokemon: Combatant; target: Combatant; stats: string[] }
+  /** Psych Up: `pokemon` takes on the stat changes `target` is holding. */
+  | { kind: 'copyBoosts'; pokemon: Combatant; target: Combatant }
   | { kind: 'weather'; weather: string; from: string | null }
   /** How a hit landed, as Showdown announced it. */
   | { kind: 'hitResult'; pokemon: Combatant; result: HitResult }
@@ -350,6 +372,72 @@ export function buildTimeline(lines: ProtocolLine[]): BattleTimeline {
           stat: args[1] ?? '',
           stages: type === '-boost' ? stages : -stages,
         })
+        break
+      }
+
+      // The lines that rewrite stat changes rather than add to them. Without
+      // them a Haze leaves its +2 on the bar for the rest of the game, which
+      // is the one thing the turn summary said wrongly rather than not at all
+      // (#123).
+      //
+      // `-clearnegativeboost` (White Herb) is deliberately not among them: its
+      // line always carries `[silent]`, so the rule above has already dropped
+      // it and Showdown draws nothing for it either. That is the rule working,
+      // not a line going unread.
+      //
+      // The one shape that would not be silent is a gen 7 Z-move's `[zeffect]`,
+      // and #123 left it out of scope rather than reading it unverified. Only a
+      // gen 7 replay can reach it, and this project imports gen 9.
+      case '-clearallboost':
+        push({ kind: 'clearAllBoosts' })
+        break
+
+      case '-clearboost':
+      case '-clearpositiveboost': {
+        // Both name the Pokémon that loses them first. `-clearpositiveboost`
+        // goes on to name who took them and what did it; the row's subject is
+        // the one that lost them either way, so neither is read.
+        const pokemon = occupant(field, args[0] ?? '')
+        if (!pokemon) break
+        push({
+          kind: 'clearBoosts',
+          pokemon,
+          only: type === '-clearpositiveboost' ? 'positive' : null,
+        })
+        break
+      }
+
+      case '-setboost': {
+        const pokemon = occupant(field, args[0] ?? '')
+        const stages = Number(args[2])
+        if (!pokemon || !Number.isFinite(stages)) break
+        // Held to the six stages the game has. The line can name more than
+        // that — Anger Point announces its maximum as 12, which Showdown's own
+        // client reads as "maximised" rather than as a number — and a stat
+        // standing at +12 is a state no battle can be in, so what would reach
+        // the bar and the row is a lie rather than a bigger truth.
+        push({ kind: 'setBoost', pokemon, stat: args[1] ?? '', stages: heldToStages(stages) })
+        break
+      }
+
+      case '-invertboost': {
+        const pokemon = occupant(field, args[0] ?? '')
+        if (pokemon) push({ kind: 'invertBoosts', pokemon })
+        break
+      }
+
+      case '-swapboost':
+      case '-copyboost': {
+        // Two Pokémon on one line, and the one named first is the one the row
+        // is about: the Psych Up user copies, the swapper trades.
+        const pokemon = occupant(field, args[0] ?? '')
+        const target = occupant(field, args[1] ?? '')
+        if (!pokemon || !target) break
+        push(
+          type === '-copyboost'
+            ? { kind: 'copyBoosts', pokemon, target }
+            : { kind: 'swapBoosts', pokemon, target, stats: statsOf(args[2] ?? '') },
+        )
         break
       }
 
@@ -635,6 +723,28 @@ function statusOf(field: string): string | null {
  */
 function effectNameOf(effect: string): string {
   return effect.replace(/^(move|ability|item):\s*/, '')
+}
+
+/** The stages a stat can stand at, either way. */
+const MAX_STAGES = 6
+
+/** A stage count held inside the range the game has for it. */
+function heldToStages(stages: number): number {
+  return Math.max(-MAX_STAGES, Math.min(MAX_STAGES, Math.trunc(stages)))
+}
+
+/**
+ * The stats a `-swapboost` named, and an empty list for every stat: Heart Swap
+ * trades the lot and leaves the column out, so what stands in its place is the
+ * next kwarg rather than a list (#123).
+ */
+function statsOf(field: string): string[] {
+  if (field.startsWith('[')) return []
+
+  return field
+    .split(',')
+    .map((stat) => stat.trim())
+    .filter((stat) => stat !== '')
 }
 
 /** What the log said caused a change, e.g. `[from] item: Life Orb`. */

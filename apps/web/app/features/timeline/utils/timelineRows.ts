@@ -135,6 +135,15 @@ function isMainLine(event: TimelineEvent): boolean {
   return MAIN_LINE.has(event.kind)
 }
 
+/**
+ * A number of stages with its sign on it, for the one line that states a stat
+ * where it stands rather than how far it moved. The minus is the typographic
+ * one `statFell`'s own copy uses, so a set and a drop read alike.
+ */
+function signed(stages: number): string {
+  return stages > 0 ? `+${stages}` : stages < 0 ? `−${-stages}` : '0'
+}
+
 function blank(): TimelineRow {
   return {
     mark: 'none',
@@ -282,6 +291,62 @@ export function rowOf(event: TimelineEvent): TimelineRow | null {
           key: event.stages > 0 ? 'statRose' : 'statFell',
           params: { stat: event.stat, stages: String(Math.abs(event.stages)) },
         },
+      }
+
+    case 'clearAllBoosts':
+      return {
+        ...blank(),
+        // Everyone's at once, so it is nobody's rail: the same reason a field
+        // effect has none (#123).
+        side: null,
+        message: { key: 'allBoostsCleared' },
+      }
+
+    case 'clearBoosts':
+      return {
+        ...blank(),
+        side: event.pokemon.side,
+        species: event.pokemon.species,
+        message: { key: event.only === 'positive' ? 'positiveBoostsCleared' : 'boostsCleared' },
+      }
+
+    case 'setBoost':
+      return {
+        ...blank(),
+        side: event.pokemon.side,
+        species: event.pokemon.species,
+        message: { key: 'boostSet', params: { stat: event.stat, stages: signed(event.stages) } },
+      }
+
+    case 'invertBoosts':
+      return {
+        ...blank(),
+        side: event.pokemon.side,
+        species: event.pokemon.species,
+        message: { key: 'boostsInverted' },
+      }
+
+    case 'swapBoosts':
+      return {
+        ...blank(),
+        side: event.pokemon.side,
+        species: event.pokemon.species,
+        // The other one behind the arrow: a trade is about two Pokémon, and
+        // the row would otherwise say a thing was swapped with nobody.
+        targets: [{ species: event.target.species, notes: [], health: [] }],
+        message:
+          event.stats.length === 0
+            ? { key: 'allBoostsSwapped' }
+            : { key: 'boostsSwapped', params: { stats: event.stats.join(',') } },
+      }
+
+    case 'copyBoosts':
+      return {
+        ...blank(),
+        side: event.pokemon.side,
+        species: event.pokemon.species,
+        targets: [{ species: event.target.species, notes: [], health: [] }],
+        message: { key: 'boostsCopied' },
       }
 
     case 'effect':
