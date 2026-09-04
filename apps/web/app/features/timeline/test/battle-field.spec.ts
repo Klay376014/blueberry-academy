@@ -77,6 +77,113 @@ describe('the state of the field at the end of a turn', () => {
     ).toEqual({})
   })
 
+  it('takes every stat change off the field when a Haze goes out', () => {
+    // The bug this family was read for: `-clearallboost` names nobody, so the
+    // chips it clears were left standing and the bar kept showing a +2 that
+    // was gone. No fixture can show it — the seven Haze lines in the corpus
+    // all land on a field holding nothing (#123).
+    const lines = [
+      '|-boost|p1a: Scrafty|atk|2',
+      '|-boost|p2a: Whimsicott|spe|1',
+      '|move|p2a: Whimsicott|Haze|p2a: Whimsicott',
+      '|-clearallboost',
+    ]
+
+    expect(slotAt(lines, 'p1a')?.boosts).toEqual({})
+    expect(slotAt(lines, 'p2a')?.boosts).toEqual({})
+  })
+
+  it('takes them off the one a Clear Smog named, and leaves the other alone', () => {
+    const lines = [
+      '|-boost|p1a: Scrafty|atk|2',
+      '|-boost|p2a: Whimsicott|spe|1',
+      '|-clearboost|p1a: Scrafty',
+    ]
+
+    expect(slotAt(lines, 'p1a')?.boosts).toEqual({})
+    expect(slotAt(lines, 'p2a')?.boosts).toEqual({ spe: 1 })
+  })
+
+  it('sets a stat where a Belly Drum says to, rather than adding to it', () => {
+    // +2 and then "set to 6" is 6, not 8.
+    const lines = ['|-boost|p1a: Scrafty|atk|2', '|-setboost|p1a: Scrafty|atk|6']
+
+    expect(slotAt(lines, 'p1a')?.boosts).toEqual({ atk: 6 })
+  })
+
+  it('turns every stat change the other way round for a Topsy-Turvy', () => {
+    const lines = [
+      '|-boost|p1a: Scrafty|atk|2',
+      '|-unboost|p1a: Scrafty|spe|1',
+      '|-invertboost|p1a: Scrafty',
+    ]
+
+    expect(slotAt(lines, 'p1a')?.boosts).toEqual({ atk: -2, spe: 1 })
+  })
+
+  it('trades only the stats a swap line named, on both Pokémon', () => {
+    const lines = [
+      '|-boost|p1a: Scrafty|atk|2',
+      '|-boost|p1a: Scrafty|spe|1',
+      '|-unboost|p2a: Whimsicott|atk|1',
+      '|-swapboost|p1a: Scrafty|p2a: Whimsicott|atk|[from] move: Power Swap',
+    ]
+
+    expect(slotAt(lines, 'p1a')?.boosts).toEqual({ atk: -1, spe: 1 })
+    expect(slotAt(lines, 'p2a')?.boosts).toEqual({ atk: 2 })
+  })
+
+  it('trades the lot when a Heart Swap names no stats at all', () => {
+    const lines = [
+      '|-boost|p1a: Scrafty|atk|2',
+      '|-unboost|p2a: Whimsicott|spe|1',
+      '|-swapboost|p1a: Scrafty|p2a: Whimsicott|[from] move: Heart Swap',
+    ]
+
+    expect(slotAt(lines, 'p1a')?.boosts).toEqual({ spe: -1 })
+    expect(slotAt(lines, 'p2a')?.boosts).toEqual({ atk: 2 })
+  })
+
+  it('gives a Psych Up user the other one’s stat changes, and leaves them there', () => {
+    const lines = [
+      '|-boost|p2a: Whimsicott|spa|2',
+      '|-copyboost|p1a: Scrafty|p2a: Whimsicott|[from] move: Psych Up',
+    ]
+
+    expect(slotAt(lines, 'p1a')?.boosts).toEqual({ spa: 2 })
+    expect(slotAt(lines, 'p2a')?.boosts).toEqual({ spa: 2 })
+  })
+
+  it('leaves a copied Pokémon’s later stat changes off the one that copied it', () => {
+    // A copy, not a shared map: what Whimsicott gains afterwards is its own.
+    const lines = [
+      '|-boost|p2a: Whimsicott|spa|2',
+      '|-copyboost|p1a: Scrafty|p2a: Whimsicott|[from] move: Psych Up',
+      '|-boost|p2a: Whimsicott|spa|1',
+    ]
+
+    expect(slotAt(lines, 'p1a')?.boosts).toEqual({ spa: 2 })
+    expect(slotAt(lines, 'p2a')?.boosts).toEqual({ spa: 3 })
+  })
+
+  it('takes only the raised stats for a Spectral Thief, and keeps the lowered ones', () => {
+    const lines = [
+      '|-boost|p2a: Whimsicott|atk|2',
+      '|-unboost|p2a: Whimsicott|def|1',
+      '|-clearpositiveboost|p2a: Whimsicott|p1a: Scrafty|move: Spectral Thief',
+    ]
+
+    expect(slotAt(lines, 'p2a')?.boosts).toEqual({ def: -1 })
+  })
+
+  it('leaves a White Herb’s drop standing, because Showdown draws nothing for it', () => {
+    // `-clearnegativeboost` is always silent, and the silent rule drops it
+    // before it reaches here. The bar can only say what was played (#123).
+    const lines = ['|-unboost|p1a: Scrafty|atk|1', '|-clearnegativeboost|p1a: Scrafty|[silent]']
+
+    expect(slotAt(lines, 'p1a')?.boosts).toEqual({ atk: -1 })
+  })
+
   it('drops the stat changes of a Pokémon that left the field', () => {
     // Boosts are lost on a switch out, so they cannot come back with it.
     const lines = [

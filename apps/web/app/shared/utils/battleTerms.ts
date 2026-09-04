@@ -66,6 +66,22 @@ export function statDisplayName(stat: string, locale: string): string {
   return lookup(STATS, stat, locale)
 }
 
+/**
+ * The stats a swap line named, all in the reader's language: `atk, spa` reads
+ * `攻擊 · 特攻`.
+ *
+ * One string rather than a list because it is one parameter of one sentence.
+ * The separator is a middle dot rather than a comma so that neither language
+ * has to punctuate a list the other's way, and an unnamed stat falls back the
+ * way every other one here does.
+ */
+export function statListDisplayName(stats: string, locale: string): string {
+  return stats
+    .split(',')
+    .map((stat) => statDisplayName(stat.trim(), locale))
+    .join(' · ')
+}
+
 /** The name to show for the type a Tera line named, `Stellar` included. */
 export function teraTypeDisplayName(type: string, locale: string): string {
   return lookup(TYPES, type, locale)

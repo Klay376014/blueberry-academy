@@ -269,6 +269,70 @@ describe('the rows one turn becomes', () => {
       message: { key: 'statRose', params: { stat: 'spe', stages: '2' } },
     })
   })
+  it('says what a line that rewrote the stat changes did, on a row of its own', () => {
+    const said = (line: string) => rows([line], true)[0]
+
+    // Nobody's line, so nobody's rail: Haze names no Pokémon at all.
+    expect(said('|-clearallboost')).toMatchObject({
+      side: null,
+      species: null,
+      message: { key: 'allBoostsCleared' },
+    })
+    expect(said('|-clearboost|p1a: Scrafty')).toMatchObject({
+      side: 'p1',
+      species: 'Scrafty',
+      message: { key: 'boostsCleared' },
+    })
+    expect(
+      said('|-clearpositiveboost|p2a: Whimsicott|p1a: Scrafty|move: Spectral Thief'),
+    ).toMatchObject({ species: 'Whimsicott', message: { key: 'positiveBoostsCleared' } })
+    // A set says where the stat now stands, sign and all — `atk 6` would read
+    // as six of something rather than as the top of the scale.
+    expect(said('|-setboost|p1a: Scrafty|atk|6|[from] move: Belly Drum')).toMatchObject({
+      message: { key: 'boostSet', params: { stat: 'atk', stages: '+6' } },
+    })
+    expect(said('|-invertboost|p1a: Scrafty')).toMatchObject({
+      message: { key: 'boostsInverted' },
+    })
+  })
+
+  it('puts the other Pokémon of a trade behind the arrow, where a swap needs two', () => {
+    const swap = rows(
+      ['|-swapboost|p1a: Scrafty|p2a: Whimsicott|atk, spa|[from] move: Power Swap'],
+      true,
+    )[0]
+
+    expect(swap).toMatchObject({
+      side: 'p1',
+      species: 'Scrafty',
+      targets: [{ species: 'Whimsicott' }],
+      // The stats as the log spelled them, comma-joined: the component is what
+      // puts each into the reader's language.
+      message: { key: 'boostsSwapped', params: { stats: 'atk,spa' } },
+    })
+
+    // Heart Swap names no stats, so the sentence cannot list any.
+    expect(
+      rows(['|-swapboost|p1a: Scrafty|p2a: Whimsicott|[from] move: Heart Swap'], true)[0],
+    ).toMatchObject({ message: { key: 'allBoostsSwapped' }, targets: [{ species: 'Whimsicott' }] })
+
+    expect(
+      rows(['|-copyboost|p1a: Scrafty|p2a: Whimsicott|[from] move: Psych Up'], true)[0],
+    ).toMatchObject({
+      species: 'Scrafty',
+      targets: [{ species: 'Whimsicott' }],
+      message: { key: 'boostsCopied' },
+    })
+  })
+
+  it('holds a rewritten stat change back until the rest of the turn is asked for', () => {
+    // The same standing as `-boost`: the move that did it is the main line, and
+    // the bar below already shows the chips going.
+    const lines = ['|move|p2a: Whimsicott|Haze|p2a: Whimsicott', '|-clearallboost']
+
+    expect(rows(lines).map((row) => row.mark)).toEqual(['move'])
+    expect(sidelinedCount(turnsOf(lines)[1]!)).toBe(1)
+  })
 })
 
 describe('the results an action gathers onto its own row', () => {

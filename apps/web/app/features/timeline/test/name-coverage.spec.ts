@@ -234,7 +234,15 @@ const CATEGORIES = [
   {
     what: 'a stat a boost line named',
     strings: [
-      ...rows.flatMap((row) => params(row, ['statRose', 'statFell'], 'stat')),
+      ...rows.flatMap((row) => params(row, ['statRose', 'statFell', 'boostSet'], 'stat')),
+      // The stats a swap line trades, which arrive as one comma-joined
+      // parameter and are named one at a time. No fixture carries a
+      // `-swapboost` — like the whole-field abilities above, this is coverage
+      // for whatever a later fixture brings rather than for anything today
+      // (#123).
+      ...rows.flatMap((row) =>
+        params(row, ['boostsSwapped'], 'stats').flatMap((stats) => stats.split(',')),
+      ),
       ...snapshots.flatMap((snapshot) => [
         ...snapshot.slots.flatMap((slot) => Object.keys(slot.boosts)),
         ...snapshot.offField.flatMap((pokemon) => Object.keys(pokemon.boosts)),

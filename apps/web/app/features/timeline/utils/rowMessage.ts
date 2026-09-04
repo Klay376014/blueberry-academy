@@ -5,6 +5,7 @@ import {
   itemDisplayName,
   sourceDisplayName,
   statDisplayName,
+  statListDisplayName,
   teraTypeDisplayName,
 } from '~/shared/utils/battleTerms'
 
@@ -41,6 +42,10 @@ const LOCALISERS: Record<string, Record<string, (value: string, locale: string) 
   lostItem: { item: itemDisplayName },
   statRose: { stat: statDisplayName },
   statFell: { stat: statDisplayName },
+  boostSet: { stat: statDisplayName },
+  // The one parameter that is several identifiers at once: a swap line names
+  // the stats it trades as a list (#123).
+  boostsSwapped: { stats: statListDisplayName },
   terastallized: { type: teraTypeDisplayName },
   // Whatever the log said was to blame, namespace and all.
   couldNotMove: { reason: sourceDisplayName },
