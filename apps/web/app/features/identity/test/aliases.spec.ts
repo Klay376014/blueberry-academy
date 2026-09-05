@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { mountSuspended, mockNuxtImport } from '@nuxt/test-utils/runtime'
 import App from '../../../app.vue'
 import { signIn } from '../../../../test/helpers'
-import { teleported } from './teleported'
+import { teleported } from '../../../../test/teleported'
 
 // Only the trip to Supabase is faked. `aliases` stays the real state the
 // composable writes, so a binding inside a test means what it means in the app.
@@ -168,10 +168,13 @@ describe('the Showdown alias settings', () => {
     expect(wrapper.find('[data-testid="alias-message"]').exists()).toBe(false)
   })
 
-  it('reaches the page from the nav', async () => {
+  // From the account menu rather than from the nav: these names are the
+  // reader's own account rather than a place on the site (issue #128).
+  it('reaches the page from the account menu', async () => {
     const wrapper = await mountSuspended(App, { route: '/' })
 
-    const hrefs = wrapper.findAll('nav a').map((a) => a.attributes('href'))
-    expect(hrefs).toContain('/settings')
+    await wrapper.get('[data-testid="user-menu"]').trigger('keydown', { key: 'Enter' })
+
+    expect(teleported('menu-settings')?.getAttribute('href')).toBe('/settings')
   })
 })

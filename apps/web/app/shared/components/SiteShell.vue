@@ -1,70 +1,29 @@
 <script setup lang="ts">
-import { Moon, Sun } from '@lucide/vue'
-
-/**
- * The frame every page is drawn in: the container, the header bar, and the two
- * switchers that are the same on both sides of the login.
+ /**
+ * The frame every page is drawn in: the container, the header the layout
+ * fills, and the footer both shells share.
  *
  * What goes in the header differs by shell — `layouts/app.vue` has an account
- * to sign out of and pages a stranger cannot reach — so the links come in
- * through the slots. The container used to be a `#__nuxt` rule in
- * tailwind.css, which no layout could restate and the error page could not
- * reach; it lives here now (issue #125).
+ * to reach, `layouts/public.vue` has a way in to offer — so the header comes
+ * in through a slot. The footer does not: the legal reading and the source are
+ * the same for both readers, and putting it here is what keeps the two shells
+ * from drifting apart (issue #128).
+ *
+ * The container used to be a `#__nuxt` rule in tailwind.css, which no layout
+ * could restate and the error page could not reach; it lives here now
+ * (issue #125). `px-4` below `sm` rather than `px-8`: at 375px the wider
+ * padding leaves the header row nothing to wrap into.
  */
-const { t, locale, locales, setLocale } = useI18n()
-const colorMode = useColorMode()
-
-// The nav's own <a> hrefs are asserted in test/nuxt/routing.spec.ts, so the
-// locale and theme switchers deliberately sit outside <nav>.
-const otherLocale = computed(() =>
-  locales.value.find((candidate) => candidate.code !== locale.value),
-)
-
-// A method rather than an inline handler: inside an arrow function in the
-// template, `v-if="otherLocale"` no longer narrows it, and vue-tsc rightly
-// says it may be undefined.
-function switchLocale() {
-  if (otherLocale.value) setLocale(otherLocale.value.code)
-}
-
-function toggleTheme() {
-  colorMode.preference = colorMode.value === 'dark' ? 'light' : 'dark'
-}
 </script>
 
 <template>
-  <div class="mx-auto max-w-[1280px] px-8" data-testid="site-shell">
-    <header class="flex items-center justify-between border-b border-border">
-      <nav class="flex gap-4 py-4">
-        <slot name="nav" />
-      </nav>
+  <div class="mx-auto flex min-h-dvh max-w-[1280px] flex-col px-4 sm:px-8" data-testid="site-shell">
+    <slot name="header" />
 
-      <div class="flex items-center gap-2">
-        <slot name="actions" />
+    <div class="flex-1">
+      <slot />
+    </div>
 
-        <UiButton
-          v-if="otherLocale"
-          variant="outline"
-          size="sm"
-          :aria-label="t('a11y.switchLanguage')"
-          data-testid="locale-switcher"
-          @click="switchLocale"
-        >
-          {{ otherLocale.name }}
-        </UiButton>
-        <UiButton
-          variant="ghost"
-          size="icon"
-          :aria-label="t('a11y.toggleTheme')"
-          data-testid="theme-toggle"
-          @click="toggleTheme"
-        >
-          <Moon v-if="colorMode.value === 'dark'" />
-          <Sun v-else />
-        </UiButton>
-      </div>
-    </header>
-
-    <slot />
+    <SiteFooter />
   </div>
 </template>

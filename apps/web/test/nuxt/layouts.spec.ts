@@ -24,15 +24,17 @@ describe('the site shells', () => {
   it('gives a page behind the login the signed-in shell', async () => {
     const wrapper = await mountSuspended(App, { route: '/import' })
 
-    expect(wrapper.find('[data-testid="sign-out"]').exists()).toBe(true)
+    // The account menu, which is what signing out is behind now (issue #128).
+    expect(wrapper.find('[data-testid="user-menu"]').exists()).toBe(true)
   })
 
-  it('gives a public page the public shell, with nothing to sign out of', async () => {
+  it('gives a public page the public shell, with no account to reach', async () => {
     signOut()
 
     const wrapper = await mountSuspended(App, { route: '/login' })
 
-    expect(wrapper.find('[data-testid="sign-out"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="user-menu"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="sign-in"]').exists()).toBe(true)
   })
 
   // A page on both sides of the login says which shell per reader through the

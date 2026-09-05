@@ -43,9 +43,19 @@ describe('the error page', () => {
   it('keeps the site around it rather than dropping out of it', async () => {
     const wrapper = await mountSuspended(ErrorPage, notFound)
 
-    const hrefs = wrapper.findAll('nav a').map((a) => a.attributes('href'))
+    // The public shell's furniture: the product's name back to `/`, the
+    // footer's reading, and both switchers (issue #128).
+    const hrefs = wrapper
+      .findAll('[data-testid="site-footer-nav"] a')
+      .map((a) => a.attributes('href'))
 
-    expect(hrefs).toEqual(['/', '/about'])
+    expect(wrapper.get('[data-testid="site-brand"]').attributes('href')).toBe('/')
+    expect(hrefs).toEqual([
+      '/about',
+      '/privacy',
+      '/privacy#terms',
+      'https://github.com/Klay376014/blueberry-academy',
+    ])
     expect(wrapper.find('[data-testid="theme-toggle"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="locale-switcher"]').exists()).toBe(true)
   })
@@ -55,7 +65,7 @@ describe('the error page', () => {
 
     const wrapper = await mountSuspended(ErrorPage, notFound)
 
-    expect(wrapper.find('[data-testid="sign-out"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="user-menu"]').exists()).toBe(true)
   })
 
   it('has both sayings in both locales', () => {

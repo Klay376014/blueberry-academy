@@ -4,7 +4,15 @@
     "about": "About",
     "signOut": "Sign out",
     "settings": "Settings",
-    "import": "Import"
+    "import": "Import",
+    "signIn": "Sign in",
+    "account": "Account"
+  },
+  "footer": {
+    "about": "About",
+    "privacy": "Privacy",
+    "terms": "Terms",
+    "source": "Source code"
   },
   "home": {
     "title": "Blueberry Academy",
@@ -126,7 +134,10 @@
   },
   "a11y": {
     "toggleTheme": "Toggle theme",
-    "switchLanguage": "Switch language"
+    "switchLanguage": "Switch language",
+    "mainNav": "Main",
+    "footerNav": "About this site",
+    "accountMenu": "Your account"
   },
   "login": {
     "title": "Sign in",

@@ -10,7 +10,9 @@ describe('i18n', () => {
   it('defaults to English', async () => {
     const wrapper = await mountSuspended(App, { route: '/' })
 
-    expect(wrapper.get('nav').text()).toContain('Home')
+    // The footer's nav rather than the header's: it is under both shells, so
+    // this does not depend on which one the mount happened to get.
+    expect(wrapper.get('[data-testid="site-footer-nav"]').text()).toContain('Source code')
     expect(wrapper.get('main h1').text()).toBe('Blueberry Academy')
   })
 
@@ -25,7 +27,7 @@ describe('i18n', () => {
     // rather than guessing at a number of ticks.
     await switcher.trigger('click')
     await vi.waitFor(() => {
-      expect(wrapper.get('nav').text()).toContain('首頁')
+      expect(wrapper.get('[data-testid="site-footer-nav"]').text()).toContain('原始碼')
     })
 
     expect(wrapper.get('main p').text()).toBe('VGC 對戰紀錄分析。')

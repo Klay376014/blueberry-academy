@@ -28,18 +28,26 @@ describe('file-based routes', () => {
     expect(wrapper.find('main h1').text()).toBe('Settings')
   })
 
+  // Scoped to the header's nav, and without `/settings` in it: settings is
+  // the reader's own account rather than a place on the site, so it moved
+  // into the account menu, and the footer's links are a second `<nav>` that a
+  // bare `nav a` would now sweep up as well (issue #128).
   it('links to every route from the nav', async () => {
     const wrapper = await mountSuspended(App, { route: '/' })
-    const hrefs = wrapper.findAll('nav a').map((a) => a.attributes('href'))
-    expect(hrefs).toEqual(['/', '/about', '/import', '/settings'])
+    const hrefs = wrapper.findAll('[data-testid="site-nav"] a').map((a) => a.attributes('href'))
+    expect(hrefs).toEqual(['/', '/about', '/import'])
   })
 
+  // Every link on the page rather than the nav's: what a stranger must not be
+  // offered is the two pages that need an account, wherever they are drawn.
   it('offers no import or settings link to somebody who is not signed in', async () => {
     signOut()
 
     const wrapper = await mountSuspended(App, { route: '/login' })
 
-    const hrefs = wrapper.findAll('nav a').map((a) => a.attributes('href'))
-    expect(hrefs).toEqual(['/', '/about'])
+    const hrefs = wrapper.findAll('a').map((a) => a.attributes('href'))
+    expect(hrefs).not.toContain('/import')
+    expect(hrefs).not.toContain('/settings')
+    expect(hrefs).toContain('/about')
   })
 })

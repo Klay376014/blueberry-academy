@@ -4,6 +4,7 @@ import type { RouteLocationNormalized } from 'vue-router'
 import authMiddleware from '../../app/middleware/auth.global'
 import App from '../../app/app.vue'
 import { signIn, signOut as signOutState } from '../helpers'
+import { forgetTeleported, pressTeleported } from '../teleported'
 
 // vi.hoisted, because mockNuxtImport's factory is lifted above this file's
 // own initialisation and would otherwise read these before they exist.
@@ -188,19 +189,26 @@ describe('the OAuth callback page', () => {
 })
 
 describe('the header', () => {
-  beforeEach(signOutState)
+  beforeEach(() => {
+    forgetTeleported('sign-out')
+    signOutState()
+  })
 
   it('offers no way out while nobody is signed in', async () => {
     const wrapper = await mountSuspended(App, { route: '/login' })
 
-    expect(wrapper.find('[data-testid="sign-out"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="user-menu"]').exists()).toBe(false)
   })
 
-  it('signs out when pressed', async () => {
+  // Two presses rather than one, and the second one is inside the account
+  // menu: signing out is not a switcher (issue #128). The item itself is
+  // teleported out of the header by reka-ui, so it is found in the document.
+  it('signs out when the account menu’s way out is pressed', async () => {
     signIn()
 
     const wrapper = await mountSuspended(App, { route: '/about' })
-    await wrapper.get('[data-testid="sign-out"]').trigger('click')
+    await wrapper.get('[data-testid="user-menu"]').trigger('keydown', { key: 'Enter' })
+    pressTeleported('sign-out')
 
     expect(signOut).toHaveBeenCalledOnce()
   })
