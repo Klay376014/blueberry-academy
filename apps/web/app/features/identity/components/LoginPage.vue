@@ -1,5 +1,6 @@
 <script setup lang="ts">
 const { t } = useI18n()
+const localePath = useLocalePath()
 const { signInWithGoogle } = useAuth()
 
 const failed = ref(false)
@@ -26,5 +27,17 @@ async function signIn() {
     <p v-if="failed" class="mt-4 text-sm text-destructive" data-testid="sign-in-error">
       {{ t('login.failed') }}
     </p>
+
+    <!--
+      What signing in hands over, reachable from the page where it is handed
+      over rather than only from About (issue #127).
+    -->
+    <NuxtLink
+      :to="localePath('/privacy')"
+      class="mt-6 inline-block text-sm text-primary underline"
+      data-testid="login-privacy"
+    >
+      {{ t('privacy.title') }}
+    </NuxtLink>
   </main>
 </template>
