@@ -4,7 +4,7 @@ import App from '../../../app.vue'
 import { fakeBattles } from '../../../../test/fakes/battles'
 import type { StoredBattle } from '../../../../test/fakes/battles'
 import { signIn } from '../../../../test/helpers'
-import { forgetTeleported, pressTeleported, teleported } from './teleported'
+import { forgetTeleported, pressTeleported, teleported } from '../../../../test/teleported'
 
 /**
  * What the settings page does with the re-attribution that follows a binding.

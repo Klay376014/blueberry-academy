@@ -4,7 +4,15 @@
     "about": "關於",
     "signOut": "登出",
     "settings": "設定",
-    "import": "匯入"
+    "import": "匯入",
+    "signIn": "登入",
+    "account": "帳號"
+  },
+  "footer": {
+    "about": "關於",
+    "privacy": "隱私",
+    "terms": "條款",
+    "source": "原始碼"
   },
   "home": {
     "title": "Blueberry Academy",
@@ -126,7 +134,10 @@
   },
   "a11y": {
     "toggleTheme": "切換深淺色",
-    "switchLanguage": "切換語言"
+    "switchLanguage": "切換語言",
+    "mainNav": "主導覽",
+    "footerNav": "關於這個網站",
+    "accountMenu": "你的帳號"
   },
   "login": {
     "title": "登入",
