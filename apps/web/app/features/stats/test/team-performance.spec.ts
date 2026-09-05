@@ -27,7 +27,12 @@ function answerWith(rows: StoredBattle[]) {
 
 const { routeParams } = vi.hoisted(() => ({ routeParams: { value: { id: '' } } }))
 
-mockNuxtImport('useRoute', () => () => ({ params: routeParams.value, query: {} }) as never)
+// `meta` because a real route always has one and the layout the page draws
+// reads it (issue #126); without it `<NuxtLayout>` throws on mount.
+mockNuxtImport(
+  'useRoute',
+  () => () => ({ params: routeParams.value, query: {}, meta: {} }) as never,
+)
 
 /** A team's worth of rows: `wins` won, the rest lost, all brings complete. */
 function rowsFor(options: {
