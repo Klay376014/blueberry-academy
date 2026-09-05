@@ -170,8 +170,8 @@
     min-height: 100dvh;
   }
 
-  /* Page shell, carried over from the create-vue main.css this file replaced. */
-  #__nuxt {
-    @apply mx-auto max-w-[1280px] px-8;
-  }
+  /* The page shell used to be a `#__nuxt` rule here. It moved into
+     `shared/components/SiteShell.vue` with the layouts (issue #125): a rule on
+     the mount point is one no layout can restate and no page can opt out of,
+     and the two shells now own the frame they draw. */
 }

@@ -1,92 +1,10 @@
-<script setup lang="ts">
-import { Moon, Sun } from '@lucide/vue'
-
-const { t, locale, locales, setLocale } = useI18n()
-const localePath = useLocalePath()
-const colorMode = useColorMode()
-const { user, signOut } = useAuth()
-
-// The nav's own <a> hrefs are asserted in test/nuxt/routing.spec.ts, so the
-// locale and theme switchers deliberately sit outside <nav>.
-const otherLocale = computed(() =>
-  locales.value.find((candidate) => candidate.code !== locale.value),
-)
-
-// A method rather than an inline handler: inside an arrow function in the
-// template, `v-if="otherLocale"` no longer narrows it, and vue-tsc rightly
-// says it may be undefined.
-function switchLocale() {
-  if (otherLocale.value) setLocale(otherLocale.value.code)
-}
-
-function toggleTheme() {
-  colorMode.preference = colorMode.value === 'dark' ? 'light' : 'dark'
-}
-</script>
-
 <template>
-  <header class="flex items-center justify-between border-b border-border">
-    <nav class="flex gap-4 py-4">
-      <NuxtLink
-        :to="localePath('/')"
-        class="rounded-md px-2 py-1 text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground [&.router-link-exact-active]:text-foreground"
-      >
-        {{ t('nav.home') }}
-      </NuxtLink>
-      <NuxtLink
-        :to="localePath('/about')"
-        class="rounded-md px-2 py-1 text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground [&.router-link-exact-active]:text-foreground"
-      >
-        {{ t('nav.about') }}
-      </NuxtLink>
-      <NuxtLink
-        v-if="user"
-        :to="localePath('/import')"
-        class="rounded-md px-2 py-1 text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground [&.router-link-exact-active]:text-foreground"
-      >
-        {{ t('nav.import') }}
-      </NuxtLink>
-      <NuxtLink
-        v-if="user"
-        :to="localePath('/settings')"
-        class="rounded-md px-2 py-1 text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground [&.router-link-exact-active]:text-foreground"
-      >
-        {{ t('nav.settings') }}
-      </NuxtLink>
-    </nav>
-
-    <div class="flex items-center gap-2">
-      <UiButton
-        v-if="user"
-        variant="outline"
-        size="sm"
-        data-testid="sign-out"
-        @click="() => signOut()"
-      >
-        {{ t('nav.signOut') }}
-      </UiButton>
-      <UiButton
-        v-if="otherLocale"
-        variant="outline"
-        size="sm"
-        :aria-label="t('a11y.switchLanguage')"
-        data-testid="locale-switcher"
-        @click="switchLocale"
-      >
-        {{ otherLocale.name }}
-      </UiButton>
-      <UiButton
-        variant="ghost"
-        size="icon"
-        :aria-label="t('a11y.toggleTheme')"
-        data-testid="theme-toggle"
-        @click="toggleTheme"
-      >
-        <Moon v-if="colorMode.value === 'dark'" />
-        <Sun v-else />
-      </UiButton>
-    </div>
-  </header>
-
-  <NuxtPage />
+  <!--
+    Empty on purpose: the shell is a layout now, and each page says which of
+    the two it wants (issue #125). `<NuxtLayout>` reads that off the route, so
+    nothing here has to know about it.
+  -->
+  <NuxtLayout>
+    <NuxtPage />
+  </NuxtLayout>
 </template>

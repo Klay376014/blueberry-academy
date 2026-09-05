@@ -13,6 +13,17 @@
   "about": {
     "title": "About"
   },
+  "error": {
+    "notFound": {
+      "title": "There is nothing at this address",
+      "body": "The link may be an old one, or the address may have a typo in it. Everything else is still here."
+    },
+    "unexpected": {
+      "title": "Something went wrong here",
+      "body": "This page could not be shown. Loading it again is often enough; if it is not, nothing you have imported is affected."
+    },
+    "home": "Back to the start"
+  },
   "a11y": {
     "toggleTheme": "Toggle theme",
     "switchLanguage": "Switch language"

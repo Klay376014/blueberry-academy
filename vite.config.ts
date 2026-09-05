@@ -163,12 +163,14 @@ export default defineConfig({
         },
       },
       {
-        // Pages, app.vue, the route middleware, the plugins and the app-level
-        // tests are where features meet. They may use a feature — through the
-        // one file it offers.
+        // Pages, the layouts, app.vue, error.vue, the route middleware, the
+        // plugins and the app-level tests are where features meet. They may
+        // use a feature — through the one file it offers.
         files: [
           'apps/web/app/pages/**',
+          'apps/web/app/layouts/**',
           'apps/web/app/app.vue',
+          'apps/web/app/error.vue',
           'apps/web/app/middleware/**',
           'apps/web/app/plugins/**',
           'apps/web/test/**',

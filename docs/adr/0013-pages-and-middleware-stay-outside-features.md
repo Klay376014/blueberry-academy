@@ -29,6 +29,12 @@ utils / test，只透過一個 `index.ts` 對外；跨 feature 共用的東西�
 依賴方向：頁面與 middleware 可以匯入 `~/features/<name>`（只走 `index.ts`）與
 `~/shared/**`；反向不成立。
 
+**後續補入（#125）：`app/layouts/` 與 `app/error.vue` 同屬這一層，理由與上面同一條**
+—— Nuxt 只掃 `app/layouts/`，也只認根層的 `error.vue`；搬進 feature 之後版面殼與錯誤頁
+一樣是無聲失效（不報錯，只是不再套用）。兩個 layout（`app` / `public`）拿的東西與頁面
+相同：`~/features/<name>` 的 `index.ts` 與 `~/shared/**`。`app/layouts/app.vue` 裡的登出
+按鈕就是這條授權的實例 —— 它是 `features/identity`，而版面殼是組合層。
+
 ## 為什麼不搬進 feature
 
 **Nuxt 的檔案路由只掃 `app/pages/`。** 這不是慣例問題 —— 把

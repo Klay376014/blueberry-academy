@@ -29,7 +29,17 @@ mockNuxtImport('navigateTo', () => navigateToMock)
 
 /** A route object with only the fields the middleware reads. */
 function route(name: string, path: string) {
-  return { name, path, fullPath: path } as unknown as RouteLocationNormalized
+  return { name, path, fullPath: path, matched: [{}] } as unknown as RouteLocationNormalized
+}
+
+/** What the router hands over for an address no page answers to. */
+function unmatched(path: string) {
+  return {
+    name: undefined,
+    path,
+    fullPath: path,
+    matched: [],
+  } as unknown as RouteLocationNormalized
 }
 
 describe('the auth middleware', () => {
@@ -66,6 +76,13 @@ describe('the auth middleware', () => {
     )
 
     expect(result).toBeUndefined()
+  })
+
+  it('lets an address that matches no page through to the error page', async () => {
+    const result = await authMiddleware(unmatched('/nope'), route('index___en', '/'))
+
+    expect(result).toBeUndefined()
+    expect(navigateToMock).not.toHaveBeenCalled()
   })
 
   it('redirects into the active locale rather than out of it', async () => {
