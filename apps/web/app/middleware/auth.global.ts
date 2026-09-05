@@ -7,6 +7,11 @@ const PUBLIC_ROUTES = new Set([
   // Runs before a session exists — this is where one is obtained.
   'auth-callback',
   'about',
+  // `/` answers both readers: landing content for a stranger, the dashboard
+  // for somebody signed in. The page decides which, and reads nothing without
+  // a session (issue #126). One route rather than the rule — everything not
+  // named here is still protected by default.
+  'index',
 ])
 
 export default defineNuxtRouteMiddleware((to) => {

@@ -442,23 +442,14 @@ describe('the shape of app/', () => {
     const pages = walk(path.join(APP, 'pages')).filter((file) => file.endsWith('.vue'))
 
     const undeclared = pages.flatMap((file) => {
-      const source = readFileSync(file, 'utf8')
-      const declared = source.match(/layout:\s*(?:'([^']+)'|(false))/)
+      // The one a reader with no session gets. A page that answers both of
+      // them says so again through the `shell` middleware, which can only
+      // choose between the same two (issue #126).
+      const declared = readFileSync(file, 'utf8').match(/layout:\s*'([^']+)'/)?.[1]
 
-      if (!declared) return [`${show(file)} declares no layout`]
+      if (declared === undefined) return [`${show(file)} declares no layout`]
 
-      // `layout: false` is how a page on both sides of the login says it picks
-      // its own shell per reader — and it only means that if it goes on to
-      // draw one (app/pages/about.vue, issue #125).
-      if (declared[2]) {
-        return source.includes('<NuxtLayout')
-          ? []
-          : [`${show(file)} turns the layout off and draws none`]
-      }
-
-      return LAYOUTS.includes(declared[1]!)
-        ? []
-        : [`${show(file)} asks for a layout that is not there`]
+      return LAYOUTS.includes(declared) ? [] : [`${show(file)} asks for a layout that is not there`]
     })
 
     expect(pages.length).toBeGreaterThan(0)

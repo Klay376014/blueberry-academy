@@ -1,7 +1,16 @@
-import { beforeEach, describe, expect, it } from 'vitest'
-import { mountSuspended } from '@nuxt/test-utils/runtime'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { mockNuxtImport, mountSuspended } from '@nuxt/test-utils/runtime'
+import type { RouteLocationNormalized } from 'vue-router'
 import App from '../../app/app.vue'
+import shellMiddleware from '../../app/middleware/shell'
 import { signIn, signOut } from '../helpers'
+
+const { setPageLayoutMock } = vi.hoisted(() => ({ setPageLayoutMock: vi.fn() }))
+
+mockNuxtImport('setPageLayout', () => setPageLayoutMock)
+
+/** The middleware reads neither route; both are there because it takes two. */
+const anyNavigation = [{}, {}] as [RouteLocationNormalized, RouteLocationNormalized]
 
 /**
  * The two shells the site puts around a page (issue #125). Which links each
@@ -13,7 +22,7 @@ describe('the site shells', () => {
   beforeEach(signIn)
 
   it('gives a page behind the login the signed-in shell', async () => {
-    const wrapper = await mountSuspended(App, { route: '/' })
+    const wrapper = await mountSuspended(App, { route: '/import' })
 
     expect(wrapper.find('[data-testid="sign-out"]').exists()).toBe(true)
   })
@@ -26,19 +35,23 @@ describe('the site shells', () => {
     expect(wrapper.find('[data-testid="sign-out"]').exists()).toBe(false)
   })
 
-  it('keeps a public page in the shell of whoever is reading it', async () => {
-    const inside = await mountSuspended(App, { route: '/about' })
+  // A page on both sides of the login says which shell per reader through the
+  // `shell` middleware, so that the frame is on the route before the page is
+  // asked for anything (issue #126). Called directly, because a route
+  // middleware is not run by mounting a component.
+  it('gives a page on both sides of the login the shell of whoever is reading', () => {
+    shellMiddleware(...anyNavigation)
 
-    expect(inside.find('[data-testid="sign-out"]').exists()).toBe(true)
+    expect(setPageLayoutMock).toHaveBeenLastCalledWith('app')
 
     signOut()
-    const outside = await mountSuspended(App, { route: '/about' })
+    shellMiddleware(...anyNavigation)
 
-    expect(outside.find('[data-testid="sign-out"]').exists()).toBe(false)
+    expect(setPageLayoutMock).toHaveBeenLastCalledWith('public')
   })
 
   it('frames the content of both shells identically', async () => {
-    const inside = await mountSuspended(App, { route: '/' })
+    const inside = await mountSuspended(App, { route: '/import' })
 
     signOut()
     const outside = await mountSuspended(App, { route: '/login' })

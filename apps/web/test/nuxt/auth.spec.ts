@@ -49,7 +49,23 @@ describe('the auth middleware', () => {
   })
 
   it('sends a signed-out visitor to the login page', async () => {
+    const result = await authMiddleware(
+      route('settings___en', '/settings'),
+      route('index___en', '/'),
+    )
+
+    expect(result).toMatchObject({ path: '/login' })
+  })
+
+  it('leaves `/` reachable, because it is what a stranger is shown', async () => {
     const result = await authMiddleware(route('index___en', '/'), route('index___en', '/'))
+
+    expect(result).toBeUndefined()
+    expect(navigateToMock).not.toHaveBeenCalled()
+  })
+
+  it('protects a page nobody named, which is still every other one', async () => {
+    const result = await authMiddleware(route('import___en', '/import'), route('index___en', '/'))
 
     expect(result).toMatchObject({ path: '/login' })
   })
@@ -87,7 +103,7 @@ describe('the auth middleware', () => {
 
   it('redirects into the active locale rather than out of it', async () => {
     const result = await authMiddleware(
-      route('index___zh-TW', '/zh-TW'),
+      route('settings___zh-TW', '/zh-TW/settings'),
       route('index___zh-TW', '/zh-TW'),
     )
 

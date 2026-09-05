@@ -10,6 +10,41 @@
     "title": "Blueberry Academy",
     "tagline": "Replay analytics for VGC."
   },
+  "landing": {
+    "hero": {
+      "title": "Every replay you have played, read together",
+      "tagline": "Blueberry Academy imports your Pokémon Showdown replays and says what your teams and your brings actually did — by game, by series, with the sample size next to every number.",
+      "cta": "Get started",
+      "secondary": "What this is"
+    },
+    "problem": {
+      "title": "Showdown keeps the replays. It does not answer the question.",
+      "body": "A ladder run is hundreds of games, each behind its own link and each shown one at a time. Which of your teams is actually winning, which four you brought into what, whether this month is better than last — none of that is anywhere, and counting it by hand is why nobody does."
+    },
+    "solution": {
+      "title": "What this does with them",
+      "import": {
+        "title": "Import in one go",
+        "body": "Paste replay links, or sync every public replay a Showdown name has played. Battles already imported are skipped before they are fetched, so a sync that stopped picks up where it left off."
+      },
+      "teams": {
+        "title": "Teams, and the four you brought",
+        "body": "Games are grouped by the six you registered and by the four that actually appeared — those are different questions — and ranked by Wilson lower bound, so three wins from three games does not top the table. Every group carries its sample size."
+      },
+      "timeline": {
+        "title": "Read a game back",
+        "body": "Open any game and its turns are flattened into a list: moves, switches, terastallisation, what was standing on the field. In English or 繁體中文, names included."
+      }
+    },
+    "start": {
+      "title": "Getting started",
+      "one": "Sign in with Google. There is no password to set and none to forget.",
+      "two": "Add the Showdown names you play under. That is what decides which side of a battle is you.",
+      "three": "Paste a few replay links, or sync a whole account and leave it running.",
+      "note": "Showdown gives no other site a way to verify that an account is yours, so those names grant nothing: they only decide which of the battles you imported count as your own.",
+      "cta": "Sign in and import your first replay"
+    }
+  },
   "about": {
     "title": "About"
   },
