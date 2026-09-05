@@ -7,6 +7,19 @@
  * The drawer this list opens is the timeline's and sits on the page beside
  * this component, not inside it (issue #61).
  */
+const props = defineProps<{
+  /**
+   * The reader's alias list has been read and it is empty. Attribution is the
+   * alias list re-derived (ADR-0012), so this account's every import is
+   * spectated and this page stays empty however much lands in it (#129).
+   *
+   * A list that could not be read is not this: a reader sent off to bind a
+   * name already on their profile, because a read failed, is worse off than
+   * with the wording that was there before.
+   */
+  noNameBound: boolean
+}>()
+
 const { t } = useI18n()
 const localePath = useLocalePath()
 
@@ -30,6 +43,18 @@ const {
 await whenLoaded()
 
 const strongest = computed(() => teams.value[0])
+
+/**
+ * The two ways to be empty, which need opposite next steps: filters that
+ * matched nothing want the import page, and an account with no name bound has
+ * nothing to match in the first place — importing more would file every one of
+ * those the same way. Settled in one place so the three cannot come apart.
+ */
+const empty = computed(() =>
+  props.noNameBound
+    ? { said: 'teams.emptyUnbound', action: 'teams.emptyUnboundAction', to: '/settings' }
+    : { said: 'teams.empty', action: 'teams.emptyAction', to: '/import' },
+)
 </script>
 
 <template>
@@ -52,10 +77,15 @@ const strongest = computed(() => teams.value[0])
     v-else-if="!battles.length"
     class="rounded-lg border border-border p-6"
     :aria-label="t('teams.title')"
+    data-testid="stats-empty"
   >
-    <p class="text-muted-foreground">{{ t('teams.empty') }}</p>
-    <NuxtLink :to="localePath('/import')" class="mt-2 inline-block text-primary underline">
-      {{ t('teams.emptyAction') }}
+    <p class="text-muted-foreground">{{ t(empty.said) }}</p>
+    <NuxtLink
+      :to="localePath(empty.to)"
+      class="mt-2 inline-block text-primary underline"
+      data-testid="empty-action"
+    >
+      {{ t(empty.action) }}
     </NuxtLink>
   </section>
 

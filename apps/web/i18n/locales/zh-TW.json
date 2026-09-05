@@ -64,6 +64,8 @@
     "report": {
       "counts": "匯入 {imported} 場 · 已存在 {skipped} 場 · 失敗 {failed} 場"
     },
+    "allSpectated": "這次進來的每一場都被記成你只是旁觀：裡面沒有任何一位玩家在你的 Showdown 名稱清單裡，所以全部不計入你的統計，也都不會出現在儀表板上。到設定加上你當時用的名稱，它們在那一刻就會歸戶 —— replay 已經在這裡了，不需要重新匯入。",
+    "bindAction": "去綁定 Showdown 名稱",
     "failed": {
       "notFound": "Showdown 上沒有這個 replay。可能已經被刪掉，也可能它是私人的 —— 私人 replay 只有帶著網址裡那組密碼才拿得到。",
       "unavailable": "Showdown 沒有回應。可能是它掛了或在限流；等一下再貼一次這個連結。",
@@ -79,7 +81,7 @@
       "format": "賽制",
       "turns": "回合數",
       "rating": "Rating",
-      "spectated": "兩位玩家都不在你的 Showdown 名稱清單裡，所以這場對戰有存下來，但不計入你的任何統計。到設定加上你當時用的名稱，再匯入一次這個連結。"
+      "spectated": "兩位玩家都不在你的 Showdown 名稱清單裡，所以這場對戰有存下來，但不計入你的任何統計，也不會出現在儀表板上。到設定加上你當時用的名稱，它在那一刻就會歸戶 —— replay 已經在這裡了，不需要重新匯入。"
     }
   },
   "settings": {
@@ -152,6 +154,8 @@
     "failed": "讀不到你的對戰，請稍後再試一次。",
     "empty": "目前的篩選條件下沒有任何對戰。",
     "emptyAction": "去匯入 replay",
+    "emptyUnbound": "這裡還沒有屬於你的場次，而且再匯入也不會改變：一場對戰哪一邊是你，由你個人資料裡的 Showdown 名稱決定，而現在一個都沒有 —— 所以匯入進來的每一場都會被記成你只是旁觀。先把你打的那個名稱綁上去。已經用那個名稱匯入過的場次會在同一刻歸戶，不需要重新匯入。",
+    "emptyUnboundAction": "去綁定 Showdown 名稱",
     "ranking": "Wilson 下界 {score}% —— 排序依據",
     "whatIsThis": "這代表什麼"
   },

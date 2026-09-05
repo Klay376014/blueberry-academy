@@ -19,6 +19,7 @@ const emit = defineEmits<{
 }>()
 
 const { t, locale } = useI18n()
+const localePath = useLocalePath()
 const { importMany, syncAccount } = useIngest()
 
 /** One line per replay, the way a pasted list arrives. */
@@ -114,6 +115,35 @@ const single = computed(() => {
 
 const battle = computed(() => single.value?.battle ?? null)
 const spectated = computed(() => battle.value?.my_side === null)
+
+/**
+ * An `unparsed` row is deliberately not here. It has no attribution either,
+ * but because the log could not be read rather than because of the alias list
+ * — and blaming the list for it would point the reader at a name that was
+ * never the problem. `import.unparsed` says what actually happened.
+ */
+const importedBattles = computed(() =>
+  items.value.flatMap((item) => (item.outcome.status === 'imported' ? [item.outcome.battle] : [])),
+)
+
+/**
+ * The batch went in and not one of the battles is the reader's. Attribution is
+ * the alias list re-derived (ADR-0012), so this is what importing before
+ * binding a name looks like: thirty replays in, thirty spectated battles, and
+ * a dashboard that stays empty (#129).
+ *
+ * Said whether or not a name is already bound. The reader who has one and
+ * imported a stranger's replays on purpose is told something they knew; the
+ * reader who bound the wrong name, or played under a second one, is the harder
+ * case to be left in silence.
+ */
+const allSpectated = computed(
+  () =>
+    !busy.value &&
+    !single.value &&
+    importedBattles.value.length > 0 &&
+    importedBattles.value.every((row) => row.my_side === null),
+)
 
 /** The four (or fewer) that actually showed up, by name rather than by id. */
 const bring = computed(() =>
@@ -367,6 +397,21 @@ async function syncByName() {
       </div>
     </div>
 
+    <!-- Above the per-replay list, because every line of that list says
+         "Imported" and the batch still went nowhere. The alias list decided
+         this and the reader is the only one who can change it, so the way out
+         is part of the sentence. -->
+    <p
+      v-if="allSpectated"
+      class="mt-6 rounded-md border border-border bg-muted/40 p-3 text-sm text-muted-foreground"
+      data-testid="import-all-spectated"
+    >
+      {{ t('import.allSpectated') }}
+      <NuxtLink :to="localePath('/settings')" class="text-primary underline">
+        {{ t('import.bindAction') }}
+      </NuxtLink>
+    </p>
+
     <!-- Per replay, because a user needs to know why the twelve that failed failed. -->
     <template v-if="rows.length">
       <p class="mt-6 text-sm font-medium" data-testid="report-counts">
@@ -432,9 +477,13 @@ async function syncByName() {
       </p>
 
       <!-- The alias list decided this, and the user is the only one who can
-           fix it — so say what happened rather than showing an empty row. -->
+           fix it — so say what happened rather than showing an empty row, and
+           carry the same way out the batch-wide note does (#129). -->
       <p v-if="spectated" class="mt-1 text-sm text-muted-foreground" data-testid="battle-spectated">
         {{ t('import.battle.spectated') }}
+        <NuxtLink :to="localePath('/settings')" class="text-primary underline">
+          {{ t('import.bindAction') }}
+        </NuxtLink>
       </p>
 
       <dl class="mt-3 grid grid-cols-2 gap-x-4 gap-y-1 text-sm text-muted-foreground">

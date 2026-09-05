@@ -4,6 +4,8 @@ import type { BattleRow } from 'battle-row'
 import App from '../../app/app.vue'
 import { fakeBattles } from '../fakes/battles'
 import { STATS_ROWS } from '../fixtures/stats-rows'
+import en from '../../i18n/locales/en.json'
+import zhTW from '../../i18n/locales/zh-TW.json'
 import { signIn } from '../helpers'
 import type { BatchItem, ImportOptions, ImportReport } from '../../app/features/ingest'
 
@@ -356,6 +358,106 @@ describe('the import page', () => {
 
     expect(wrapper.find('[data-testid="battle-spectated"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="battle-result"]').exists()).toBe(false)
+  })
+
+  /** An imported battle neither of whose players is on the alias list. */
+  function watched(id: string): BatchItem {
+    return {
+      ref: { id },
+      outcome: {
+        status: 'imported',
+        battle: battle({
+          replay_id: id,
+          my_side: null,
+          my_username: null,
+          opponent_username: null,
+          result: null,
+          team_signature: null,
+          bring_signature: null,
+          bring_complete: false,
+          rating: null,
+          rating_delta: null,
+        }),
+      },
+    }
+  }
+
+  it('says why a whole batch landed on nobody, and where to go about it', async () => {
+    // The state issue #129 is about: a batch imported before any name was
+    // bound is all spectated, and a per-replay report of thirty "Imported"
+    // lines says none of that.
+    importMany.mockResolvedValue(report([watched('gen9ou-1'), watched('gen9ou-2')]))
+
+    const wrapper = await mountSuspended(App, { route: '/import' })
+    await paste(wrapper, 'gen9ou-1\ngen9ou-2')
+
+    const note = wrapper.get('[data-testid="import-all-spectated"]')
+    expect(note.text()).toContain('Showdown')
+    expect(note.get('a').attributes('href')).toContain('/settings')
+  })
+
+  it('keeps quiet when a battle of the batch did land on the reader', async () => {
+    importMany.mockResolvedValue(report([watched('gen9ou-1'), imported('gen9ou-2')]))
+
+    const wrapper = await mountSuspended(App, { route: '/import' })
+    await paste(wrapper, 'gen9ou-1\ngen9ou-2')
+
+    expect(wrapper.find('[data-testid="import-all-spectated"]').exists()).toBe(false)
+  })
+
+  it('does not say it twice when a single link is all that was imported', async () => {
+    // The card below already says it about the one battle it is showing.
+    importMany.mockResolvedValue(report([watched(REPLAY)]))
+
+    const wrapper = await mountSuspended(App, { route: '/import' })
+    await paste(wrapper, LINK)
+
+    expect(wrapper.find('[data-testid="battle-spectated"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="import-all-spectated"]').exists()).toBe(false)
+  })
+
+  it('blames the parser rather than the alias list when the log could not be read', async () => {
+    // An unparsed row has no attribution either, and saying "neither player is
+    // on your list" about it would send the reader to fix the wrong thing.
+    importMany.mockResolvedValue(
+      report([
+        {
+          ref: { id: 'gen9ou-1' },
+          outcome: {
+            status: 'unparsed',
+            battle: battle({ replay_id: 'gen9ou-1', my_side: null, my_username: null }),
+            message: 'nobody has taught it that line yet',
+          },
+        },
+        { ref: { id: 'gen9ou-2' }, outcome: { status: 'skipped' } },
+      ]),
+    )
+
+    const wrapper = await mountSuspended(App, { route: '/import' })
+    await paste(wrapper, 'gen9ou-1\ngen9ou-2')
+
+    expect(wrapper.find('[data-testid="import-all-spectated"]').exists()).toBe(false)
+  })
+
+  it('gives the single spectated battle the same way out as the batch', async () => {
+    // The card used to end on "then import the link again", which is the one
+    // thing that does not help: binding claims what is already imported.
+    importMany.mockResolvedValue(report([watched(REPLAY)]))
+
+    const wrapper = await mountSuspended(App, { route: '/import' })
+    await paste(wrapper, LINK)
+
+    const said = wrapper.get('[data-testid="battle-spectated"]')
+    expect(said.get('a').attributes('href')).toContain('/settings')
+    expect(said.text()).not.toContain('import the link again')
+  })
+
+  it('carries the batch-wide wording in both locales', () => {
+    for (const locale of [en, zhTW]) {
+      expect(locale.import.allSpectated).toBeTruthy()
+      expect(locale.import.bindAction).toBeTruthy()
+      expect(locale.import.battle.spectated).toBeTruthy()
+    }
   })
 
   it('will not start a second import while the first one is still going', async () => {
