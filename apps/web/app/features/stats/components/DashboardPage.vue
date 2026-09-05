@@ -7,6 +7,20 @@
  * The drawer this list opens is the timeline's and sits on the page beside
  * this component, not inside it (issue #61).
  */
+const props = defineProps<{
+  /**
+   * Whether the reader has at least one Showdown name bound. Attribution is
+   * the alias list re-derived (ADR-0012), so with none bound every replay this
+   * account imports is spectated and this page stays empty however much lands
+   * in it — which is the one thing an empty dashboard has to say (#129).
+   *
+   * A list that has not been read, or could not be, counts as bound: sending a
+   * reader off to bind a name that is already on their profile, because a read
+   * failed, is worse than the wording that was there before.
+   */
+  aliasesBound: boolean
+}>()
+
 const { t } = useI18n()
 const localePath = useLocalePath()
 
@@ -48,14 +62,25 @@ const strongest = computed(() => teams.value[0])
     {{ t('teams.loading') }}
   </p>
 
+  <!-- Two ways to be empty, and they need opposite next steps. Filters that
+       matched nothing want the import page; an account with no name bound has
+       nothing to match in the first place and wants settings, because
+       importing more would file every one of those the same way (#129). -->
   <section
     v-else-if="!battles.length"
     class="rounded-lg border border-border p-6"
     :aria-label="t('teams.title')"
+    data-testid="stats-empty"
   >
-    <p class="text-muted-foreground">{{ t('teams.empty') }}</p>
-    <NuxtLink :to="localePath('/import')" class="mt-2 inline-block text-primary underline">
-      {{ t('teams.emptyAction') }}
+    <p class="text-muted-foreground">
+      {{ props.aliasesBound ? t('teams.empty') : t('teams.emptyUnbound') }}
+    </p>
+    <NuxtLink
+      :to="localePath(props.aliasesBound ? '/import' : '/settings')"
+      class="mt-2 inline-block text-primary underline"
+      data-testid="empty-action"
+    >
+      {{ props.aliasesBound ? t('teams.emptyAction') : t('teams.emptyUnboundAction') }}
     </NuxtLink>
   </section>
 

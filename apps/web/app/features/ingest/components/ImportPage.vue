@@ -19,6 +19,7 @@ const emit = defineEmits<{
 }>()
 
 const { t, locale } = useI18n()
+const localePath = useLocalePath()
 const { importMany, syncAccount } = useIngest()
 
 /** One line per replay, the way a pasted list arrives. */
@@ -114,6 +115,33 @@ const single = computed(() => {
 
 const battle = computed(() => single.value?.battle ?? null)
 const spectated = computed(() => battle.value?.my_side === null)
+
+/**
+ * The batch went in and not one of the battles is the reader's. Attribution is
+ * the alias list re-derived (ADR-0012), so this is what importing before
+ * binding a name looks like: thirty replays in, thirty spectated battles, and
+ * a dashboard that stays empty (#129).
+ *
+ * Only `imported` rows are looked at. An `unparsed` row has no attribution
+ * either — the derived columns are all empty because the log could not be read
+ * — and blaming the alias list for it would send the reader to fix a name that
+ * was never the problem; it has `import.unparsed` to say what actually
+ * happened.
+ *
+ * Silent while one battle is all there is: the card below already says it
+ * about that battle, in its own words.
+ */
+const importedBattles = computed(() =>
+  items.value.flatMap((item) => (item.outcome.status === 'imported' ? [item.outcome.battle] : [])),
+)
+
+const allSpectated = computed(
+  () =>
+    !busy.value &&
+    !single.value &&
+    importedBattles.value.length > 0 &&
+    importedBattles.value.every((row) => row.my_side === null),
+)
 
 /** The four (or fewer) that actually showed up, by name rather than by id. */
 const bring = computed(() =>
@@ -366,6 +394,21 @@ async function syncByName() {
         />
       </div>
     </div>
+
+    <!-- Above the per-replay list, because every line of that list says
+         "Imported" and the batch still went nowhere. The alias list decided
+         this and the reader is the only one who can change it, so the way out
+         is part of the sentence. -->
+    <p
+      v-if="allSpectated"
+      class="mt-6 rounded-md border border-border bg-muted/40 p-3 text-sm text-muted-foreground"
+      data-testid="import-all-spectated"
+    >
+      {{ t('import.allSpectated') }}
+      <NuxtLink :to="localePath('/settings')" class="text-primary underline">
+        {{ t('import.allSpectatedAction') }}
+      </NuxtLink>
+    </p>
 
     <!-- Per replay, because a user needs to know why the twelve that failed failed. -->
     <template v-if="rows.length">
