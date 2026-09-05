@@ -46,7 +46,72 @@
     }
   },
   "about": {
-    "title": "About"
+    "title": "About",
+    "lede": "Blueberry Academy reads the replays you have already played and counts them. This page says what it reads, how it counts, and what it leaves out — so that a win rate on the dashboard can be read for what it is.",
+    "source": {
+      "title": "What it reads",
+      "body": "One Showdown replay is one game. The raw log is fetched from replay.pokemonshowdown.com and stored exactly as it arrived; everything else — the format, the result, the six registered at team preview, the four that appeared — is derived from it. Nothing is typed in, and the log stays the only source of truth: when the parser learns to read more of a log, the derived data is rebuilt from the copy already stored rather than fetched again."
+    },
+    "counting": {
+      "title": "What a number counts",
+      "unit": "Every game is stored on its own, including the games of a best-of-three series — a series result can be derived from its games, and not the other way round. Which unit a number is counted in follows from the format you filter to: a ladder format is counted per game, a best-of-three format per series.",
+      "format": "A ladder format and its best-of-three counterpart are separate items and are never averaged together. Showdown treats them as different formats, and they are played differently enough that one number over both would describe neither.",
+      "spectated": "A battle where neither player is on your list of Showdown names is a spectated battle. It is stored and it can be read, and it counts towards none of your statistics. Binding the name you played under claims it; removing that name hands it back."
+    },
+    "teams": {
+      "title": "Teams and brings",
+      "team": "A team is the six revealed at team preview. Two battles are the same team when both the six and the format are the same. Items and moves are no part of that: a ladder replay does not carry them, and requiring them would leave almost every battle alone in a group of one.",
+      "bring": "A bring is the four that actually appeared, which is not always the four that were picked — a game that ends early can leave the fourth never having shown up, and that is common rather than exceptional. Those games count for the team and for none of the brings, and the team page says how many they were instead of leaving the difference to look like an arithmetic error."
+    },
+    "ranking": {
+      "title": "How teams are ranked",
+      "body": "By the lower bound of a Wilson score interval rather than by win rate: three wins from three games is a 100% win rate, and it belongs below a season played at 70%. Every group carries its sample size, and no group is hidden for being small — a rate counted from five games is worth seeing, as long as it says it came from five."
+    },
+    "limits": {
+      "title": "What it does not do",
+      "body": "It says what happened, not why. It offers no advice on what to play, ranks you against nobody, and cannot verify that a Showdown account is yours — nobody can, and what that means for your data is on the next page."
+    },
+    "privacy": "What is kept, and what cannot be verified"
+  },
+  "privacy": {
+    "title": "Privacy and terms",
+    "updated": "Last changed {date}",
+    "lede": "This is a personal project that keeps other people's replays and the Showdown names you say are yours. This page says what is kept, who can read it, what cannot be checked, and how to have it removed.",
+    "stored": {
+      "title": "What is kept",
+      "account": "An account, created when you sign in with Google: the email address and account id Google returns. There is no password, and none is stored.",
+      "names": "The Showdown names you add. Kept as you typed them, compared with case and punctuation removed.",
+      "battles": "One row per replay you import, holding what was derived from it — the format, when it was played, the result, the ratings, the two signatures, the turn count — and a record of both sides of the battle: the opponent's name, their six, and what appeared.",
+      "logs": "The raw log of every replay you import, gzipped and untouched, in a private bucket under a path that begins with your account id."
+    },
+    "access": {
+      "title": "Who can read it",
+      "body": "You. Rows are scoped to your account id by the database itself rather than by the app asking nicely, and the bucket holding the logs is private and split by the same id. Nothing on this site is published: there is no profile page, no shared link, no leaderboard, and no page that shows one person's battles to another."
+    },
+    "unverified": {
+      "title": "What cannot be verified",
+      "body": "That a Showdown account is yours. Showdown offers other sites no way to check it — there is no sign-in to use and no field on a Showdown profile to put a code in — so adding a name is trust and nothing else. The same name may be on more than one person's list, and a name on your list grants nothing beyond deciding which of the battles you imported are treated as your own.",
+      "public": "The replays themselves are public on Showdown to begin with, and both players' names and teams are in the log at its public address. Importing one copies that public record into your account; it does not make anything visible that was not already."
+    },
+    "unbinding": {
+      "title": "What removing a name does",
+      "body": "Attribution is that list of names re-derived, so removing one takes every battle under it back to being a spectated battle: out of every statistic, off the dashboard, still stored. Nothing is deleted, and binding the name again brings those battles back exactly as they were."
+    },
+    "deletion": {
+      "title": "Deleting your data",
+      "body": "There is no delete button yet — this is the honest answer rather than a policy. Signing out ends the session and removes nothing. To have the account, its rows and its stored logs deleted, ask through the project's repository, and it will be done by hand.",
+      "repository": "The repository on GitHub"
+    },
+    "others": {
+      "title": "Who else your browser talks to",
+      "body": "Google, when you sign in. Supabase, which holds the database, the logs and your session. Cloudflare, which serves this site. Pokémon Showdown, when an import fetches a replay and when a page draws Pokémon icons, which are loaded from Showdown's own sprite sheet rather than copied here.",
+      "browser": "There is no analytics, no advertising and no tracking of any kind. What is kept in your browser is the sign-in session, and which theme and language you chose."
+    },
+    "terms": {
+      "title": "Terms",
+      "body": "This is offered as is, with no warranty and no promise that it will keep running, keep your data, or be correct. It is not a backup: the replays it reads are Showdown's, at their own public addresses.",
+      "trademarks": "Not affiliated with Nintendo, Creatures, GAME FREAK, The Pokémon Company, Smogon or Pokémon Showdown. Pokémon names and sprites belong to their owners; replays belong to the people who played them."
+    }
   },
   "error": {
     "notFound": {

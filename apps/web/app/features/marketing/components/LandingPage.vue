@@ -11,10 +11,10 @@ const { t } = useI18n()
 const localePath = useLocalePath()
 
 /**
- * The section headings, addressable so each `<section>` can name itself off
- * its own: four unlabelled landmarks are four indistinguishable stops in a
- * screen reader's list. Through `useId` rather than written down, because a
- * literal id is only unique while this component is on screen once.
+ * The two headings this page labels itself, for the two sections that are not
+ * a column of prose: the hero is an `<h1>` and the answers are a grid, so
+ * neither fits `<MarketingProseSection>` — which is what the other two use,
+ * and where the same labelling lives.
  */
 const instance = useId()
 const headingId = (section: string) => `${instance}-${section}`
@@ -47,12 +47,9 @@ const steps = ['one', 'two', 'three'] as const
       </div>
     </section>
 
-    <section class="flex max-w-2xl flex-col gap-3" :aria-labelledby="headingId('problem')">
-      <h2 :id="headingId('problem')" class="text-2xl font-semibold tracking-tight">
-        {{ t('landing.problem.title') }}
-      </h2>
+    <MarketingProseSection :title="t('landing.problem.title')">
       <p class="text-muted-foreground">{{ t('landing.problem.body') }}</p>
-    </section>
+    </MarketingProseSection>
 
     <section class="flex flex-col gap-4" :aria-labelledby="headingId('solution')">
       <h2 :id="headingId('solution')" class="text-2xl font-semibold tracking-tight">
@@ -71,15 +68,15 @@ const steps = ['one', 'two', 'three'] as const
       </div>
     </section>
 
-    <section class="flex max-w-2xl flex-col gap-4" :aria-labelledby="headingId('start')">
-      <h2 :id="headingId('start')" class="text-2xl font-semibold tracking-tight">
-        {{ t('landing.start.title') }}
-      </h2>
-
-      <ol class="flex flex-col gap-3">
-        <li v-for="(step, index) in steps" :key="step" class="flex gap-3">
-          <span class="font-mono text-sm text-muted-foreground tabular-nums">{{ index + 1 }}</span>
-          <p class="text-muted-foreground">{{ t(`landing.start.${step}`) }}</p>
+    <MarketingProseSection :title="t('landing.start.title')">
+      <!-- Real markers rather than a drawn stand-in: Tailwind's preflight
+           takes them off, and a list styled to `list-style: none` stops being
+           a list to VoiceOver. -->
+      <ol
+        class="flex list-decimal flex-col gap-3 pl-6 marker:font-mono marker:text-sm marker:text-muted-foreground"
+      >
+        <li v-for="step in steps" :key="step" class="text-muted-foreground">
+          {{ t(`landing.start.${step}`) }}
         </li>
       </ol>
 
@@ -88,6 +85,14 @@ const steps = ['one', 'two', 'three'] as const
       <UiButton as-child class="self-start">
         <NuxtLink :to="localePath('/login')">{{ t('landing.start.cta') }}</NuxtLink>
       </UiButton>
-    </section>
+
+      <!--
+        The page that says what signing in hands over, one link from the button
+        that starts it (issue #127).
+      -->
+      <NuxtLink :to="localePath('/privacy')" class="text-sm text-primary underline">
+        {{ t('privacy.title') }}
+      </NuxtLink>
+    </MarketingProseSection>
   </main>
 </template>

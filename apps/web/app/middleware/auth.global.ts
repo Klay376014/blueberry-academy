@@ -7,6 +7,10 @@ const PUBLIC_ROUTES = new Set([
   // Runs before a session exists — this is where one is obtained.
   'auth-callback',
   'about',
+  // Two pages of prose about what this reads and what it keeps. Behind the
+  // login they would be unreadable by exactly the person deciding whether to
+  // sign in (issue #127).
+  'privacy',
   // `/` answers both readers: landing content for a stranger, the dashboard
   // for somebody signed in. The page decides which, and reads nothing without
   // a session (issue #126). One route rather than the rule — everything not

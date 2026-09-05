@@ -1,7 +1,7 @@
 <script setup lang="ts">
 /**
- * The shell a stranger sees: about, the login, and the landing page once
- * there is one. No sign-out button, and no link to the two pages that need an
+ * The shell a stranger sees: the landing page, about, privacy and terms, and
+ * the login. No sign-out button, and no link to the two pages that need an
  * account (issue #125).
  *
  * `/` is in the nav for both readers: it answers each of them in its own way
