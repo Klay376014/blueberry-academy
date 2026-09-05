@@ -78,6 +78,23 @@ describe('the dashboard with nothing to show', () => {
     expect(action(wrapper).href).toContain('/import')
   })
 
+  it('says it on the first paint rather than swapping it in afterwards', async () => {
+    // The reader this wording exists for would otherwise be shown "go and
+    // import" and have it replaced underneath them — which is the wording that
+    // sent them to import thirty replays before binding anything.
+    useShowdownAliases().value = null
+    // Lands a turn late, the way a request does — so a page that only started
+    // the read has already drawn by the time the answer is in.
+    load.mockImplementation(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0))
+      useShowdownAliases().value = []
+    })
+
+    const wrapper = await mountSuspended(Home)
+
+    expect(action(wrapper).href).toContain('/settings')
+  })
+
   it('points at import when the alias list could not be read at all', async () => {
     // Unread and empty look alike from here and mean opposite things. Sending
     // a reader to bind a name they have already bound, because a read failed,

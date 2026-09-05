@@ -65,7 +65,7 @@
       "counts": "{imported} imported · {skipped} already in · {failed} failed"
     },
     "allSpectated": "Every battle that came in was filed as one you only watched: no player in any of them is on your list of Showdown names, so none of them counts towards your statistics and none of them will reach your dashboard. Add the name you played under and they are claimed the moment you do — the replays are already here and nothing needs importing again.",
-    "allSpectatedAction": "Bind your Showdown name",
+    "bindAction": "Bind your Showdown name",
     "failed": {
       "notFound": "Showdown has no replay at that link. It may have been deleted, or it may be private — a private replay is only served with the password its address carries.",
       "unavailable": "Showdown did not answer. It may be down or rate limiting; wait a moment and import the link again.",
@@ -81,7 +81,7 @@
       "format": "Format",
       "turns": "Turns",
       "rating": "Rating",
-      "spectated": "Neither player is on your list of Showdown names, so this battle is stored but counts towards none of your statistics. Add the name you played under in Settings, then import the link again."
+      "spectated": "Neither player is on your list of Showdown names, so this battle is stored but counts towards none of your statistics, and it will not reach your dashboard. Add the name you played under and it is claimed the moment you do — the replay is already here and nothing needs importing again."
     }
   },
   "settings": {

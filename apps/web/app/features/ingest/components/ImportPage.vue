@@ -117,24 +117,26 @@ const battle = computed(() => single.value?.battle ?? null)
 const spectated = computed(() => battle.value?.my_side === null)
 
 /**
- * The batch went in and not one of the battles is the reader's. Attribution is
- * the alias list re-derived (ADR-0012), so this is what importing before
- * binding a name looks like: thirty replays in, thirty spectated battles, and
- * a dashboard that stays empty (#129).
- *
- * Only `imported` rows are looked at. An `unparsed` row has no attribution
- * either — the derived columns are all empty because the log could not be read
- * — and blaming the alias list for it would send the reader to fix a name that
- * was never the problem; it has `import.unparsed` to say what actually
- * happened.
- *
- * Silent while one battle is all there is: the card below already says it
- * about that battle, in its own words.
+ * An `unparsed` row is deliberately not here. It has no attribution either,
+ * but because the log could not be read rather than because of the alias list
+ * — and blaming the list for it would point the reader at a name that was
+ * never the problem. `import.unparsed` says what actually happened.
  */
 const importedBattles = computed(() =>
   items.value.flatMap((item) => (item.outcome.status === 'imported' ? [item.outcome.battle] : [])),
 )
 
+/**
+ * The batch went in and not one of the battles is the reader's. Attribution is
+ * the alias list re-derived (ADR-0012), so this is what importing before
+ * binding a name looks like: thirty replays in, thirty spectated battles, and
+ * a dashboard that stays empty (#129).
+ *
+ * Said whether or not a name is already bound. The reader who has one and
+ * imported a stranger's replays on purpose is told something they knew; the
+ * reader who bound the wrong name, or played under a second one, is the harder
+ * case to be left in silence.
+ */
 const allSpectated = computed(
   () =>
     !busy.value &&
@@ -406,7 +408,7 @@ async function syncByName() {
     >
       {{ t('import.allSpectated') }}
       <NuxtLink :to="localePath('/settings')" class="text-primary underline">
-        {{ t('import.allSpectatedAction') }}
+        {{ t('import.bindAction') }}
       </NuxtLink>
     </p>
 
@@ -475,9 +477,13 @@ async function syncByName() {
       </p>
 
       <!-- The alias list decided this, and the user is the only one who can
-           fix it — so say what happened rather than showing an empty row. -->
+           fix it — so say what happened rather than showing an empty row, and
+           carry the same way out the batch-wide note does (#129). -->
       <p v-if="spectated" class="mt-1 text-sm text-muted-foreground" data-testid="battle-spectated">
         {{ t('import.battle.spectated') }}
+        <NuxtLink :to="localePath('/settings')" class="text-primary underline">
+          {{ t('import.bindAction') }}
+        </NuxtLink>
       </p>
 
       <dl class="mt-3 grid grid-cols-2 gap-x-4 gap-y-1 text-sm text-muted-foreground">

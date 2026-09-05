@@ -9,16 +9,15 @@
  */
 const props = defineProps<{
   /**
-   * Whether the reader has at least one Showdown name bound. Attribution is
-   * the alias list re-derived (ADR-0012), so with none bound every replay this
-   * account imports is spectated and this page stays empty however much lands
-   * in it — which is the one thing an empty dashboard has to say (#129).
+   * The reader's alias list has been read and it is empty. Attribution is the
+   * alias list re-derived (ADR-0012), so this account's every import is
+   * spectated and this page stays empty however much lands in it (#129).
    *
-   * A list that has not been read, or could not be, counts as bound: sending a
-   * reader off to bind a name that is already on their profile, because a read
-   * failed, is worse than the wording that was there before.
+   * A list that could not be read is not this: a reader sent off to bind a
+   * name already on their profile, because a read failed, is worse off than
+   * with the wording that was there before.
    */
-  aliasesBound: boolean
+  noNameBound: boolean
 }>()
 
 const { t } = useI18n()
@@ -44,6 +43,18 @@ const {
 await whenLoaded()
 
 const strongest = computed(() => teams.value[0])
+
+/**
+ * The two ways to be empty, which need opposite next steps: filters that
+ * matched nothing want the import page, and an account with no name bound has
+ * nothing to match in the first place — importing more would file every one of
+ * those the same way. Settled in one place so the three cannot come apart.
+ */
+const empty = computed(() =>
+  props.noNameBound
+    ? { said: 'teams.emptyUnbound', action: 'teams.emptyUnboundAction', to: '/settings' }
+    : { said: 'teams.empty', action: 'teams.emptyAction', to: '/import' },
+)
 </script>
 
 <template>
@@ -62,25 +73,19 @@ const strongest = computed(() => teams.value[0])
     {{ t('teams.loading') }}
   </p>
 
-  <!-- Two ways to be empty, and they need opposite next steps. Filters that
-       matched nothing want the import page; an account with no name bound has
-       nothing to match in the first place and wants settings, because
-       importing more would file every one of those the same way (#129). -->
   <section
     v-else-if="!battles.length"
     class="rounded-lg border border-border p-6"
     :aria-label="t('teams.title')"
     data-testid="stats-empty"
   >
-    <p class="text-muted-foreground">
-      {{ props.aliasesBound ? t('teams.empty') : t('teams.emptyUnbound') }}
-    </p>
+    <p class="text-muted-foreground">{{ t(empty.said) }}</p>
     <NuxtLink
-      :to="localePath(props.aliasesBound ? '/import' : '/settings')"
+      :to="localePath(empty.to)"
       class="mt-2 inline-block text-primary underline"
       data-testid="empty-action"
     >
-      {{ props.aliasesBound ? t('teams.emptyAction') : t('teams.emptyUnboundAction') }}
+      {{ t(empty.action) }}
     </NuxtLink>
   </section>
 

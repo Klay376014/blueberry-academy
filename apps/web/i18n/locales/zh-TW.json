@@ -65,7 +65,7 @@
       "counts": "匯入 {imported} 場 · 已存在 {skipped} 場 · 失敗 {failed} 場"
     },
     "allSpectated": "這次進來的每一場都被記成你只是旁觀：裡面沒有任何一位玩家在你的 Showdown 名稱清單裡，所以全部不計入你的統計，也都不會出現在儀表板上。到設定加上你當時用的名稱，它們在那一刻就會歸戶 —— replay 已經在這裡了，不需要重新匯入。",
-    "allSpectatedAction": "去綁定 Showdown 名稱",
+    "bindAction": "去綁定 Showdown 名稱",
     "failed": {
       "notFound": "Showdown 上沒有這個 replay。可能已經被刪掉，也可能它是私人的 —— 私人 replay 只有帶著網址裡那組密碼才拿得到。",
       "unavailable": "Showdown 沒有回應。可能是它掛了或在限流；等一下再貼一次這個連結。",
@@ -81,7 +81,7 @@
       "format": "賽制",
       "turns": "回合數",
       "rating": "Rating",
-      "spectated": "兩位玩家都不在你的 Showdown 名稱清單裡，所以這場對戰有存下來，但不計入你的任何統計。到設定加上你當時用的名稱，再匯入一次這個連結。"
+      "spectated": "兩位玩家都不在你的 Showdown 名稱清單裡，所以這場對戰有存下來，但不計入你的任何統計，也不會出現在儀表板上。到設定加上你當時用的名稱，它在那一刻就會歸戶 —— replay 已經在這裡了，不需要重新匯入。"
     }
   },
   "settings": {

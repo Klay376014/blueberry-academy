@@ -1,17 +1,21 @@
 <script setup lang="ts">
+const { whenLoaded } = useStats()
 const { aliases, loaded, load } = useProfile()
 
-// Started in setup and deliberately *not* awaited. The dashboard's own read is
-// what this page is for and it is awaited inside the component; holding that
-// behind a second round-trip would cost every visit a delay for the sake of a
-// branch only an empty dashboard ever takes. Both reads are therefore in the
-// air at once, and the empty state below waits for this one by asking whether
-// it has landed rather than by assuming it has.
+// Both reads in the air at once, and the page waits for both.
 //
-// The failure is swallowed on purpose: a profile that could not be read leaves
-// `loaded` false, which is exactly the state the empty state treats as "do not
-// accuse this reader of binding no name". Nothing else on this page needs it.
-void load().catch(() => {})
+// Awaited, because the reader this page has something new to say to is the one
+// whose alias list is empty: settling that after the first paint would show
+// them the old "go and import" wording and swap it out underneath them, which
+// is the wording that sent them to import thirty replays in the first place
+// (#129). Started together rather than one after the other, because
+// `whenLoaded()` is idempotent and safe to call from any page's setup — the
+// dashboard's own await of it then finds the read already settled instead of
+// queueing behind this one.
+//
+// The failure is swallowed: a profile that could not be read leaves `loaded`
+// false, and an unread list is not an empty one. Nothing else here needs it.
+await Promise.all([whenLoaded(), load().catch(() => {})])
 </script>
 
 <template>
@@ -26,7 +30,7 @@ void load().catch(() => {})
     replays it imported (#129).
   -->
   <main class="flex flex-col gap-6 py-8">
-    <StatsDashboardPage :aliases-bound="!loaded || aliases.length > 0" />
+    <StatsDashboardPage :no-name-bound="loaded && aliases.length === 0" />
 
     <!--
       Outside the dashboard, not inside it: `StatsDashboardPage` collapses to

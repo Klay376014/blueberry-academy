@@ -439,10 +439,24 @@ describe('the import page', () => {
     expect(wrapper.find('[data-testid="import-all-spectated"]').exists()).toBe(false)
   })
 
+  it('gives the single spectated battle the same way out as the batch', async () => {
+    // The card used to end on "then import the link again", which is the one
+    // thing that does not help: binding claims what is already imported.
+    importMany.mockResolvedValue(report([watched(REPLAY)]))
+
+    const wrapper = await mountSuspended(App, { route: '/import' })
+    await paste(wrapper, LINK)
+
+    const said = wrapper.get('[data-testid="battle-spectated"]')
+    expect(said.get('a').attributes('href')).toContain('/settings')
+    expect(said.text()).not.toContain('import the link again')
+  })
+
   it('carries the batch-wide wording in both locales', () => {
     for (const locale of [en, zhTW]) {
       expect(locale.import.allSpectated).toBeTruthy()
-      expect(locale.import.allSpectatedAction).toBeTruthy()
+      expect(locale.import.bindAction).toBeTruthy()
+      expect(locale.import.battle.spectated).toBeTruthy()
     }
   })
 
