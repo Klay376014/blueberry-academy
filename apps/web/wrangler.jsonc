@@ -20,6 +20,13 @@
   "assets": {
     "directory": ".output/public",
     "binding": "ASSETS",
+
+    // The prerendered prose pages are files at `about/index.html`, and the
+    // default handling answers a request for `/about` with a 307 to `/about/`.
+    // Both reach the page, but a link preview is then fetched from an address
+    // one redirect away from the one the page's own canonical and og:url claim
+    // (issue #130). This serves `/about` itself, and redirects the other way.
+    "html_handling": "drop-trailing-slash",
   },
 
   // `custom_domain` needs the zone in the same Cloudflare account; wrangler then

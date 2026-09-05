@@ -14,6 +14,16 @@
     "terms": "條款",
     "source": "原始碼"
   },
+  "seo": {
+    "about": {
+      "title": "關於 Blueberry Academy",
+      "description": "這個網站從你的 Pokémon Showdown replay 讀出什麼、勝率怎麼算、登錄隊伍與實際選出的四隻如何分開計算，以及它不宣稱什麼。"
+    },
+    "privacy": {
+      "title": "隱私與條款 · Blueberry Academy",
+      "description": "Blueberry Academy 保存你的哪些資料、誰讀得到、為什麼沒有人能驗證一個 Showdown 帳號是你的，以及要怎麼把這些全部刪掉。"
+    }
+  },
   "home": {
     "title": "Blueberry Academy",
     "tagline": "VGC 對戰紀錄分析。"
