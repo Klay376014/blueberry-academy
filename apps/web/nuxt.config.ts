@@ -5,8 +5,8 @@ import tailwindcss from '@tailwindcss/vite'
 // it. The rule reports one key at a time and does not publish the order it
 // wants, so it was found by asking repeatedly:
 //
-//   modules, ssr, components, css, colorMode, runtimeConfig, devServer,
-//   compatibilityDate, nitro, vite, i18n
+//   modules, ssr, components, css, colorMode, runtimeConfig, routeRules,
+//   devServer, compatibilityDate, nitro, vite, i18n
 //
 // Adding a key means running `vp lint` until it stops answering.
 export default defineNuxtConfig({
@@ -15,12 +15,19 @@ export default defineNuxtConfig({
   // @nuxt/fonts: self-hosts Inter, see docs/adr/0007-self-hosted-inter.md.
   modules: ['@pinia/nuxt', '@nuxt/fonts', '@nuxtjs/i18n', '@nuxtjs/color-mode'],
 
-  // SPA — see docs/adr/0001-spa-only-rendering.md.
-  // The dashboard lives behind a login, so it has no SEO value, and
-  // server-rendering chart-heavy pages would very likely blow the 10ms CPU
-  // budget of the Workers free plan. Individual routes can opt back into SSR
-  // through route rules later.
-  ssr: false,
+  // Still SPA everywhere that matters — see docs/adr/0001-spa-only-rendering.md
+  // and its follow-up note. The dashboard lives behind a login, so it has no
+  // SEO value, and server-rendering chart-heavy pages would very likely blow
+  // the 10ms CPU budget of the Workers free plan.
+  //
+  // `true` here with `'/**': { ssr: false }` below rather than `ssr: false`
+  // outright, which is the same delivery by a different switch: with the flag
+  // off, Nuxt leaves the app's renderer out of the build entirely, and a
+  // `prerender` rule then writes the empty SPA shell to the page's address
+  // instead of the page (measured on this repo, issue #130). Nothing is
+  // rendered per request either way — the two prose pages are rendered once,
+  // at build time.
+  ssr: true,
 
   // One entry per feature, plus `shared/`, because the app is organised by
   // feature rather than by kind of file (issue #61). The prefixes are the
@@ -73,6 +80,30 @@ export default defineNuxtConfig({
     },
   },
 
+  // The two pages of public prose are built into HTML at build time; every
+  // other address is still the empty SPA shell of ADR-0001, whose follow-up
+  // note says why `/` is not on this list (issue #130).
+  //
+  // `prerender` rather than `ssr` alone: the 10ms CPU budget of the Workers
+  // free plan is what ADR-0001 turned SSR down over, and a page rendered on a
+  // build machine spends none of it per request. Both keys, because `ssr` is
+  // false for the app as a whole and a route has to opt back in to be
+  // rendered at all.
+  //
+  // One entry per address rather than per page: `prefix_except_default` gives
+  // each locale its own URL, and a prerender is of an address.
+  routeRules: {
+    // Everything, including every address that does not exist: the SPA shell,
+    // rendered by nobody. The four exceptions below are more specific, and a
+    // more specific rule wins.
+    '/**': { ssr: false },
+
+    '/about': { ssr: true, prerender: true },
+    '/zh-TW/about': { ssr: true, prerender: true },
+    '/privacy': { ssr: true, prerender: true },
+    '/zh-TW/privacy': { ssr: true, prerender: true },
+  },
+
   // Pinned to IPv4 loopback. Left to itself the dev server binds [::1] only,
   // and then http://127.0.0.1:3000 refuses connections while
   // http://localhost:3000 works -- which breaks the OAuth round trip, because
@@ -97,6 +128,12 @@ export default defineNuxtConfig({
   },
 
   i18n: {
+    // The origin those prerendered pages claim to live at, in the canonical
+    // link and in og:url — both of which a crawler reads from another host, so
+    // a relative address is no answer (issue #130). The domain itself belongs
+    // to wrangler.jsonc, which is what actually serves it; `test/prerender.spec.ts`
+    // holds the two together.
+    baseUrl: 'https://blueberry-academy.ivy-cudgel.com',
     defaultLocale: 'en',
     // English URLs stay bare (/about); other locales are prefixed
     // (/zh-TW/about). See docs/adr/0006-i18n-routing-strategy.md.

@@ -14,6 +14,16 @@
     "terms": "Terms",
     "source": "Source code"
   },
+  "seo": {
+    "about": {
+      "title": "About Blueberry Academy",
+      "description": "What this reads out of your Pokémon Showdown replays, how a win rate is counted, how registered teams and the four you brought are told apart, and what it does not claim."
+    },
+    "privacy": {
+      "title": "Privacy and terms · Blueberry Academy",
+      "description": "What Blueberry Academy keeps of yours, who can read it, why nobody can verify that a Showdown account is yours, and how to have all of it removed."
+    }
+  },
   "home": {
     "title": "Blueberry Academy",
     "tagline": "Replay analytics for VGC."
