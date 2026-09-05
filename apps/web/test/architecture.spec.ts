@@ -406,15 +406,63 @@ describe('the shape of app/', () => {
   })
 
   it('keeps app/ to the composition layer, the features and shared', () => {
-    // Nuxt owns `pages`, `middleware`, `plugins`, `assets` and `app.vue` and
-    // scans nowhere else for them (ADR-0013). A new directory here is a new
-    // technical layer, which is what this structure exists to stop.
-    const ALLOWED = ['app.vue', 'assets', 'features', 'middleware', 'pages', 'plugins', 'shared']
+    // Nuxt owns `pages`, `layouts`, `middleware`, `plugins`, `assets`,
+    // `app.vue` and `error.vue` and scans nowhere else for them (ADR-0013). A
+    // new directory here is a new technical layer, which is what this
+    // structure exists to stop.
+    const ALLOWED = [
+      'app.vue',
+      'assets',
+      'error.vue',
+      'features',
+      'layouts',
+      'middleware',
+      'pages',
+      'plugins',
+      'shared',
+    ]
 
     const stray = readdirSync(APP)
       .filter((entry) => !ALLOWED.includes(entry))
       .map((entry) => `app/${entry}`)
 
     expect(stray).toEqual([])
+  })
+
+  it('has every page say which shell it wants', () => {
+    // There is no `layouts/default.vue` on purpose: the two shells differ in
+    // what they offer a reader who is signed in, and a page that fell back to
+    // one of them silently would be the wrong one half the time (issue #125).
+    // A page with no `layout` gets no shell at all, which is invisible until
+    // somebody loads it.
+    const LAYOUTS = readdirSync(path.join(APP, 'layouts'))
+      .filter((entry) => entry.endsWith('.vue'))
+      .map((entry) => path.basename(entry, '.vue'))
+
+    const pages = walk(path.join(APP, 'pages')).filter((file) => file.endsWith('.vue'))
+
+    const undeclared = pages.flatMap((file) => {
+      const source = readFileSync(file, 'utf8')
+      const declared = source.match(/layout:\s*(?:'([^']+)'|(false))/)
+
+      if (!declared) return [`${show(file)} declares no layout`]
+
+      // `layout: false` is how a page on both sides of the login says it picks
+      // its own shell per reader — and it only means that if it goes on to
+      // draw one (app/pages/about.vue, issue #125).
+      if (declared[2]) {
+        return source.includes('<NuxtLayout')
+          ? []
+          : [`${show(file)} turns the layout off and draws none`]
+      }
+
+      return LAYOUTS.includes(declared[1]!)
+        ? []
+        : [`${show(file)} asks for a layout that is not there`]
+    })
+
+    expect(pages.length).toBeGreaterThan(0)
+    expect(LAYOUTS.sort()).toEqual(['app', 'public'])
+    expect(undeclared).toEqual([])
   })
 })

@@ -1,4 +1,6 @@
 <script setup lang="ts">
+definePageMeta({ layout: 'app' })
+
 const { refresh: refreshStats } = useStats()
 const { refresh: refreshSpectated } = useSpectatedBattles()
 

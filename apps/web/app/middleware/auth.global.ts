@@ -10,6 +10,12 @@ const PUBLIC_ROUTES = new Set([
 ])
 
 export default defineNuxtRouteMiddleware((to) => {
+  // An address that matches no page is not a page to protect: without this it
+  // is caught by the rule below and answered with the login screen, which
+  // tells somebody who mistyped a URL to sign in. Let it through and the error
+  // page says what actually happened (issue #125).
+  if (!to.matched.length) return
+
   // Nuxt i18n names routes `<name>___<locale>`, e.g. `index___zh-TW`.
   const [name = '', locale] = String(to.name ?? '').split('___')
 

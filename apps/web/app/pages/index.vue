@@ -1,4 +1,6 @@
 <script setup lang="ts">
+definePageMeta({ layout: 'app' })
+
 const { whenLoaded } = useStats()
 const { aliases, loaded, load } = useProfile()
 
