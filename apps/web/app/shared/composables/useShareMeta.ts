@@ -24,21 +24,32 @@ export function useShareMeta(page: { title: () => string; description: () => str
   // follow from the locale and the route rather than from this page.
   useHead(useLocaleHead({ seo: true }))
 
+  /**
+   * The tab and the share card say the same thing, site name included.
+   *
+   * `og:site_name` carries it too, but not every client renders that — a card
+   * that says only "About" is a card that does not say whose. So the page half
+   * goes to `title` and the shared template adds the site half (issue #139),
+   * while `og:title` is handed the same string already assembled, by the same
+   * function, so the two cannot drift.
+   */
+  const full = () => siteTitle(page.title())
+
   useSeoMeta({
     title: page.title,
     description: page.description,
 
-    ogTitle: page.title,
+    ogTitle: full,
     ogDescription: page.description,
     ogType: 'website',
-    ogSiteName: 'Blueberry Academy',
+    ogSiteName: SITE_NAME,
     ogUrl: url,
 
     // A summary card and no `og:image`: there is no image to point at, and
     // pointing at one that does not exist is how a preview ends up blank
     // rather than compact.
     twitterCard: 'summary',
-    twitterTitle: page.title,
+    twitterTitle: full,
     twitterDescription: page.description,
   })
 }

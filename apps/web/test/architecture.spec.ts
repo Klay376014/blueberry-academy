@@ -457,3 +457,34 @@ describe('the shape of app/', () => {
     expect(undeclared).toEqual([])
   })
 })
+
+/**
+ * Every page says what it is (issue #139).
+ *
+ * `test/nuxt/page-title.spec.ts` mounts the addresses a reader actually visits
+ * and reads the tab back, which is the behaviour. This is the part that test
+ * cannot have: it enumerates its routes, so a page added next month with no
+ * title of its own would simply not be in the list, and nothing would fail.
+ * Here the list is the directory.
+ */
+describe('page titles', () => {
+  const PAGES = path.join(APP, 'pages')
+
+  /** Either the page names itself, or it is one of the two that also share. */
+  const DECLARES_A_TITLE = /useHead\(\{\s*title|useShareMeta\(/
+
+  it('leaves no page for the browser to name after its URL', () => {
+    const untitled = walk(PAGES)
+      .filter((file) => file.endsWith('.vue'))
+      .filter((file) => !DECLARES_A_TITLE.test(withoutComments(readFileSync(file, 'utf8'))))
+      .map(
+        (file) =>
+          `${show(file)} sets no title, so its tab would say its URL — see useSiteTitle (#139)`,
+      )
+
+    // `index.vue` is the site's own front page and is the one deliberate
+    // exception: it takes the bare site name, which is exactly what a page
+    // with no title of its own already gets.
+    expect(untitled.map((message) => message.split(' ')[0])).toEqual(['pages/index.vue'])
+  })
+})

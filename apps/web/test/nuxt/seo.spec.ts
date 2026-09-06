@@ -25,6 +25,14 @@ const content = (selector: string) =>
 
 const ORIGIN = 'https://blueberry-academy.ivy-cudgel.com'
 
+/**
+ * The locale files hold the page half alone; the site half is added by the
+ * shared template (issue #139). The tab and the card say the same string —
+ * `og:site_name` carries the site too, but not every client renders it, and a
+ * card that says only "About" does not say whose.
+ */
+const titled = (page: string) => `${page} · Blueberry Academy`
+
 describe('the dashboard, pasted somewhere', () => {
   // `/` stays a plain SPA and says nothing about itself: it is two pages at one
   // address (issue #126), and the half worth sharing cannot be told apart from
@@ -55,11 +63,11 @@ describe('the about page, pasted somewhere', () => {
     await mountSuspended(App, { route: '/about' })
 
     await vi.waitFor(() => {
-      expect(document.title).toBe(en.seo.about.title)
+      expect(document.title).toBe(titled(en.seo.about.title))
     })
 
     expect(content('meta[name="description"]')).toBe(en.seo.about.description)
-    expect(content('meta[property="og:title"]')).toBe(en.seo.about.title)
+    expect(content('meta[property="og:title"]')).toBe(titled(en.seo.about.title))
     expect(content('meta[property="og:description"]')).toBe(en.seo.about.description)
     expect(content('meta[property="og:type"]')).toBe('website')
     expect(content('meta[property="og:site_name"]')).toBe('Blueberry Academy')
@@ -86,7 +94,7 @@ describe('the about page, pasted somewhere', () => {
       expect(content('meta[name="twitter:card"]')).toBe('summary')
     })
 
-    expect(content('meta[name="twitter:title"]')).toBe(en.seo.about.title)
+    expect(content('meta[name="twitter:title"]')).toBe(titled(en.seo.about.title))
     expect(content('meta[name="twitter:description"]')).toBe(en.seo.about.description)
     expect(document.head.querySelector('meta[property="og:image"]')).toBeNull()
   })
@@ -99,7 +107,7 @@ describe('the privacy page, pasted somewhere', () => {
     await mountSuspended(App, { route: '/privacy' })
 
     await vi.waitFor(() => {
-      expect(document.title).toBe(en.seo.privacy.title)
+      expect(document.title).toBe(titled(en.seo.privacy.title))
     })
 
     expect(content('meta[property="og:description"]')).toBe(en.seo.privacy.description)
@@ -124,7 +132,8 @@ describe('the copy behind the tags', () => {
     for (const page of ['about', 'privacy'] as const) {
       for (const locale of [en, zhTW]) {
         expect(locale.seo[page].description.length).toBeLessThanOrEqual(200)
-        expect(locale.seo[page].title.length).toBeLessThanOrEqual(70)
+        // The assembled title, not the key: the site half is shown too.
+        expect(titled(locale.seo[page].title).length).toBeLessThanOrEqual(70)
       }
     }
   })
