@@ -54,17 +54,24 @@ const kept = ['account', 'names', 'battles', 'logs'] as const
     <MarketingProseSection :title="t('privacy.deletion.title')" data-testid="privacy-deletion">
       <p class="text-muted-foreground">{{ t('privacy.deletion.body') }}</p>
 
-      <!-- Written out rather than bound: where a deletion is asked for until
-           there is a button that does it, and a constant address is not a
-           value the page computes. -->
+      <!-- Where a deletion is asked for until there is a button that does it
+           (issue #137). Written out rather than bound, twice over: a `:href`
+           is what vize/vue/no-unsafe-url reports, and it cannot see that a
+           literal `mailto:` leaves no room for a scheme of its own. The two
+           copies are one glance apart, and this page's test asserts the text
+           against the href so they cannot drift.
+
+           Shown as itself rather than behind a label: an address somebody may
+           have to write down by hand is not something to hide behind the word
+           "email". In the page rather than in the two locale files, for the
+           same reason as the date above — an address is not a sentence to be
+           translated. -->
       <a
-        href="https://github.com/Klay376014/blueberry-academy/issues"
+        href="mailto:ads1029384756@gmail.com"
         class="text-primary underline"
-        target="_blank"
-        rel="noopener noreferrer"
-        data-testid="privacy-repository"
+        data-testid="privacy-contact"
       >
-        {{ t('privacy.deletion.repository') }}
+        ads1029384756@gmail.com
       </a>
     </MarketingProseSection>
 
