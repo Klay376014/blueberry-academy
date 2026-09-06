@@ -479,7 +479,7 @@ describe('page titles', () => {
       .filter((file) => !DECLARES_A_TITLE.test(withoutComments(readFileSync(file, 'utf8'))))
       .map(
         (file) =>
-          `${show(file)} sets no title, so its tab would say its URL — see useSiteTitle (#139)`,
+          `${show(file)} sets no title, so its tab would say its URL — see useSiteHead (#139)`,
       )
 
     // `index.vue` is the site's own front page and is the one deliberate

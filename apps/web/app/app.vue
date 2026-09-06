@@ -1,7 +1,8 @@
 <script setup lang="ts">
-// The shape every page's tab title takes (issue #139). Here rather than in a
-// layout: the two shells are chosen per page, and a title is not a shell.
-useSiteTitle()
+// The title shape and the tab icon, which every page shares (#139, #140).
+// Here rather than in a layout: the two shells are chosen per page, and
+// neither of these is a shell.
+useSiteHead()
 </script>
 
 <template>

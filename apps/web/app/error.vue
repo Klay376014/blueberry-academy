@@ -21,7 +21,7 @@ const notFound = computed(() => props.error.statusCode === 404)
 
 // This file replaces app.vue rather than rendering inside it, so the template
 // it registers there never runs here (issue #139).
-useSiteTitle()
+useSiteHead()
 
 useHead({
   title: () => (notFound.value ? t('error.notFound.title') : t('error.unexpected.title')),
