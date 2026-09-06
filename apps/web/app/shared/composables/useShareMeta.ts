@@ -45,10 +45,18 @@ export function useShareMeta(page: { title: () => string; description: () => str
     ogSiteName: SITE_NAME,
     ogUrl: url,
 
-    // A summary card and no `og:image`: there is no image to point at, and
-    // pointing at one that does not exist is how a preview ends up blank
-    // rather than compact.
+    // The crest, square, so it sits beside the text rather than above it —
+    // `summary_large_image` would stretch a 512px emblem across a banner
+    // (issue #140). Absolute, because the thing fetching it is on another
+    // host, and dimensions given because some clients will not show an image
+    // whose size they would have to discover first.
+    ogImage: () => `${baseUrl}/icon.png`,
+    ogImageWidth: 512,
+    ogImageHeight: 512,
+    ogImageAlt: SITE_NAME,
+
     twitterCard: 'summary',
+    twitterImage: () => `${baseUrl}/icon.png`,
     twitterTitle: full,
     twitterDescription: page.description,
   })

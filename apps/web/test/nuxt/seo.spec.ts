@@ -87,7 +87,7 @@ describe('the about page, pasted somewhere', () => {
     )
   })
 
-  it('is a summary card rather than a picture: there is no picture to show', async () => {
+  it('is a summary card: the crest is square, so it belongs beside the text', async () => {
     await mountSuspended(App, { route: '/about' })
 
     await vi.waitFor(() => {
@@ -96,7 +96,23 @@ describe('the about page, pasted somewhere', () => {
 
     expect(content('meta[name="twitter:title"]')).toBe(titled(en.seo.about.title))
     expect(content('meta[name="twitter:description"]')).toBe(en.seo.about.description)
-    expect(document.head.querySelector('meta[property="og:image"]')).toBeNull()
+  })
+
+  it('points at a picture, by an address another host can fetch', async () => {
+    await mountSuspended(App, { route: '/about' })
+
+    // Absolute: the thing reading this is on somebody else's machine, and a
+    // card that cannot fetch the image renders blank rather than falling back
+    // to the text-only one (issue #140).
+    await vi.waitFor(() => {
+      expect(content('meta[property="og:image"]')).toBe(`${ORIGIN}/icon.png`)
+    })
+
+    expect(content('meta[name="twitter:image"]')).toBe(`${ORIGIN}/icon.png`)
+    // Some clients will not show an image they have to guess the size of.
+    expect(content('meta[property="og:image:width"]')).toBe('512')
+    expect(content('meta[property="og:image:height"]')).toBe('512')
+    expect(content('meta[property="og:image:alt"]')).toBeTruthy()
   })
 })
 
