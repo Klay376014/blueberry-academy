@@ -110,17 +110,14 @@ describe('the account menu', () => {
 describe('the footer', () => {
   beforeEach(signOut)
 
-  it('says where the legal reading and the source are', async () => {
+  // No link to the source among them: the repository is not open to the people
+  // reading this (issue #137).
+  it('says where the legal reading is', async () => {
     const wrapper = await mountSuspended(App, { route: '/about' })
 
     const hrefs = wrapper.findAll('[data-testid="site-footer"] a').map((a) => a.attributes('href'))
 
-    expect(hrefs).toEqual([
-      '/about',
-      '/privacy',
-      '/privacy#terms',
-      'https://github.com/Klay376014/blueberry-academy',
-    ])
+    expect(hrefs).toEqual(['/about', '/privacy', '/privacy#terms'])
   })
 
   it('is where the language is chosen', async () => {
@@ -146,7 +143,7 @@ describe('what the shell says', () => {
       expect(en.nav[key]).toBeTruthy()
       expect(zhTW.nav[key]).toBeTruthy()
     }
-    for (const key of ['about', 'privacy', 'terms', 'source'] as const) {
+    for (const key of ['about', 'privacy', 'terms'] as const) {
       expect(en.footer[key]).toBeTruthy()
       expect(zhTW.footer[key]).toBeTruthy()
     }

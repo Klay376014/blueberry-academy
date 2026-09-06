@@ -11,8 +11,7 @@
   "footer": {
     "about": "About",
     "privacy": "Privacy",
-    "terms": "Terms",
-    "source": "Source code"
+    "terms": "Terms"
   },
   "seo": {
     "about": {
@@ -117,8 +116,7 @@
     },
     "deletion": {
       "title": "Deleting your data",
-      "body": "There is no delete button yet — this is the honest answer rather than a policy. Signing out ends the session and removes nothing. To have the account, its rows and its stored logs deleted, ask through the project's repository, and it will be done by hand.",
-      "repository": "The repository on GitHub"
+      "body": "There is no delete button yet — this is the honest answer rather than a policy. Signing out ends the session and removes nothing. To have the account, its rows and its stored logs deleted, write to the address below, and it will be done by hand."
     },
     "others": {
       "title": "Who else your browser talks to",

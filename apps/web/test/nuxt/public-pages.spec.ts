@@ -67,6 +67,21 @@ describe('the privacy page', () => {
     }
   })
 
+  // The page promises the account can be deleted by asking (#127), and the
+  // repository it used to ask through is not open to its readers any more
+  // (#137). A promise with no way to call it in is worse than none, so what is
+  // asserted is that the address is there and reachable in one press.
+  it('gives a reachable address to ask for a deletion at', async () => {
+    const wrapper = await mountSuspended(Privacy)
+
+    const contact = wrapper.get('[data-testid="privacy-contact"]')
+
+    expect(contact.attributes('href')).toMatch(/^mailto:[^\s@]+@[^\s@]+$/)
+    // Shown as itself: an address somebody may have to write down by hand is
+    // not something to hide behind the word "email".
+    expect(contact.text()).toBe(contact.attributes('href')?.replace('mailto:', ''))
+  })
+
   it('says all of it in both locales', () => {
     expect(shape(zhTW.privacy)).toEqual(shape(en.privacy))
   })

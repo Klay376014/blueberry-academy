@@ -50,12 +50,7 @@ describe('the error page', () => {
       .map((a) => a.attributes('href'))
 
     expect(wrapper.get('[data-testid="site-brand"]').attributes('href')).toBe('/')
-    expect(hrefs).toEqual([
-      '/about',
-      '/privacy',
-      '/privacy#terms',
-      'https://github.com/Klay376014/blueberry-academy',
-    ])
+    expect(hrefs).toEqual(['/about', '/privacy', '/privacy#terms'])
     expect(wrapper.find('[data-testid="theme-toggle"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="locale-switcher"]').exists()).toBe(true)
   })
