@@ -1,6 +1,10 @@
 <script setup lang="ts">
 definePageMeta({ layout: 'app' })
 
+const { t } = useI18n()
+
+useHead({ title: () => t('settings.title') })
+
 const { refresh: refreshStats } = useStats()
 const { refresh: refreshSpectated } = useSpectatedBattles()
 

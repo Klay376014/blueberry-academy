@@ -15,11 +15,11 @@
   },
   "seo": {
     "about": {
-      "title": "關於 Blueberry Academy",
+      "title": "關於",
       "description": "這個網站從你的 Pokémon Showdown replay 讀出什麼、勝率怎麼算、登錄隊伍與實際選出的四隻如何分開計算，以及它不宣稱什麼。"
     },
     "privacy": {
-      "title": "隱私與條款 · Blueberry Academy",
+      "title": "隱私與條款",
       "description": "Blueberry Academy 保存你的哪些資料、誰讀得到、為什麼沒有人能驗證一個 Showdown 帳號是你的，以及要怎麼把這些全部刪掉。"
     }
   },
