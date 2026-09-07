@@ -14,6 +14,15 @@ import type { DrawerBattle } from '../composables/useBattleDrawer'
  * the header's decision and needs `t()`, which this has no business holding.
  */
 export interface DrawerSide {
+  /**
+   * Which side of the log this column is, or null when there is none to name:
+   * an unparsed row is stored without a side of mine, and neither column of it
+   * stands for a player the log identified.
+   *
+   * Here so that the header can ask `sideSlot` which slot it is and take that
+   * slot's hue, rather than knowing on its own that the left one is the first.
+   */
+  side: SideId | null
   name: string | null
   /** The Pokémon that appeared, as a bring signature. */
   bring: string | null
@@ -63,12 +72,14 @@ export function drawerSides(battle: DrawerBattle): DrawerSides {
     return {
       attributed: true,
       left: {
+        side: battle.mySide,
         name: battle.myUsername,
         bring: battle.myBring,
         team: battle.mySide ? battle.sides[battle.mySide].team : null,
         won: false,
       },
       right: {
+        side: theirs,
         name: battle.opponentUsername,
         bring: battle.opponentBring,
         team: theirs ? battle.sides[theirs].team : null,
@@ -80,6 +91,7 @@ export function drawerSides(battle: DrawerBattle): DrawerSides {
 
   const { winner } = battle
   const neutral = (side: SideId): DrawerSide => ({
+    side,
     // `username` there, `name` here: the row calls it what the log calls it,
     // and the header has a column of its own to label.
     name: battle.sides[side].username,

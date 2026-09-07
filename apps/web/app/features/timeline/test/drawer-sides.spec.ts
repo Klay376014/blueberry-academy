@@ -1,52 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import { drawerSides } from '../utils/drawerSides'
-import type { DrawerBattle } from '../composables/useBattleDrawer'
+import { battle, spectated } from './fixtures'
 
 /**
  * Which two players the drawer's header puts on which side, for a battle that
  * has a "me" in it and for one that does not (#63).
  */
-
-function battle(overrides: Partial<DrawerBattle> = {}): DrawerBattle {
-  return {
-    replayId: 'ladder-1',
-    playedAt: '2026-08-01T10:00:00Z',
-    formatId: 'gen9championsvgc2026regmb',
-    seriesId: null,
-    result: 'win',
-    rating: 1500,
-    ratingDelta: 12,
-    endReason: null,
-    mySide: 'p1',
-    myUsername: 'NotLittleStar',
-    opponentUsername: 'Somebody',
-    turnCount: 11,
-    myBring: 'a|b|c|d',
-    opponentBring: 'w|x|y|z',
-    sides: {
-      p1: { username: 'NotLittleStar', bring: 'a|b|c|d', team: 'a|b|c|d|e|f' },
-      p2: { username: 'Somebody', bring: 'w|x|y|z', team: 'u|v|w|x|y|z' },
-    },
-    winner: 'p1',
-    parseError: null,
-    ...overrides,
-  }
-}
-
-/** The same battle once every alias that claimed it has been unbound. */
-function spectated(overrides: Partial<DrawerBattle> = {}): DrawerBattle {
-  return battle({
-    mySide: null,
-    myUsername: null,
-    opponentUsername: null,
-    result: null,
-    rating: null,
-    ratingDelta: null,
-    myBring: null,
-    opponentBring: null,
-    ...overrides,
-  })
-}
 
 describe('a battle of mine', () => {
   it('puts me on the left and the opponent on the right', () => {
@@ -54,12 +13,14 @@ describe('a battle of mine', () => {
 
     expect(sides.attributed).toBe(true)
     expect(sides.left).toEqual({
+      side: 'p1',
       name: 'NotLittleStar',
       bring: 'a|b|c|d',
       team: 'a|b|c|d|e|f',
       won: false,
     })
     expect(sides.right).toEqual({
+      side: 'p2',
       name: 'Somebody',
       bring: 'w|x|y|z',
       team: 'u|v|w|x|y|z',
@@ -98,12 +59,14 @@ describe('a spectated battle', () => {
 
     expect(sides.attributed).toBe(false)
     expect(sides.left).toEqual({
+      side: 'p1',
       name: 'NotLittleStar',
       bring: 'a|b|c|d',
       team: 'a|b|c|d|e|f',
       won: true,
     })
     expect(sides.right).toEqual({
+      side: 'p2',
       name: 'Somebody',
       bring: 'w|x|y|z',
       team: 'u|v|w|x|y|z',

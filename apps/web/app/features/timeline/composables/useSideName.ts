@@ -1,5 +1,6 @@
 import type { SideId } from 'replay-parser'
-import { sideLabelKey } from '../utils/sideSlots'
+import { sideLabelKey, sideSlot } from '../utils/sideSlots'
+import { SIDE_MARK } from '../utils/sideTones'
 
 /**
  * What to call a side, in the reader's language.
@@ -21,4 +22,22 @@ export function useSideName() {
     // neither side can be named after the reader.
     return key === null ? side.toUpperCase() : t(`battle.drawer.${key}`)
   }
+}
+
+/**
+ * The mark that names a side: what it says, and the hue it says it in.
+ *
+ * The pair travels together because it drifted when it did not — the rows and
+ * the header each built it, and disagreed about when there is no mark at all.
+ * A caller with no side to name (a row of the field, a column of a battle that
+ * never parsed) holds the `null` itself: what that absence means differs, and
+ * only the caller knows which.
+ */
+export function useSideMark() {
+  const sideName = useSideName()
+
+  return (side: SideId, mySide: SideId | null) => ({
+    label: sideName(side, mySide),
+    tone: SIDE_MARK[sideSlot(side, mySide)],
+  })
 }

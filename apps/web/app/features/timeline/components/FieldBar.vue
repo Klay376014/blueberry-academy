@@ -3,7 +3,7 @@ import { toID } from 'replay-parser'
 import type { SideId } from 'replay-parser'
 import type { FieldSnapshot, PokemonState } from '../utils/battleField'
 import { orderedSides, sideSlot } from '../utils/sideSlots'
-import type { SideSlot } from '../utils/sideSlots'
+import { SIDE_TEXT } from '../utils/sideTones'
 import { useSideName } from '../composables/useSideName'
 import { speciesLabel } from '~/shared/utils/speciesName'
 import { abilityDisplayName, fieldConditionDisplayName } from '~/shared/utils/battleTerms'
@@ -48,18 +48,6 @@ const sideName = useSideName()
 const label = (side: SideId) => sideName(side, props.mySide)
 
 /**
- * Which side's line this is, in colour — the same two hues the rows use, so
- * the panel gives one answer to which side is which rather than two
- * (ADR-0017). Off the field takes neither: it is a line of its own under
- * whichever side it belongs to, already labelled as such.
- */
-const SLOT_TONE: Record<SideSlot, string> = {
-  first: 'text-primary',
-  second: 'text-side-second',
-  neutral: 'text-muted-foreground',
-}
-
-/**
  * The lines one side takes. The second one is only there when somebody has
  * left the field, so a lead does not carry an empty row under it.
  *
@@ -73,7 +61,7 @@ function linesOf(side: SideId) {
   return [
     {
       label: label(side),
-      tone: SLOT_TONE[sideSlot(side, props.mySide)],
+      tone: SIDE_TEXT[sideSlot(side, props.mySide)],
       // Keyed by the square, which is the one thing about a Pokémon on the
       // field that a Mega or an Ally Switch does not change.
       pokemon: props.snapshot.slots
@@ -86,7 +74,9 @@ function linesOf(side: SideId) {
       ? [
           {
             label: t('battle.drawer.offField'),
-            tone: SLOT_TONE.neutral,
+            // Off the field takes neither side's hue: it is a line of its own
+            // under whichever side it belongs to, already labelled as such.
+            tone: SIDE_TEXT.neutral,
             // Nothing off the field is standing anywhere, and the order is the
             // order they first appeared in, so their place in it is the key.
             pokemon: off.map((pokemon, index) => ({ key: `off-${index}`, state: pokemon })),
