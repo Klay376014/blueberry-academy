@@ -6,6 +6,7 @@ import ladder from '../../../../../../packages/replay-parser/test/fixtures/gen9c
 import lifeOrb from '../../../../../../packages/replay-parser/test/fixtures/gen9championsvgc2026regmb-2667169457.json'
 import recoil from '../../../../../../packages/replay-parser/test/fixtures/gen9championsvgc2026regmb-2674380893.json'
 import recoilToo from '../../../../../../packages/replay-parser/test/fixtures/gen9championsvgc2026regmb-2674448634.json'
+import skillSwap from '../../../../../../packages/replay-parser/test/fixtures/gen9championsvgc2026regma-2592519449.json'
 
 /** One out on each side, which is what turn 0's own tests read. */
 const TWO_UP = [
@@ -409,6 +410,60 @@ describe('the results an action gathers onto its own row', () => {
         targets: [],
         notes: [{ key: 'effectStarted', params: { effect: 'Protect' }, quiet: true }],
       },
+    ])
+  })
+  it('reads a move’s own -activate as the move working, not as a block', () => {
+    // `-activate` is Showdown's generic "this effect did something", and a
+    // Skill Swap announces its success with one. Read as a block it said a
+    // move that worked had been stopped, and said its own name twice (#151).
+    const lines = [
+      '|move|p1a: Scrafty|Skill Swap|p2a: Whimsicott',
+      '|-activate|p1a: Scrafty|Skill Swap',
+    ]
+
+    expect(rows(lines)).toMatchObject([
+      {
+        move: 'Skill Swap',
+        notes: [{ key: 'effectActivated', params: { effect: 'Skill Swap' }, quiet: true }],
+      },
+    ])
+  })
+  it('reads an -activate that stopped nothing as the effect firing', () => {
+    // The 11 `-activate` lines in the fixtures that are not a guard: Toxic
+    // Debris, Quick Claw, Supreme Overlord, confusion, and the residual ticks
+    // of Infestation and Magma Storm. None of them stopped a move.
+    const lines = [
+      '|move|p1a: Scrafty|Knock Off|p2a: Whimsicott',
+      '|-activate|p2a: Whimsicott|ability: Toxic Debris',
+    ]
+
+    expect(rows(lines)[0]?.targets[0]?.notes).toEqual([
+      { key: 'effectActivated', params: { effect: 'Toxic Debris' }, quiet: false },
+    ])
+  })
+  it('keeps “held” for a Safeguard, which no fixture carries', () => {
+    // Safeguard and Mist announce a status move or a stat drop turned away on
+    // the same line a Protect does, and neither is in the fixtures — so this
+    // is the only thing holding them to the wording they share (#151).
+    const lines = [
+      '|move|p1a: Scrafty|Thunder Wave|p2a: Whimsicott',
+      '|-activate|p2a: Whimsicott|move: Safeguard',
+    ]
+
+    expect(rows(lines)[0]?.targets[0]?.notes).toEqual([
+      { key: 'effectHeld', params: { effect: 'Safeguard' }, quiet: false },
+    ])
+  })
+  it('keeps “held” for the moves whose whole job is to stop one', () => {
+    // The 37 of the fixtures' 48 that are a guard, and the reason the wording
+    // was written this way in the first place.
+    const lines = [
+      '|move|p1a: Scrafty|Rock Slide|p2a: Whimsicott',
+      '|-activate|p2a: Whimsicott|move: Wide Guard',
+    ]
+
+    expect(rows(lines)[0]?.targets[0]?.notes).toEqual([
+      { key: 'effectHeld', params: { effect: 'Wide Guard' }, quiet: false },
     ])
   })
   it('folds a volatile the move put on onto that move’s row', () => {
@@ -880,5 +935,26 @@ describe('whole games', () => {
         rowsOf(turn, { detailed: true }).length - rowsOf(turn, { detailed: false }).length,
       )
     }
+  })
+})
+
+/**
+ * The game the wording was reported from, read as a whole rather than as
+ * written lines: what made it worth a ticket is that it was a real turn of a
+ * real game, and the log's `[of] p2a: Incineroar` is a shape no written test
+ * here spells out (#151).
+ */
+describe('the Skill Swap of gen9championsvgc2026regma-2592519449', () => {
+  const turn = parseTimeline(skillSwap.log).turns.find((turn) => turn.number === 4)
+
+  it('says the swap happened, once', () => {
+    const row = rowsOf(turn!, { detailed: false }).find((row) => row.move === 'Skill Swap')
+
+    expect(row).toMatchObject({
+      side: 'p2',
+      species: 'Starmie-Mega',
+      targets: [{ species: 'Incineroar' }],
+      notes: [{ key: 'effectActivated', params: { effect: 'Skill Swap' }, quiet: true }],
+    })
   })
 })

@@ -131,8 +131,10 @@ const CATEGORIES = [
     dex: ['move'],
   },
   {
-    what: 'a single-turn effect, and what a hit was blocked by',
-    strings: rows.flatMap((row) => params(row, ['effectStarted', 'effectHeld'], 'effect')),
+    what: 'a single-turn effect, an effect that fired, and what a hit was blocked by',
+    strings: rows.flatMap((row) =>
+      params(row, ['effectStarted', 'effectHeld', 'effectActivated'], 'effect'),
+    ),
     named: effectDisplayName,
     from: [MOVES, ABILITIES, ITEMS],
     // The one category where the log states nothing. `-singleturn`,

@@ -136,6 +136,50 @@ function isMainLine(event: TimelineEvent): boolean {
 }
 
 /**
+ * The moves whose `-activate` means a move was stopped, rather than an effect
+ * merely firing.
+ *
+ * `-activate` is Showdown's generic "this effect did something": Protect
+ * stopping a move and a Skill Swap announcing its success arrive on the same
+ * line. Counted over the fixtures, 37 of the 48 are Protect or Wide Guard —
+ * which is why the wording was written as a block — and the other 11 (Toxic
+ * Debris, Quick Claw, Supreme Overlord, confusion, and the residual ticks of
+ * Infestation and Magma Storm) stopped nothing at all (#151).
+ *
+ * The list is what stops a move and only what stops a move, because "was
+ * stopped" is a claim about what happened. Safeguard and Mist are on it for
+ * the same reason the shields are: their `-activate` fires when a status move
+ * or a stat drop was turned away. Endure and a Substitute taking a hit are
+ * deliberately not: they survived a move rather than stopped one, and the
+ * neutral wording is the true one for them.
+ *
+ * None of the fixtures carries a Safeguard, a Mist or a Substitute, so those
+ * three are read off the protocol rather than measured here.
+ */
+const GUARDS = new Set([
+  'protect',
+  'detect',
+  'safeguard',
+  'mist',
+  'spikyshield',
+  'kingsshield',
+  'banefulbunker',
+  'obstruct',
+  'silktrap',
+  'burningbulwark',
+  'maxguard',
+  'craftyshield',
+  'quickguard',
+  'wideguard',
+  'matblock',
+])
+
+/** Which of the two an `-activate` was, by the effect it named. */
+function activationKey(effect: string): string {
+  return GUARDS.has(toID(effect)) ? 'effectHeld' : 'effectActivated'
+}
+
+/**
  * A number of stages with its sign on it, for the one line that states a stat
  * where it stands rather than how far it moved. The minus is the typographic
  * one `statFell`'s own copy uses, so a set and a drop read alike.
@@ -356,7 +400,7 @@ export function rowOf(event: TimelineEvent): TimelineRow | null {
         side: event.pokemon.side,
         species: event.pokemon.species,
         message: {
-          key: event.phase === 'start' ? 'effectStarted' : 'effectHeld',
+          key: event.phase === 'start' ? 'effectStarted' : activationKey(event.effect),
           params: { effect: event.effect },
         },
       }
@@ -596,13 +640,17 @@ function resultOf(
         note: { key: 'missed', quiet: false },
       }
 
+    // The quiet rule is on the effect's name rather than on its phase: an
+    // `-activate` naming the move that is already on the row — a Skill Swap
+    // saying it worked — is the same word twice, exactly as the Protect that
+    // goes up is (#151).
     case 'effect':
       return {
         pokemon: event.pokemon,
         note: {
-          key: event.phase === 'start' ? 'effectStarted' : 'effectHeld',
+          key: event.phase === 'start' ? 'effectStarted' : activationKey(event.effect),
           params: { effect: event.effect },
-          quiet: event.phase === 'start' && event.effect === move,
+          quiet: event.effect === move,
         },
       }
 
