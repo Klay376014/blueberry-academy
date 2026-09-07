@@ -65,7 +65,7 @@ export default defineConfig({
         // which puts a stored replay id after a literal https origin, so there
         // is no room in it for a scheme of its own. The rule reports every
         // dynamic `:href` and has no way to see that.
-        files: ['apps/web/app/features/timeline/components/BattleDrawer.vue'],
+        files: ['apps/web/app/features/timeline/components/DrawerHeader.vue'],
         rules: {
           'vize/vue/no-unsafe-url': 'off',
         },

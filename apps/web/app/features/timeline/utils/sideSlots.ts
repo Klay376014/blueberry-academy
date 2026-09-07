@@ -20,7 +20,18 @@ import type { SideId } from 'replay-parser'
  */
 export type SideSlot = 'first' | 'second' | 'neutral'
 
-/** Which slot a side occupies, given whichever side is the reader's. */
+/** A slot that stands for a side. Only the field's own rows have neither. */
+export type NamedSide = Exclude<SideSlot, 'neutral'>
+
+/**
+ * Which slot a side occupies, given whichever side is the reader's.
+ *
+ * The overload is what lets a caller holding a real side skip the `neutral`
+ * case instead of writing a branch that cannot run: `neutral` is what a `null`
+ * side gets, and nothing else.
+ */
+export function sideSlot(side: SideId, mySide: SideId | null): NamedSide
+export function sideSlot(side: SideId | null, mySide: SideId | null): SideSlot
 export function sideSlot(side: SideId | null, mySide: SideId | null): SideSlot {
   if (side === null) return 'neutral'
 
