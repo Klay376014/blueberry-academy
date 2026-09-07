@@ -324,8 +324,15 @@ async function mountFieldOf(field: FieldSnapshot, locale: string) {
 }
 
 /** What a row says, with the whitespace the template introduces collapsed. */
-const said = async (row: TimelineRow, locale: string) =>
-  (await mountRowOf(row, locale)).text().replaceAll(/\s+/gu, ' ').trim()
+const said = async (row: TimelineRow, locale: string) => {
+  const wrapper = await mountRowOf(row, locale)
+
+  // Without the side mark: it names the side the row belongs to, and this
+  // file's subject is the vocabulary of what happened on it (#144).
+  wrapper.element.querySelector('[data-testid="side-mark"]')?.remove()
+
+  return wrapper.text().replaceAll(/\s+/gu, ' ').trim()
+}
 
 describe('the rest of the vocabulary in en', () => {
   it('is unchanged on every row that carries one', async () => {

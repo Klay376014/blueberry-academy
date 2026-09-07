@@ -2,8 +2,9 @@
 import { toID } from 'replay-parser'
 import type { SideId } from 'replay-parser'
 import type { FieldSnapshot, PokemonState } from '../utils/battleField'
-import { orderedSides, sideLabelKey, sideSlot } from '../utils/sideSlots'
+import { orderedSides, sideSlot } from '../utils/sideSlots'
 import type { SideSlot } from '../utils/sideSlots'
+import { useSideName } from '../composables/useSideName'
 import { speciesLabel } from '~/shared/utils/speciesName'
 import { abilityDisplayName, fieldConditionDisplayName } from '~/shared/utils/battleTerms'
 
@@ -42,24 +43,19 @@ const labelled = (species: string) => speciesLabel(toID(species), locale.value)
  */
 const condition = (name: string) => fieldConditionDisplayName(name, locale.value)
 
-/**
- * What to call a side: the reader's own words for it when one of the two is
- * theirs, and the log's own `P1` / `P2` when neither is.
- */
-function label(side: SideId) {
-  const key = sideLabelKey(side, props.mySide)
-
-  return key === null ? side.toUpperCase() : t(`battle.drawer.${key}`)
-}
+/** What to call a side, in the reader's language. */
+const sideName = useSideName()
+const label = (side: SideId) => sideName(side, props.mySide)
 
 /**
- * Which side's line this is, in colour. Off the field takes neither tone: it
- * is a line of its own under whichever side it belongs to, already labelled as
- * such.
+ * Which side's line this is, in colour — the same two hues the rows use, so
+ * the panel gives one answer to which side is which rather than two
+ * (ADR-0017). Off the field takes neither: it is a line of its own under
+ * whichever side it belongs to, already labelled as such.
  */
 const SLOT_TONE: Record<SideSlot, string> = {
   first: 'text-primary',
-  second: 'text-foreground',
+  second: 'text-side-second',
   neutral: 'text-muted-foreground',
 }
 

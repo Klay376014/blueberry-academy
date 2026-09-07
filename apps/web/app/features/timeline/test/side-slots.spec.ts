@@ -1,11 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { mountSuspended } from '@nuxt/test-utils/runtime'
-import type { SideId } from 'replay-parser'
 import { orderedSides, sideLabelKey, sideSlot } from '../utils/sideSlots'
-import EventRow from '../components/EventRow.vue'
-import FieldBar from '../components/FieldBar.vue'
-import type { TimelineRow } from '../utils/timelineRows'
-import type { FieldSnapshot } from '../utils/battleField'
+import { fieldLabels, rowClasses } from './fixtures'
 
 /**
  * Which side a row belongs to, and that the two sides are drawn differently —
@@ -16,31 +11,6 @@ import type { FieldSnapshot } from '../utils/battleField'
  * the timeline's tests looked at what a side was drawn as, which is how the
  * two sides came to be drawn identically without anything failing.
  */
-
-function row(overrides: Partial<TimelineRow> = {}): TimelineRow {
-  return {
-    mark: 'move',
-    side: 'p1',
-    species: 'Scrafty',
-    move: 'Fake Out',
-    targets: [],
-    bystanders: [],
-    notes: [],
-    message: null,
-    quiet: false,
-    health: null,
-    status: null,
-    tone: null,
-    ...overrides,
-  }
-}
-
-/** The classes the row's own element carries, which is where the side shows. */
-async function rowClasses(side: SideId | null, mySide: SideId | null) {
-  const wrapper = await mountSuspended(EventRow, { props: { row: row({ side }), mySide } })
-
-  return wrapper.get('[data-testid="timeline-row"]').classes()
-}
 
 describe('sideSlot', () => {
   it('puts my side in the first slot and the opponent in the second', () => {
@@ -121,38 +91,6 @@ describe('a row of a spectated battle', () => {
     expect(await rowClasses(null, null)).toEqual(await rowClasses(null, 'p1'))
   })
 })
-
-const SNAPSHOT: FieldSnapshot = {
-  turn: 1,
-  slots: (['p1', 'p2'] as SideId[]).map((side) => ({
-    side,
-    position: `${side}a`,
-    species: side === 'p1' ? 'Scrafty' : 'Suicune',
-    hp: 100,
-    status: null,
-    boosts: {},
-    volatiles: [],
-    teraType: null,
-    fainted: false,
-  })),
-  offField: [],
-  screens: { p1: [], p2: [] },
-  fieldEffects: [],
-  weather: null,
-  fieldAbilities: [],
-}
-
-/** Each side's label on the bar, in the order it draws them. */
-async function fieldLabels(mySide: SideId | null) {
-  const wrapper = await mountSuspended(FieldBar, {
-    props: { snapshot: SNAPSHOT, mySide, caption: 'Turn 1' },
-  })
-
-  return wrapper.findAll('[data-testid="side-label"]').map((label) => ({
-    tone: label.classes().join(' '),
-    said: label.text(),
-  }))
-}
 
 describe('the field bar', () => {
   it('draws the two sides differently when I am p1', async () => {
