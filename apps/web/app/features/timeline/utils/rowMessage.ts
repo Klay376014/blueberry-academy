@@ -27,6 +27,7 @@ const LOCALISERS: Record<string, Record<string, (value: string, locale: string) 
   // A bare effect string: the move -> ability chain.
   effectStarted: { effect: effectDisplayName },
   effectHeld: { effect: effectDisplayName },
+  effectActivated: { effect: effectDisplayName },
   volatileStarted: { effect: effectDisplayName },
   volatileEnded: { effect: effectDisplayName },
   // A side condition or something on the whole field. Its name is a move's,

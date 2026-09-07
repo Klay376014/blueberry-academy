@@ -377,6 +377,7 @@
       "volatileEnded": "{effect} wore off",
       "effectStarted": "{effect}",
       "effectHeld": "{effect} held",
+      "effectActivated": "{effect} activated",
       "sideEffectStarted": "{effect} up",
       "sideEffectEnded": "{effect} ended",
       "fieldEffectStarted": "{effect} up",

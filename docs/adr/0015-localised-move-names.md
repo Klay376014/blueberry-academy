@@ -277,9 +277,10 @@ species-names-zh-hant.json  1197 entries   raw 36,569 B   gzip 14,780 B
 1. **`fieldEffectStarted` / `fieldEffectEnded`**：fixture 出現 `Psychic Terrain` 與
    `Trick Room`，兩者都在招式表裡查得到，**但不在 #102 的四個 key 裡，所以畫面上還是英文**。
    #103 只要把 key 加進 `rowMessage.ts` 的集合就好，一行。
-2. **`effectHeld` 上的特性名**：`Supreme Overlord`、`Toxic Debris`（見上面的白名單）。
-3. **`effectHeld` 上的狀態名**：`confusion`（同一份白名單）。歧義守衛把它從「被念力擋下」
-   改回「被 confusion 擋下」，**這是把錯字換成缺字，不是把它填好** —— 混亂這個狀態的官方
+2. **`effectActivated` 上的特性名**：`Supreme Overlord`、`Toxic Debris`（見上面的白名單）。
+   #151 之前它們掛在 `effectHeld` 上，那個 key 現在只剩下真正把招式擋掉的招式。
+3. **`effectActivated` 上的狀態名**：`confusion`（同一份白名單）。歧義守衛把它從「念力 發動」
+   改回「confusion 發動」，**這是把錯字換成缺字，不是把它填好** —— 混亂這個狀態的官方
    中文字要等 #103 的狀態表。守衛拒掉的另外 6 個 id
    （`raindance` `sunnyday` `sandstorm` `hail` `snowscape` `metronome`）也在等同一批表，
    而前 5 個正是本 ADR 一開始就講過的那個分別：天氣說的是狀態名（`下雪`）不是招式名

@@ -377,6 +377,7 @@
       "volatileEnded": "{effect} 解除",
       "effectStarted": "{effect}",
       "effectHeld": "被 {effect} 擋下",
+      "effectActivated": "{effect} 發動",
       "sideEffectStarted": "{effect} 展開",
       "sideEffectEnded": "{effect} 結束",
       "fieldEffectStarted": "{effect} 展開",

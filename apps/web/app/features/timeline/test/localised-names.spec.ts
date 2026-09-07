@@ -161,6 +161,14 @@ const sideEffectRow: TimelineRow = {
   message: { key: 'sideEffectStarted', params: { effect: 'Stealth Rock' } },
 }
 
+/** A move announcing that it worked, which is not a move being blocked (#151). */
+const activatedRow: TimelineRow = {
+  ...moveRow,
+  move: 'Skill Swap',
+  targets: [],
+  notes: [{ key: 'effectActivated', params: { effect: 'Skill Swap' }, quiet: false }],
+}
+
 /** A move in the dex the zh-Hant table has no name for. */
 const untranslatedRow: TimelineRow = { ...moveRow, move: 'Nihil Light', notes: [], targets: [] }
 
@@ -187,6 +195,14 @@ describe('a move on the timeline in en', () => {
 
     expect(wrapper.text()).toContain('Stealth Rock up')
   })
+
+  it('says an effect that fired without saying it was blocked', async () => {
+    const wrapper = await mountRowOf(activatedRow, 'en')
+
+    expect(wrapper.findAll('[data-testid="row-note"]').map((note) => note.text())).toEqual([
+      'Skill Swap activated',
+    ])
+  })
 })
 
 describe('a move on the timeline in zh-TW', () => {
@@ -210,6 +226,14 @@ describe('a move on the timeline in zh-TW', () => {
     const wrapper = await mountRowOf(sideEffectRow, 'zh-TW')
 
     expect(wrapper.text()).toContain('隱形岩 展開')
+  })
+
+  it('says an effect that fired without saying it was blocked', async () => {
+    const wrapper = await mountRowOf(activatedRow, 'zh-TW')
+
+    expect(wrapper.findAll('[data-testid="row-note"]').map((note) => note.text())).toEqual([
+      '特性互換 發動',
+    ])
   })
 
   it('leaves a move the table has not reached in English', async () => {
