@@ -441,6 +441,45 @@ describe('the results an action gathers onto its own row', () => {
       { key: 'effectActivated', params: { effect: 'Toxic Debris' }, quiet: false },
     ])
   })
+  it('shows the Pokémon an -activate named, on the row that stands alone', () => {
+    // A Skill Swap that folds onto its move already shows the other half
+    // behind the move's arrow. One that does not — nothing is open across a
+    // switch — had nowhere to show it at all, because `[of]` reached no row.
+    // Beside the dot, not behind the arrow: `[of]` names the one that was
+    // traded with here and the one doing the trapping on a Magma Storm tick,
+    // so the direction is the log's to state and it does not (#152).
+    const lines = [
+      '|switch|p2a: Toxapex|Toxapex, L50, M|100/100',
+      '|-activate|p1a: Scrafty|Skill Swap|||[of] p2a: Toxapex',
+    ]
+
+    expect(rows(lines, true).at(-1)).toMatchObject({
+      species: 'Scrafty',
+      targets: [],
+      bystanders: [{ species: 'Toxapex', notes: [], health: [] }],
+      message: { key: 'effectActivated', params: { effect: 'Skill Swap' } },
+    })
+  })
+  it('leaves the row of an -activate that named nobody pointing at nothing', () => {
+    const lines = [
+      '|switch|p2a: Toxapex|Toxapex, L50, M|100/100',
+      '|-activate|p1a: Scrafty|ability: Toxic Debris',
+    ]
+
+    expect(rows(lines, true).at(-1)).toMatchObject({
+      species: 'Scrafty',
+      targets: [],
+      bystanders: [],
+    })
+  })
+  it('draws no second icon for an -activate that named its own subject', () => {
+    const lines = [
+      '|switch|p2a: Toxapex|Toxapex, L50, M|100/100',
+      '|-activate|p1a: Scrafty|Trick|||[of] p1a: Scrafty',
+    ]
+
+    expect(rows(lines, true).at(-1)).toMatchObject({ species: 'Scrafty', bystanders: [] })
+  })
   it('keeps “held” for a Safeguard, which no fixture carries', () => {
     // Safeguard and Mist announce a status move or a stat drop turned away on
     // the same line a Protect does, and neither is in the fixtures — so this

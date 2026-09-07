@@ -79,7 +79,7 @@ const SAMPLES: Record<TimelineEvent['kind'], TimelineEvent> = {
   miss: { kind: 'miss', actor: scrafty, target: whimsicott },
   fail: { kind: 'fail', pokemon: scrafty },
   swap: { kind: 'swap', pokemon: scrafty, from: 'p1b' },
-  effect: { kind: 'effect', pokemon: scrafty, effect: 'Protect', phase: 'start' },
+  effect: { kind: 'effect', pokemon: scrafty, effect: 'Protect', phase: 'start', source: null },
   volatile: { kind: 'volatile', pokemon: scrafty, effect: 'Leech Seed', phase: 'start' },
   sideEffect: { kind: 'sideEffect', side: 'p1', effect: 'Tailwind', phase: 'start' },
   fieldEffect: {
@@ -107,7 +107,8 @@ const VARIANTS: TimelineEvent[] = [
   { kind: 'clearBoosts', pokemon: scrafty, only: 'positive' },
   { kind: 'swapBoosts', pokemon: scrafty, target: whimsicott, stats: [] },
   { kind: 'weather', weather: 'none', from: null },
-  { kind: 'effect', pokemon: scrafty, effect: 'Protect', phase: 'activate' },
+  { kind: 'effect', pokemon: scrafty, effect: 'Protect', phase: 'activate', source: null },
+  { kind: 'effect', pokemon: scrafty, effect: 'Skill Swap', phase: 'activate', source: whimsicott },
   { kind: 'volatile', pokemon: scrafty, effect: 'Leech Seed', phase: 'end' },
   { kind: 'sideEffect', side: 'p1', effect: 'Tailwind', phase: 'end' },
   { kind: 'fieldEffect', effect: 'Trick Room', phase: 'end', from: null, source: null },

@@ -399,6 +399,21 @@ export function rowOf(event: TimelineEvent): TimelineRow | null {
         ...blank(),
         side: event.pokemon.side,
         species: event.pokemon.species,
+        // Beside the dot rather than behind the arrow, because `[of]` says
+        // "this one is involved" and not "this one was aimed at" — measured,
+        // the direction it points is not fixed: a Skill Swap names the
+        // Pokémon it traded with, a Magma Storm tick names the one doing the
+        // trapping. The arrow would claim a direction the log never stated,
+        // and the dot is the field this file already keeps for somebody the
+        // log did not call a target (#152).
+        //
+        // Empty where the line named nobody, which is most of them, and where
+        // it named the row's own subject: an icon of the Pokémon already at
+        // the head of the row says nothing twice.
+        bystanders:
+          event.source === null || event.source.position === event.pokemon.position
+            ? []
+            : [{ species: event.source.species, notes: [], health: [] }],
         message: {
           key: event.phase === 'start' ? 'effectStarted' : activationKey(event.effect),
           params: { effect: event.effect },
