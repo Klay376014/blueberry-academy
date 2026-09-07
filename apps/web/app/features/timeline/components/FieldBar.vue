@@ -2,6 +2,8 @@
 import { toID } from 'replay-parser'
 import type { SideId } from 'replay-parser'
 import type { FieldSnapshot, PokemonState } from '../utils/battleField'
+import { orderedSides, sideLabelKey, sideSlot } from '../utils/sideSlots'
+import type { SideSlot } from '../utils/sideSlots'
 import { speciesLabel } from '~/shared/utils/speciesName'
 import { abilityDisplayName, fieldConditionDisplayName } from '~/shared/utils/battleTerms'
 
@@ -20,8 +22,7 @@ import { abilityDisplayName, fieldConditionDisplayName } from '~/shared/utils/ba
  */
 const props = defineProps<{ snapshot: FieldSnapshot; mySide: SideId | null; caption: string }>()
 
-/** Mine first when either side is mine, and p1 first when neither is. */
-const sides = computed<SideId[]>(() => (props.mySide === 'p2' ? ['p2', 'p1'] : ['p1', 'p2']))
+const sides = computed(() => orderedSides(props.mySide))
 
 const { t, locale } = useI18n()
 
@@ -41,10 +42,25 @@ const labelled = (species: string) => speciesLabel(toID(species), locale.value)
  */
 const condition = (name: string) => fieldConditionDisplayName(name, locale.value)
 
+/**
+ * What to call a side: the reader's own words for it when one of the two is
+ * theirs, and the log's own `P1` / `P2` when neither is.
+ */
 function label(side: SideId) {
-  if (props.mySide === null) return side.toUpperCase()
+  const key = sideLabelKey(side, props.mySide)
 
-  return side === props.mySide ? t('battle.drawer.you') : t('battle.drawer.opponent')
+  return key === null ? side.toUpperCase() : t(`battle.drawer.${key}`)
+}
+
+/**
+ * Which side's line this is, in colour. Off the field takes neither tone: it
+ * is a line of its own under whichever side it belongs to, already labelled as
+ * such.
+ */
+const SLOT_TONE: Record<SideSlot, string> = {
+  first: 'text-primary',
+  second: 'text-foreground',
+  neutral: 'text-muted-foreground',
 }
 
 /**
@@ -61,7 +77,7 @@ function linesOf(side: SideId) {
   return [
     {
       label: label(side),
-      tone: side === props.mySide ? 'text-primary' : 'text-foreground',
+      tone: SLOT_TONE[sideSlot(side, props.mySide)],
       // Keyed by the square, which is the one thing about a Pokémon on the
       // field that a Mega or an Ally Switch does not change.
       pokemon: props.snapshot.slots
@@ -74,7 +90,7 @@ function linesOf(side: SideId) {
       ? [
           {
             label: t('battle.drawer.offField'),
-            tone: 'text-muted-foreground',
+            tone: SLOT_TONE.neutral,
             // Nothing off the field is standing anywhere, and the order is the
             // order they first appeared in, so their place in it is the key.
             pokemon: off.map((pokemon, index) => ({ key: `off-${index}`, state: pokemon })),
@@ -153,7 +169,11 @@ function hpLabel(pokemon: PokemonState) {
         :key="`${side}-${line.label}`"
         class="flex flex-wrap items-center gap-2"
       >
-        <span class="w-8 font-mono text-[9px] tracking-widest" :class="line.tone">
+        <span
+          class="w-8 font-mono text-[9px] tracking-widest"
+          :class="line.tone"
+          data-testid="side-label"
+        >
           {{ line.label }}
         </span>
 

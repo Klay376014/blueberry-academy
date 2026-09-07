@@ -3,6 +3,8 @@ import { ArrowRightLeft, Gem, HeartPulse, Skull, Sparkles, Zap } from '@lucide/v
 import { toID } from 'replay-parser'
 import type { SideId } from 'replay-parser'
 import type { TimelineRow } from '../utils/timelineRows'
+import { sideSlot } from '../utils/sideSlots'
+import type { SideSlot } from '../utils/sideSlots'
 import { localisedParams } from '../utils/rowMessage'
 import { moveDisplayName } from '~/shared/utils/moveName'
 import { speciesDisplayName, speciesLabel } from '~/shared/utils/speciesName'
@@ -18,7 +20,8 @@ import { speciesDisplayName, speciesLabel } from '~/shared/utils/speciesName'
  * (docs/adr/0015-localised-move-names.md).
  *
  * Whose it is shows in the rail down the left rather than in words, so the two
- * sides are told apart without a column of names.
+ * sides are told apart without a column of names. Which side that is comes
+ * from `utils/sideSlots.ts` (#143).
  */
 const props = defineProps<{ row: TimelineRow; mySide: SideId | null }>()
 
@@ -34,7 +37,19 @@ const MARKS = {
 }
 
 const mark = computed(() => MARKS[props.row.mark])
-const mine = computed(() => props.row.side !== null && props.row.side === props.mySide)
+
+/**
+ * The ink of the theme against its accent, plus a wash of each, so a row reads
+ * as one side's at a glance rather than by looking at the rail. `neutral` is
+ * the field's own rows, which belong to nobody and so carry no rail.
+ */
+const SLOT_TONE: Record<SideSlot, string> = {
+  first: 'border-l-primary bg-primary/10',
+  second: 'border-l-foreground bg-foreground/5',
+  neutral: 'border-l-transparent',
+}
+
+const slot = computed(() => sideSlot(props.row.side, props.mySide))
 
 const { t, locale } = useI18n()
 
@@ -66,18 +81,11 @@ const move = computed(() =>
 </script>
 
 <template>
-  <!-- Whose row this is, in colour rather than in words: the ink of the theme
-       against its accent, plus a wash of each so a row reads as one side's at a
-       glance rather than by looking at the rail. -->
+  <!-- Whose row this is, in colour rather than in words. Which side that is,
+       and the tone it gets, are `SLOT_TONE` above. -->
   <div
     class="grid grid-cols-[14px_40px_1fr] items-center gap-2 rounded-sm border-l-2 py-0.5 pr-1.5 pl-2"
-    :class="
-      row.side === null
-        ? 'border-l-transparent'
-        : mine
-          ? 'border-l-primary bg-primary/10'
-          : 'border-l-foreground bg-foreground/5'
-    "
+    :class="SLOT_TONE[slot]"
     data-testid="timeline-row"
   >
     <component :is="mark" v-if="mark" class="text-muted-foreground size-3.5" aria-hidden="true" />
