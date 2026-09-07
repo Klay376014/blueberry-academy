@@ -261,6 +261,7 @@ export function rowOf(event: TimelineEvent): TimelineRow | null {
         ...blank(),
         side: event.actor.side,
         species: event.actor.species,
+        targets: event.target ? [{ species: event.target.species, notes: [], health: [] }] : [],
         message: { key: 'missed' },
       }
 
@@ -581,11 +582,19 @@ function resultOf(
     case 'fail':
       return { pokemon: event.pokemon, note: { key: 'failed', quiet: false } }
 
-    // On the Pokémon that used the move rather than on the one it flew past:
-    // the row's subject is the user, and a spread move that misses one of two
-    // targets is the one shape this cannot tell apart. Measured: never seen.
+    // On the Pokémon it flew past rather than on the one that used the move
+    // (#149). A spread move that misses one of two lands in the bystanders,
+    // because `[spread]` lists who was hit and the log never called this one a
+    // target — measured against an older note here saying that shape had never
+    // been seen: `gen9championsvgc2026regmb-2674380893` is a Rock Slide that
+    // hit p2b and missed p2a. All 7 `-miss` lines in the fixtures name
+    // somebody; a bare one would keep the note on the user for want of anyone
+    // else to put it on.
     case 'miss':
-      return { pokemon: event.actor, note: { key: 'missed', quiet: false } }
+      return {
+        pokemon: event.target ?? event.actor,
+        note: { key: 'missed', quiet: false },
+      }
 
     case 'effect':
       return {
@@ -635,7 +644,17 @@ function resultOf(
 function foldsHere(action: OpenAction, event: TimelineEvent): boolean {
   if (event.kind !== 'volatile' || event.phase !== 'end') return true
 
-  return action.slots.get(event.pokemon.position)?.target === true
+  return targetSlot(action, event.pokemon) !== null
+}
+
+/**
+ * The place on the open action's row for a Pokémon the move was aimed at, or
+ * null for one it was not — the gate three of the folding decisions share.
+ */
+function targetSlot(action: OpenAction, pokemon: Combatant): RowPokemon | null {
+  const slot = action.slots.get(pokemon.position)
+
+  return slot?.target ? slot.pokemon : null
 }
 
 /**
@@ -692,9 +711,33 @@ function foldedHealth(
   if (event.kind !== 'damage' && event.kind !== 'heal') return null
   if (event.silent || event.from !== null) return null
 
-  const slot = action.slots.get(event.pokemon.position)
+  const slot = targetSlot(action, event.pokemon)
 
-  return slot?.target ? { into: slot.pokemon.health, change: event } : null
+  return slot ? { into: slot.health, change: event } : null
+}
+
+/**
+ * Whether the open action's row already says this Pokémon is gone: a hit on
+ * that row took it to nothing, and the health chip there says so in words.
+ *
+ * The same argument `isPlumbingFor` makes — one thing happened, and two rows
+ * would make the reader discount one of them. No claim about what killed it:
+ * the only changes on that row are the ones `foldedHealth` let through, which
+ * the log itself attributed to this move (T26), so a `[from]` recoil, a
+ * residual tick and a `silent` kill each reach here with nothing on the row
+ * and keep a row of their own.
+ *
+ * Measured in the ten fixtures: 61 faints, 58 of them said by the row this
+ * way, and the 3 that are not are self-KOs from Life Orb and Recoil (#149).
+ */
+function saidByTheRow(action: OpenAction, event: TimelineEvent): boolean {
+  if (event.kind !== 'faint') return false
+
+  return (
+    targetSlot(action, event.pokemon)?.health.some(
+      (change) => change.kind === 'damage' && change.hpAfter === 0,
+    ) ?? false
+  )
 }
 
 /** What closes an action, so that its results cannot reach past it. */
@@ -726,6 +769,8 @@ export function rowsOf(turn: TimelineTurn, { detailed }: RowOptions): TimelineRo
       health.into.push(health.change)
       return
     }
+
+    if (action && saidByTheRow(action, event)) return
 
     if (CLOSES_ACTION.has(event.kind)) action = null
     if (!detailed && !isMainLine(event)) return
