@@ -95,7 +95,7 @@ describe('the timeline in zh-TW', () => {
   it('says the message with the official Chinese names', async () => {
     const wrapper = await mountRow('zh-TW')
 
-    expect(wrapper.text()).toContain('九尾（阿羅拉的樣子） 換成 皮卡丘')
+    expect(wrapper.text()).toContain('九尾（阿羅拉的樣子） 替換 皮卡丘')
   })
 
   it('keeps the English name on the icon, where Showdown can be compared', async () => {
@@ -421,7 +421,7 @@ describe('the rest of the vocabulary in zh-TW', () => {
   })
 
   it('says a lost item under its official Chinese name', async () => {
-    expect(await said(lostItemRow, 'zh-TW')).toBe('失去了 生命寶珠')
+    expect(await said(lostItemRow, 'zh-TW')).toBe('失去 生命寶珠')
   })
 
   it("says the weather under the state's name, not the move's", async () => {
