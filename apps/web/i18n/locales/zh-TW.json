@@ -29,8 +29,8 @@
   },
   "landing": {
     "hero": {
-      "title": "把你打過的每一場 replay 放在一起讀",
-      "tagline": "Blueberry Academy 匯入你的 Pokémon Showdown replay，告訴你這些隊伍與選出實際上打成什麼樣 —— 以每局計、以系列計，每個數字旁邊都標著樣本數。",
+      "title": "把你打過的每一場 replay 統整起來",
+      "tagline": "匯入你的 Pokémon Showdown replay，分析出擅長、不擅長的隊伍，以及每次勝敗的選出與分數走向。",
       "cta": "開始使用",
       "secondary": "這是什麼"
     },
@@ -354,11 +354,11 @@
     },
     "event": {
       "cameIn": "上場",
-      "cameInFor": "{pokemon} 換成 {into}",
-      "wasAnIllusion": "原來是幻覺",
+      "cameInFor": "{pokemon} 替換 {into}",
+      "wasAnIllusion": "觸發幻覺",
       "fainted": "倒下",
       "terastallized": "太晶化 {type}",
-      "changedForme": "型態改變",
+      "changedForme": "型態變化",
       "megaEvolved": "超級進化",
       "couldNotMove": "無法行動 · {reason}",
       "missed": "沒有命中",
@@ -384,14 +384,14 @@
       "fieldEffectEnded": "{effect} 結束",
       "ability": "{ability}",
       "abilityEnded": "失去 {ability}",
-      "lostItem": "失去了 {item}",
+      "lostItem": "失去 {item}",
       "weather": "天氣 · {weather}",
       "weatherCleared": "天氣 · 無",
       "failed": "沒有效果",
-      "swapped": "夥伴互換",
-      "mustRecharge": "需要充能",
+      "swapped": "替換",
+      "mustRecharge": "無法行動",
       "hit": {
-        "crit": "會心一擊",
+        "crit": "要害",
         "supereffective": "效果絕佳",
         "resisted": "效果不好",
         "immune": "沒有效果"
@@ -400,7 +400,7 @@
   },
   "spectated": {
     "title": "旁觀場次",
-    "note": "上方的篩選不作用於此：這些場次沒有你的一方。",
+    "note": "這裡的場次沒有歸戶在你登錄的帳號中。",
     "search": "搜尋玩家",
     "noMatches": "沒有旁觀場次的玩家叫「{query}」。",
     "more": "載入更多",
