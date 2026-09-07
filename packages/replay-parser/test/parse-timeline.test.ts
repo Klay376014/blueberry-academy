@@ -628,6 +628,37 @@ describe('parseTimeline', () => {
     })
   })
 
+  it('keeps the Pokémon an -activate named as the other half of it', () => {
+    // Measured on turn 4 of `gen9championsvgc2026regma-2592519449`:
+    // `|-activate|p2b: Starmie|Skill Swap|||[of] p2a: Incineroar`. Two
+    // Pokémon each gave up half of what happened, and the line names the
+    // second one nowhere else (#152). The Protect below is the common shape,
+    // which names nobody.
+    const timeline = parseTimeline(
+      log({
+        lines: [
+          '|move|p1a: Scrafty|Skill Swap|p2a: Whimsicott',
+          '|-activate|p1a: Scrafty|Skill Swap|||[of] p2a: Whimsicott',
+          '|move|p2a: Whimsicott|Protect|p2a: Whimsicott',
+          '|-activate|p2a: Whimsicott|move: Protect',
+        ],
+      }),
+    )
+
+    expect(timeline.turns[1]?.events[1]).toMatchObject({
+      kind: 'effect',
+      phase: 'activate',
+      effect: 'Skill Swap',
+      pokemon: { position: 'p1a', species: 'Scrafty' },
+      source: { position: 'p2a', side: 'p2', species: 'Whimsicott' },
+    })
+    expect(timeline.turns[1]?.events[3]).toMatchObject({
+      kind: 'effect',
+      effect: 'Protect',
+      source: null,
+    })
+  })
+
   it('reads a lasting effect on one Pokémon going on and coming off', () => {
     // `-start`/`-end` are the volatiles: Taunt, Substitute, confusion, the
     // partial traps. Measured across the ten fixtures, the prefix comes and

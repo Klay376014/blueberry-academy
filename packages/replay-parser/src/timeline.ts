@@ -115,8 +115,20 @@ export type TimelineEvent =
   | { kind: 'fail'; pokemon: Combatant }
   /** Ally Switch: the pokemon now stands where `from` used to be occupied. */
   | { kind: 'swap'; pokemon: Combatant; from: string }
-  /** An effect on one Pokémon: Protect going up, then Protect stopping a move. */
-  | { kind: 'effect'; pokemon: Combatant; effect: string; phase: 'start' | 'activate' }
+  /**
+   * An effect on one Pokémon: Protect going up, then Protect stopping a move.
+   *
+   * `source` is the Pokémon the line's `[of]` named and nothing else — the
+   * other half of a Skill Swap, which no other line in the log says. Null on
+   * the lines that named nobody, which is most of them.
+   */
+  | {
+      kind: 'effect'
+      pokemon: Combatant
+      effect: string
+      phase: 'start' | 'activate'
+      source: Combatant | null
+    }
   /**
    * A lasting effect on one Pokémon, on and then off: Leech Seed, a Substitute,
    * Taunt, confusion, a partial trap.
@@ -486,6 +498,7 @@ export function buildTimeline(lines: ProtocolLine[]): BattleTimeline {
           pokemon,
           effect: effectNameOf(args[1] ?? ''),
           phase: type === '-singleturn' ? 'start' : 'activate',
+          source: originOf(field, args),
         })
         break
       }

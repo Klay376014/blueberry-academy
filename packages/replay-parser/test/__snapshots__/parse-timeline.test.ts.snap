@@ -120,6 +120,7 @@ exports[`parseTimeline > parses a real Bo3 game end to end 1`] = `
             "side": "p1",
             "species": "Arcanine-Hisui",
           },
+          "source": null,
         },
         {
           "actor": {
@@ -152,6 +153,7 @@ exports[`parseTimeline > parses a real Bo3 game end to end 1`] = `
             "side": "p2",
             "species": "Glimmora",
           },
+          "source": null,
         },
         {
           "actor": {
@@ -184,6 +186,7 @@ exports[`parseTimeline > parses a real Bo3 game end to end 1`] = `
             "side": "p2",
             "species": "Gholdengo",
           },
+          "source": null,
         },
         {
           "actor": {
@@ -216,6 +219,7 @@ exports[`parseTimeline > parses a real Bo3 game end to end 1`] = `
             "side": "p2",
             "species": "Glimmora",
           },
+          "source": null,
         },
         {
           "kind": "unknown",
@@ -447,6 +451,7 @@ exports[`parseTimeline > parses a real Bo3 game end to end 1`] = `
             "side": "p1",
             "species": "Raichu-Mega-Y",
           },
+          "source": null,
         },
         {
           "actor": {
@@ -479,6 +484,7 @@ exports[`parseTimeline > parses a real Bo3 game end to end 1`] = `
             "side": "p2",
             "species": "Mamoswine",
           },
+          "source": null,
         },
         {
           "actor": {
@@ -511,6 +517,7 @@ exports[`parseTimeline > parses a real Bo3 game end to end 1`] = `
             "side": "p2",
             "species": "Mamoswine",
           },
+          "source": null,
         },
         {
           "actor": {
@@ -629,6 +636,7 @@ exports[`parseTimeline > parses a real Bo3 game end to end 1`] = `
             "side": "p2",
             "species": "Glimmora",
           },
+          "source": null,
         },
         {
           "actor": {
@@ -696,6 +704,7 @@ exports[`parseTimeline > parses a real Bo3 game end to end 1`] = `
             "side": "p2",
             "species": "Glimmora",
           },
+          "source": null,
         },
         {
           "actor": {
@@ -938,6 +947,7 @@ exports[`parseTimeline > parses a real Bo3 game end to end 1`] = `
             "side": "p2",
             "species": "Glimmora",
           },
+          "source": null,
         },
         {
           "effect": "Toxic Spikes",
