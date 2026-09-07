@@ -2,16 +2,33 @@ import { describe, expect, it } from 'vitest'
 import { parseTimeline } from 'replay-parser'
 import type { TimelineTurn } from 'replay-parser'
 import { rowsOf, sidelinedCount } from '../utils/timelineRows'
+import ladder from '../../../../../../packages/replay-parser/test/fixtures/gen9championsvgc2026regmb-2667301751.json'
+import lifeOrb from '../../../../../../packages/replay-parser/test/fixtures/gen9championsvgc2026regmb-2667169457.json'
+import recoil from '../../../../../../packages/replay-parser/test/fixtures/gen9championsvgc2026regmb-2674380893.json'
+import recoilToo from '../../../../../../packages/replay-parser/test/fixtures/gen9championsvgc2026regmb-2674448634.json'
 
-function turnsOf(lines: string[]): TimelineTurn[] {
+/** One out on each side, which is what turn 0's own tests read. */
+const TWO_UP = [
+  '|switch|p1a: Scrafty|Scrafty, L50, F|100/100',
+  '|switch|p2a: Whimsicott|Whimsicott, L50, M|100/100',
+]
+
+/** Both positions filled, which a spread move needs to have two of anything. */
+const FOUR_UP = [
+  '|switch|p1a: Scrafty|Scrafty, L50, F|100/100',
+  '|switch|p1b: Torkoal|Torkoal, L50, M|100/100',
+  '|switch|p2a: Whimsicott|Whimsicott, L50, M|100/100',
+  '|switch|p2b: Garchomp|Garchomp, L50, F|100/100',
+]
+
+function turnsOf(lines: string[], leads = TWO_UP): TimelineTurn[] {
   return parseTimeline(
     [
       '|gametype|doubles',
       '|player|p1|Alice|benga|1444',
       '|player|p2|Bob|gentleman|1534',
       '|start',
-      '|switch|p1a: Scrafty|Scrafty, L50, F|100/100',
-      '|switch|p2a: Whimsicott|Whimsicott, L50, M|100/100',
+      ...leads,
       '|turn|1',
       ...lines,
     ].join('\n'),
@@ -19,8 +36,8 @@ function turnsOf(lines: string[]): TimelineTurn[] {
 }
 
 /** The rows of the one numbered turn the test wrote. */
-function rows(lines: string[], detailed = false) {
-  const turn = turnsOf(lines)[1]
+function rows(lines: string[], detailed = false, leads = TWO_UP) {
+  const turn = turnsOf(lines, leads)[1]
   if (!turn) throw new Error('No turn 1 in this log.')
 
   return rowsOf(turn, { detailed })
@@ -502,16 +519,12 @@ describe('the results an action gathers onto its own row', () => {
     expect(rows(['|-endability|p1a: Scrafty'], true)).toEqual([])
   })
 
-  it('folds a miss and a failure onto the move that missed or failed', () => {
-    const missed = [
-      '|move|p1a: Scrafty|Knock Off|p2a: Whimsicott',
-      '|-miss|p1a: Scrafty|p2a: Whimsicott',
-    ]
+  it('folds a failure onto the move that failed', () => {
     const failed = ['|move|p1a: Scrafty|Protect|p1a: Scrafty', '|-fail|p1a: Scrafty']
 
-    // On the Pokémon that used the move rather than the one it flew past: the
-    // row's subject is the user, and `missed` reads as its failure.
-    expect(rows(missed)).toMatchObject([{ move: 'Knock Off', notes: [{ key: 'missed' }] }])
+    // On the Pokémon that used the move, which is whose failure it is. A miss
+    // is the one that moved off the user — see 'a move that missed' below,
+    // and #149 for why.
     expect(rows(failed)).toMatchObject([{ move: 'Protect', notes: [{ key: 'failed' }] }])
   })
   it('gives each target of a spread move its own result', () => {
@@ -655,5 +668,217 @@ describe('the damage an action gathers onto its own row', () => {
 
     expect(rows(lines)[0]?.targets[0]?.health).toEqual([])
     expect(rows(lines, true)).toHaveLength(1)
+  })
+})
+
+/**
+ * What a move failed to hit, and what a knockout is said about — the two
+ * places the timeline used to say too little and too much (#149).
+ */
+describe('a move that missed', () => {
+  it('says which Pokémon it failed to hit', () => {
+    // The real shape, from `gen9championsvgc2026regmb-2667301751` turn 7.
+    const [row] = rows([
+      '|move|p1a: Scrafty|Blizzard|p2a: Whimsicott|[miss]',
+      '|-miss|p1a: Scrafty|p2a: Whimsicott',
+    ])
+
+    expect(row?.targets).toEqual([
+      { species: 'Whimsicott', notes: [{ key: 'missed', quiet: false }], health: [] },
+    ])
+    // Not on the Pokémon that used it: the row's subject did not dodge
+    // anything, and saying it there is what left the reader guessing.
+    expect(row?.notes).toEqual([])
+  })
+
+  it('says which of two a spread move failed to hit', () => {
+    // Also real, from `gen9championsvgc2026regmb-2674380893`: a Rock Slide
+    // that hit one and missed the other. The source used to say this shape
+    // had never been measured.
+    const [row] = rows(
+      [
+        '|move|p1a: Scrafty|Rock Slide|p2b: Garchomp|[spread] p2b',
+        '|-miss|p1a: Scrafty|p2a: Whimsicott',
+        '|-damage|p2b: Garchomp|69/100',
+      ],
+      false,
+      FOUR_UP,
+    )
+
+    // The one it hit is a target; the one it missed the log never called one,
+    // so it stands where a Pokémon an action reached without targeting does.
+    expect(row?.targets.map((target) => target.species)).toEqual(['Garchomp'])
+    expect(row?.targets[0]?.health.map((change) => change.hpAfter)).toEqual([69])
+    expect(row?.bystanders).toEqual([
+      { species: 'Whimsicott', notes: [{ key: 'missed', quiet: false }], health: [] },
+    ])
+  })
+
+  it('keeps the miss on the row when the log named nobody', () => {
+    const [row] = rows(['|move|p1a: Scrafty|Blizzard|p2a: Whimsicott', '|-miss|p1a: Scrafty'])
+
+    expect(row?.notes).toEqual([{ key: 'missed', quiet: false }])
+    expect(row?.targets[0]?.notes).toEqual([])
+  })
+})
+
+describe('a Pokémon knocked out', () => {
+  it('is said once, on the row of the move that did it', () => {
+    const drawn = rows([
+      '|move|p1a: Scrafty|Knock Off|p2a: Whimsicott',
+      '|-damage|p2a: Whimsicott|0 fnt',
+      '|faint|p2a: Whimsicott',
+    ])
+
+    // The hit that took it to nothing is on the move's row already, and the
+    // health chip says so — a row of its own said the same word again.
+    expect(drawn.map((row) => row.mark)).toEqual(['move'])
+    expect(drawn[0]?.targets[0]?.health.map((change) => change.hpAfter)).toEqual([0])
+  })
+
+  it('keeps a row of its own when its own move recoiled on it', () => {
+    const drawn = rows([
+      '|move|p1a: Scrafty|Double-Edge|p2a: Whimsicott',
+      '|-damage|p2a: Whimsicott|50/100',
+      '|-damage|p1a: Scrafty|0 fnt|[from] Recoil',
+      '|faint|p1a: Scrafty',
+    ])
+
+    // The recoil carries `[from]`, so it never reached the move's row and
+    // nothing there says the attacker is gone.
+    expect(drawn.filter((row) => row.mark === 'faint').map((row) => row.species)).toEqual([
+      'Scrafty',
+    ])
+  })
+
+  it('keeps a row of its own when a residual tick finished it', () => {
+    const drawn = rows([
+      '|move|p1a: Scrafty|Knock Off|p2a: Whimsicott',
+      '|-damage|p2a: Whimsicott|50/100',
+      '|-damage|p2a: Whimsicott|0 fnt|[from] psn',
+      '|faint|p2a: Whimsicott',
+    ])
+
+    // A target of the move, but not killed by it: the row shows the 50 the
+    // move took, never a nothing, so the faint is news.
+    expect(drawn.filter((row) => row.mark === 'faint').map((row) => row.species)).toEqual([
+      'Whimsicott',
+    ])
+  })
+
+  it('offers the same rows behind the details switch as in front of it', () => {
+    const lines = [
+      '|move|p1a: Scrafty|Knock Off|p2a: Whimsicott',
+      '|-damage|p2a: Whimsicott|0 fnt',
+      '|faint|p2a: Whimsicott',
+    ]
+
+    // The count is the difference between the two levels, so a row dropped
+    // from one and not the other would be offered and never appear.
+    expect(sidelinedCount(turnsOf(lines)[1]!)).toBe(rows(lines, true).length - rows(lines).length)
+    expect(rows(lines, true).map((row) => row.mark)).toEqual(['move'])
+  })
+})
+
+/**
+ * The same two rules against whole games rather than written turns, because
+ * what made the repetition worth a ticket was that it happened every time
+ * (#149).
+ *
+ * Four games rather than one: the faints that must **survive** are the rare
+ * shape, and all six of the first game's are the common one. Life Orb is in
+ * `-2667169457`, Recoil in the other two, and between them they also carry an
+ * Earthquake that killed both targets at once and a Wave Crash that killed its
+ * target and then its user.
+ */
+describe('whole games', () => {
+  const games = [
+    { name: '2667301751', log: ladder.log, survives: [] as string[] },
+    { name: '2667169457', log: lifeOrb.log, survives: ['Gholdengo'] },
+    { name: '2674380893', log: recoil.log, survives: ['Basculegion'] },
+    { name: '2674448634', log: recoilToo.log, survives: ['Basculegion'] },
+  ]
+
+  const drawnFor = (log: string) =>
+    parseTimeline(log).turns.map((turn) => rowsOf(turn, { detailed: false }))
+
+  it.each(games)('never reports the same Pokémon knocked out twice in $name', ({ log }) => {
+    const saidTwice = drawnFor(log).flatMap((rows) =>
+      rows.flatMap((row, index) => {
+        if (row.mark !== 'faint') return []
+
+        const shownBefore = rows
+          .slice(0, index)
+          .some((earlier) =>
+            earlier.targets.some(
+              (target) =>
+                target.species === row.species &&
+                target.health.some((change) => change.kind === 'damage' && change.hpAfter === 0),
+            ),
+          )
+
+        return shownBefore ? [row.species] : []
+      }),
+    )
+
+    expect(saidTwice).toEqual([])
+  })
+
+  it.each(games)(
+    'keeps a row for the self-KOs of $name and for nothing else',
+    ({ log, survives }) => {
+      // The direction that matters: a faint the move's row cannot account for
+      // must still be drawn. Life Orb and Recoil kill the Pokémon that attacked,
+      // whose damage carries `[from]` and so never reached that row.
+      expect(
+        drawnFor(log)
+          .flat()
+          .filter((row) => row.mark === 'faint')
+          .map((row) => row.species),
+      ).toEqual(survives)
+    },
+  )
+
+  it.each(games)('accounts for every faint of $name, turn by turn', ({ log }) => {
+    // Every `|faint|` the log reports is either drawn as a row or swallowed by
+    // a row that shows that Pokémon at nothing — reconciled per turn, so a
+    // change that started dropping or drawing wholesale would show up here.
+    //
+    // What this does **not** reach: a target finished by a residual tick, the
+    // shape where the Pokémon is a target but the row cannot account for it.
+    // None of the ten fixtures has one — all 61 of their faints follow a
+    // damage to 0 — so the written turn above is that case's only guard.
+    const turns = parseTimeline(log).turns
+
+    for (const turn of turns) {
+      const rows = rowsOf(turn, { detailed: false })
+      const faintLines = turn.events.filter((event) => event.kind === 'faint').length
+      const drawn = rows.filter((row) => row.mark === 'faint').length
+      const swallowed = rows
+        .flatMap((row) => row.targets)
+        .filter((target) =>
+          target.health.some((change) => change.kind === 'damage' && change.hpAfter === 0),
+        ).length
+
+      expect(drawn + swallowed).toBe(faintLines)
+    }
+  })
+
+  it('names a dodger wherever it drew a miss', () => {
+    const misses = games
+      .flatMap((game) => drawnFor(game.log).flat())
+      .flatMap((row) => [...row.targets, ...row.bystanders])
+      .filter((at) => at.notes.some((note) => note.key === 'missed'))
+
+    expect(misses.length).toBeGreaterThan(0)
+    expect(misses.every((at) => at.species.length > 0)).toBe(true)
+  })
+
+  it.each(games)('offers in $name exactly the rows the details switch counts', ({ log }) => {
+    for (const turn of parseTimeline(log).turns) {
+      expect(sidelinedCount(turn)).toBe(
+        rowsOf(turn, { detailed: true }).length - rowsOf(turn, { detailed: false }).length,
+      )
+    }
   })
 })
