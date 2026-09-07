@@ -19,6 +19,7 @@
   --color-chart-3: var(--chart-3);
   --color-chart-2: var(--chart-2);
   --color-chart-1: var(--chart-1);
+  --color-side-second: var(--side-second);
   --color-unfiled: var(--unfiled);
   --color-ring: var(--ring);
   --color-input: var(--input);
@@ -48,7 +49,7 @@
   --radius: 0.625rem;
 
   /* Uniform — the SV school kit: white ground, deep navy data, one red-orange
-     for the exception. See docs/adr/0010-two-palettes.md. */
+     for the exception. See docs/adr/0017-a-hue-for-the-second-side.md. */
   --background: oklch(0.972 0.007 260.7);
   --foreground: oklch(0.26 0.056 263);
   --card: oklch(1 0 0);
@@ -64,6 +65,12 @@
   --accent: oklch(0.933 0.019 263);
   --accent-foreground: oklch(0.26 0.056 263);
   --destructive: oklch(0.564 0.176 31.8);
+
+  /* The second side of the battle timeline — the opponent's when one of the
+     two is the reader's, p2's when neither is — and the only hue here that is
+     neither the navy nor the red-orange. Named for the slot, not for
+     ownership, like the slots themselves (ADR-0017). */
+  --side-second: oklch(0.52 0.13 75);
 
   /* Games that belong to a team but to no complete bring. Not an error, so
      not `destructive` — but it has to be the one thing on screen that is
@@ -111,6 +118,7 @@
   --accent: oklch(0.313 0.065 248.1);
   --accent-foreground: oklch(0.953 0.017 242.4);
   --destructive: oklch(0.655 0.169 38.3);
+  --side-second: oklch(0.78 0.13 82);
   --unfiled: oklch(0.655 0.169 38.3);
   --border: oklch(0.354 0.07 248);
   --input: oklch(0.354 0.07 248);
