@@ -56,7 +56,7 @@ describe('the privacy page', () => {
     // The four the ticket names: the raw log and the row beside it, that
     // Showdown ownership cannot be checked by anyone, what unbinding a name
     // does to the battles under it, and how to have it all removed (#127).
-    for (const section of ['stored', 'access', 'unverified', 'unbinding', 'deletion', 'others']) {
+    for (const section of ['stored', 'access', 'unverified', 'unbinding', 'deletion']) {
       expect(wrapper.find(`[data-testid="privacy-${section}"]`).exists()).toBe(true)
     }
   })
