@@ -123,7 +123,7 @@ describe('the Showdown alias settings', () => {
     // Acceptance criterion, and §10 of the design document: a user must not
     // walk away thinking this was checked.
     const notice = wrapper.get('[data-testid="alias-unverified"]').text()
-    expect(notice).toMatch(/cannot verify/i)
+    expect(notice).toMatch(/cannot confirm/i)
     // ...and what the list is actually for.
     expect(notice).toMatch(/battles/i)
   })
@@ -131,7 +131,7 @@ describe('the Showdown alias settings', () => {
   it('says the notice in the language the reader is in', async () => {
     const wrapper = await mountSuspended(App, { route: '/zh-TW/settings' })
 
-    expect(wrapper.get('[data-testid="alias-unverified"]').text()).toContain('無法驗證')
+    expect(wrapper.get('[data-testid="alias-unverified"]').text()).toContain('沒辦法確認')
   })
 
   it('shuts the form when the list could not be read, rather than risk replacing it', async () => {
