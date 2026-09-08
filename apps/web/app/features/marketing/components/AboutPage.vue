@@ -8,7 +8,6 @@
  * the Wilson lower bound because that is the sort key.
  */
 const { t } = useI18n()
-const localePath = useLocalePath()
 </script>
 
 <template>
@@ -35,18 +34,6 @@ const localePath = useLocalePath()
 
     <MarketingProseSection :title="t('about.ranking.title')" data-testid="about-ranking">
       <p class="text-muted-foreground">{{ t('about.ranking.body') }}</p>
-    </MarketingProseSection>
-
-    <MarketingProseSection :title="t('about.limits.title')" data-testid="about-limits">
-      <p class="text-muted-foreground">{{ t('about.limits.body') }}</p>
-
-      <NuxtLink
-        :to="localePath('/privacy')"
-        class="text-primary underline"
-        data-testid="about-privacy"
-      >
-        {{ t('about.privacy') }}
-      </NuxtLink>
     </MarketingProseSection>
   </main>
 </template>

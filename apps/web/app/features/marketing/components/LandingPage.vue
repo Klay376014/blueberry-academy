@@ -47,10 +47,6 @@ const steps = ['one', 'two', 'three'] as const
       </div>
     </section>
 
-    <MarketingProseSection :title="t('landing.problem.title')">
-      <p class="text-muted-foreground">{{ t('landing.problem.body') }}</p>
-    </MarketingProseSection>
-
     <section class="flex flex-col gap-4" :aria-labelledby="headingId('solution')">
       <h2 :id="headingId('solution')" class="text-2xl font-semibold tracking-tight">
         {{ t('landing.solution.title') }}
