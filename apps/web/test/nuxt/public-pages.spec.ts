@@ -35,17 +35,11 @@ describe('the about page', () => {
     const wrapper = await mountSuspended(About)
 
     // What a reader has to know before trusting a win rate: what is read, what
-    // a game is, which formats are kept apart, how teams are ordered, and what
-    // the page does not claim (CONTEXT.md).
-    for (const section of ['source', 'counting', 'teams', 'ranking', 'limits']) {
+    // a game is, which formats are kept apart, and how teams are ordered
+    // (CONTEXT.md).
+    for (const section of ['source', 'counting', 'teams', 'ranking']) {
       expect(wrapper.find(`[data-testid="about-${section}"]`).exists()).toBe(true)
     }
-  })
-
-  it('sends a reader on to what is kept of theirs', async () => {
-    const wrapper = await mountSuspended(About)
-
-    expect(wrapper.get('[data-testid="about-privacy"]').attributes('href')).toBe('/privacy')
   })
 
   it('says all of it in both locales', () => {

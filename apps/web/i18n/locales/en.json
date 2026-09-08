@@ -34,61 +34,52 @@
       "cta": "Get started",
       "secondary": "What this is"
     },
-    "problem": {
-      "title": "Showdown keeps the replays. It does not answer the question.",
-      "body": "A ladder run is hundreds of games, each behind its own link and each shown one at a time. Which of your teams is actually winning? Which four did you bring against what? Is this month better than last? None of that is anywhere. Counting it by hand is why nobody does."
-    },
     "solution": {
       "title": "What this does with them",
       "import": {
         "title": "Import in one go",
-        "body": "Paste replay links, or sync every public replay a Showdown name has played. Anything already imported is skipped, so a sync that stopped picks up where it left off."
+        "body": "Paste replay links, or sync every public replay a Showdown name has played."
       },
       "teams": {
-        "title": "Teams, and the four you brought",
-        "body": "Games are grouped by the six you registered and by the four that actually appeared, because those are different questions. Teams are sorted on a cautious win rate, so three wins from three games does not top the table. Every group says how many games it covers."
+        "title": "Teams and brings, added up",
+        "body": "Battles with the same six are counted together, then the four you brought in each of them, and teams are ranked on win rate and how many games they have."
       },
       "timeline": {
-        "title": "Read a game back",
-        "body": "Open any game and its turns are listed one by one: moves, switches, terastallisation, who was standing on the field. In English or 繁體中文, names included."
+        "title": "Read a replay as text and images",
+        "body": "Open any game and the battle is laid out as text and images. Watching a replay on Showdown runs the animation, which is comparatively heavy; this way you can step through it turn by turn to review."
       }
     },
     "start": {
       "title": "Getting started",
-      "one": "Sign in with Google. There is no password to set and none to forget.",
-      "two": "Add the Showdown names you play under. That is what decides which side of a battle is you.",
+      "one": "Signing in with Google is the only way in.",
+      "two": "Add the Showdown names you play under, and each battle is matched to whichever side carries one of them.",
       "three": "Paste a few replay links, or sync a whole account and leave it running.",
-      "note": "Showdown gives no other site a way to confirm that an account is yours, so those names grant nothing. They only decide which of the battles you imported count as your own.",
+      "note": "Showdown gives no other site a way to confirm that an account is yours, so a name by itself grants nothing. It only decides which of the battles you imported count as your own.",
       "cta": "Sign in and import your first replay"
     }
   },
   "about": {
     "title": "About",
-    "lede": "Blueberry Academy reads the replays you have already played and counts them. This page says what it reads, how it counts, and what it leaves out, so that a win rate here can be read for what it is.",
+    "lede": "Blueberry Academy reads the replay links you give it. This page says what it reads, how it counts, and what it leaves out, so that when you see a win rate you know where it came from.",
     "source": {
       "title": "What it reads",
       "body": "One Showdown replay is one game. The raw record is fetched from replay.pokemonshowdown.com and stored exactly as it arrived. Everything else is worked out from it: the format, the result, the six revealed at team preview, the four that appeared. Nothing is typed in by hand. If more of a record can be read later, the rest is worked out again from the copy already stored, not fetched a second time."
     },
     "counting": {
-      "title": "What a number counts",
-      "unit": "Every game is stored on its own, including the games of a best-of-three series. A series result can be worked out from its games, and not the other way round. Whether a number counts games or series follows from the format you filter to: a ladder format counts games, a best-of-three format counts series.",
-      "format": "A ladder format and its best-of-three counterpart are separate things and are never averaged together. Showdown already treats them as different formats, and they are played differently enough that one number over both would describe neither.",
-      "spectated": "A battle where neither player is on your list of Showdown names is a spectated battle. It is stored and you can read it, but it counts towards none of your statistics. Add the name you played under and it becomes yours; remove that name and it goes back to being spectated."
+      "title": "How battles are counted",
+      "unit": "Every game is stored on its own, including the games of a Bo3 series. A series result can be worked out from its games, and not the other way round. Bo1 counts games, Bo3 counts series.",
+      "format": "Bo1 and Bo3 should be treated as two entirely different things. The same team can perform very differently under each, so they are counted separately.",
+      "spectated": "A battle where neither player is on your list of Showdown names counts as a spectated battle. It is stored and you can read it, but it counts towards none of your statistics."
     },
     "teams": {
       "title": "Teams and brings",
-      "team": "A team is the six revealed at team preview. Two battles are the same team when both the six and the format are the same. Items and moves are no part of that: a ladder replay does not carry them, and requiring them would leave almost every battle alone in a group of one.",
-      "bring": "A bring is the four that actually appeared, which is not always the four that were picked. A game that ends early can leave the fourth never having shown up, and that happens often. Those games count for the team and for none of the brings, and the team page says how many they were, so the difference does not look like an arithmetic error."
+      "team": "A team is the six revealed at the pick screen. Two battles are the same team as long as the six Pokémon and the format match; items, moves and EV spreads are no part of that, because not every battle makes them public.",
+      "bring": "A bring is the four that actually appeared. In a game that ends early the fourth may never show up, which happens often. Those games count for the team but for none of the brings, and the team page explains when that is what you are looking at."
     },
     "ranking": {
-      "title": "How teams are ranked",
-      "body": "Teams are sorted on a cautious win rate rather than the raw one. Three wins from three games is a 100% win rate, and it belongs below a season played at 70%, so the fewer the games, the further a rate is marked down. Every group says how many games it covers, and no group is hidden for being small: a rate from five games is worth seeing, as long as it says it came from five."
-    },
-    "limits": {
-      "title": "What it does not do",
-      "body": "It says what happened. It does not explain why, offer advice on what to play, or rank you against anybody, and it cannot confirm that a Showdown account is yours. No site can, and what that means for your data is on the next page."
-    },
-    "privacy": "What is kept, and what cannot be verified"
+      "title": "How team performance is ranked",
+      "body": "Ranking uses a cautious win rate rather than the raw one. Three wins from three games is a 100% win rate, but on that few games it sits below a team that played a whole season at 70%: the fewer the games, the further the cautious rate is marked down."
+    }
   },
   "privacy": {
     "title": "Privacy and terms",
