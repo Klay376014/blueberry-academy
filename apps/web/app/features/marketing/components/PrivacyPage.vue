@@ -75,11 +75,6 @@ const kept = ['account', 'names', 'battles', 'logs'] as const
       </a>
     </MarketingProseSection>
 
-    <MarketingProseSection :title="t('privacy.others.title')" data-testid="privacy-others">
-      <p class="text-muted-foreground">{{ t('privacy.others.body') }}</p>
-      <p class="text-muted-foreground">{{ t('privacy.others.browser') }}</p>
-    </MarketingProseSection>
-
     <!-- `id` because the footer links straight here: the terms are a section
          of this page rather than a page of their own (issue #128). -->
     <MarketingProseSection id="terms" :title="t('privacy.terms.title')" data-testid="privacy-terms">

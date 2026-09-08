@@ -84,35 +84,30 @@
   "privacy": {
     "title": "Privacy and terms",
     "updated": "Last changed {date}",
-    "lede": "This is a personal project that keeps other people's replays and the Showdown names you say are yours. This page says what is kept, who can read it, what cannot be checked, and how to have it removed.",
+    "lede": "This system keeps other people's replays and the Showdown names you say are yours. This page says how that data is stored and who can read it, and how to have it removed.",
     "stored": {
-      "title": "What is kept",
-      "account": "An account, created when you sign in with Google, holding the email address and account number Google returns. There is no password, and none is stored.",
+      "title": "What is stored",
+      "account": "Your own Google account, and no other way in.",
       "names": "The Showdown names you add. Kept as you typed them, compared with case and punctuation removed.",
       "battles": "One entry per replay you import, holding what was worked out from it: the format, when it was played, the result, the ratings, both teams, the turn count, and the opponent's name, their six, and which of them appeared.",
       "logs": "The raw record of every replay you import, compressed and untouched, in storage only you can read."
     },
     "access": {
       "title": "Who can read it",
-      "body": "You. What you can read is limited by the database itself rather than by the app asking nicely, and the storage holding the raw records is private and split the same way. Nothing on this site is published: there is no profile page, no shared link, no leaderboard, and no page that shows one person's battles to another."
+      "body": "You. What is stored is kept apart by account."
     },
     "unverified": {
-      "title": "What cannot be verified",
-      "body": "That a Showdown account is yours. Showdown offers other sites no way to check it: there is no sign-in to use and no field on a Showdown profile to put a code in. Adding a name is trust and nothing else. The same name may be on more than one person's list, and a name on your list grants nothing beyond deciding which of the battles you imported are treated as your own.",
+      "title": "What this system cannot verify",
+      "body": "A Showdown account gives other sites no way to confirm it, and there is no sign-in to use. So the same name may be on more than one person's list, and a name on your list grants nothing beyond deciding which of the battles you imported are treated as “your own”.",
       "public": "The replays themselves are public on Showdown to begin with, and both players' names and teams are there at the public address. Importing one copies that public record into your account. It does not make anything visible that was not already."
     },
     "unbinding": {
-      "title": "What removing a name does",
-      "body": "Whether a battle is yours is decided by running that list of names over it again. So removing one takes every battle under it back to being a spectated battle: out of every statistic, off the page, still stored. Nothing is deleted, and adding the name again brings those battles back exactly as they were."
+      "title": "When a name is removed",
+      "body": "Remove one of the names and every battle under it goes back to being a spectated battle: out of every statistic, off the page, still stored. Nothing is deleted, and adding the name again brings those battles back exactly as they were."
     },
     "deletion": {
       "title": "Deleting your data",
-      "body": "There is no delete button yet. That is the honest answer, not a policy. Signing out ends your sign-in and removes nothing. To have the account, your data and the stored records deleted, write to the address below and someone will do it by hand."
-    },
-    "others": {
-      "title": "Who else your browser talks to",
-      "body": "Google, when you sign in. Supabase, which holds your data and your sign-in. Cloudflare, which serves this site. Pokémon Showdown, when an import fetches a replay and when a page draws Pokémon icons, which are loaded from Showdown's own images rather than copied here.",
-      "browser": "There is no analytics, no advertising and no tracking of any kind. All that is kept in your browser is your sign-in, and which theme and language you chose."
+      "body": "There is no delete button yet. To have the account, your data and the stored records deleted, write to the author at the address below."
     },
     "terms": {
       "title": "Terms",
@@ -154,14 +149,14 @@
       "tagline": "One replay per line. A private replay keeps its password in the address, so paste the whole thing."
     },
     "label": "Replay links, one per line",
-    "placeholder": "https://replay.pokemonshowdown.com/gen9championsvgc2026regmb-2667169457",
+    "placeholder": "",
     "submit": "Import",
     "working": "Importing…",
     "sync": {
       "title": "Sync an account",
-      "tagline": "Every public replay Showdown will admit to for this name. Anything already imported is skipped, so pressing this again after a stopped import picks up where it left off.",
+      "tagline": "Every public replay Showdown will admit to for this name. Anything already imported is skipped, so pressing this again after a stopped import will pick up where it left off.",
       "label": "Showdown name",
-      "placeholder": "NotLittleStar",
+      "placeholder": "",
       "submit": "Sync",
       "unusable": "That is not a Showdown name. It needs at least one letter or digit.",
       "truncated": "Showdown ran out of search pages before this account ran out of replays, so this is not the whole history. A single search reaches about 5000 replays, and the rest need a narrower search."
@@ -212,7 +207,7 @@
       "tagline": "Add every name you play under and they all count as the same you: after a rename, on an alt, on a separate account for a different format.",
       "unverified": "We cannot confirm that a Showdown account is yours, and neither can anyone else, because Showdown gives other sites no way to check. These names only decide which of the battles you import are treated as your own. They grant nothing, and the same name may be on more than one person's list.",
       "label": "Showdown name",
-      "placeholder": "NotLittleStar",
+      "placeholder": "",
       "bind": "Add name",
       "remove": "Remove {name}",
       "removeShort": "Remove",
