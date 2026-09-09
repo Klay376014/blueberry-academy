@@ -211,23 +211,23 @@
       "bind": "新增名稱",
       "remove": "移除 {name}",
       "removeShort": "移除",
-      "empty": "還沒有名稱。把你在用的那個加進來。",
-      "alreadyBound": "{name} 已經在清單裡了。名稱比對時不分大小寫與符號，NotLittleStar 和 notlittlestar 是同一個名稱。",
-      "unusable": "這不是 Showdown 名稱，至少要有一個英數字元。",
+      "empty": "暫無任何名稱。新增名稱以登錄你的 Showdown 帳號。",
+      "alreadyBound": "{name} 已經在清單裡了。名稱比對時不分大小寫與符號。",
+      "unusable": "這不是 Showdown 名稱，至少要有一個英數字。",
       "loadFailed": "讀不到你的名稱清單，所以這裡暫時不能變更。重新載入頁面再試一次。",
-      "failed": "這次變更沒有存進去。",
+      "failed": "此次變更失敗，請再試一次。",
       "battles": "{count} 場",
       "reattribute": "重新比對場次",
-      "reattributeHint": "拿上面這份名單，把你匯入過的每一場重新比對一次。沒有變動的就不會動到。",
+      "reattributeHint": "拿上面這份名單，把你匯入過的每一場重新比對一次，無變動的項目會直接跳過。",
       "removeTitle": "移除 {name}？",
-      "removeBody": "這會把 {count} 場移出你的統計，退回旁觀場次。把這個名稱加回來就會完全復原。",
-      "removeBodyUnknown": "這會把這個名稱底下的場次全部移出你的統計，退回旁觀場次。把這個名稱加回來就會完全復原。",
+      "removeBody": "這會把 {count} 場移出你的統計，退回旁觀場次。如要復原請將名稱加回來。",
+      "removeBodyUnknown": "這會把這個名稱底下的場次全部移出你的統計，退回旁觀場次。如要復原請將名稱加回來。",
       "removeCancel": "取消",
       "unbound": "完成：退回旁觀 {count} 場。",
       "reattributedWithReturned": "完成：新增 {attributed} 場，改歸給別的名稱 {reattributed} 場，退回旁觀 {unattributed} 場。",
       "reattributing": "正在重新比對… {processed} / {total}",
       "reattributed": "完成：新增 {attributed} 場，改歸給別的名稱 {reattributed} 場。",
-      "reattributionFailed": "這次沒有跑完。已處理 {processed} 場，已經寫進去的不會退回，再跑一次就會接著做完。"
+      "reattributionFailed": "這次沒有跑完。已處理 {processed} 場，重跑一次可以將未完成的繼續處理。"
     }
   },
   "filters": {
@@ -388,7 +388,7 @@
     "title": "旁觀場次",
     "note": "這裡的場次不算在你的名稱底下。",
     "search": "搜尋玩家",
-    "noMatches": "沒有旁觀場次的玩家叫「{query}」。",
+    "noMatches": "找不到「{query}」。",
     "more": "載入更多",
     "failed": "旁觀場次讀取失敗，請稍後再試。"
   }

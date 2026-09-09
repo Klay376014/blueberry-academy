@@ -211,23 +211,23 @@
       "bind": "Add name",
       "remove": "Remove {name}",
       "removeShort": "Remove",
-      "empty": "No names yet. Add the one you play under.",
-      "alreadyBound": "{name} is already on your list. Names are compared without case or punctuation, so NotLittleStar and notlittlestar are the same name.",
+      "empty": "No names yet. Add a name to register the Showdown account you play under.",
+      "alreadyBound": "{name} is already on your list. Names are compared without case or punctuation.",
       "unusable": "That is not a Showdown name. It needs at least one letter or digit.",
       "loadFailed": "We could not read your names, so nothing can be changed here right now. Reload the page to try again.",
-      "failed": "That change did not save.",
+      "failed": "That change failed. Try again.",
       "battles": "{count} battle | {count} battles",
       "reattribute": "Check battles again",
-      "reattributeHint": "Runs the names above over every battle you have imported. A run that changes nothing writes nothing, so there is nothing to undo.",
+      "reattributeHint": "Runs the names above over every battle you have imported. Anything unchanged is skipped.",
       "removeTitle": "Remove {name}?",
-      "removeBody": "This takes {count} battle out of your statistics. It goes back to being a spectated battle, and binding the name again brings it back exactly as it was. | This takes {count} battles out of your statistics. They go back to being spectated battles, and binding the name again brings them back exactly as they were.",
-      "removeBodyUnknown": "This takes every battle under that name out of your statistics. They go back to being spectated battles, and binding the name again brings them back exactly as they were.",
+      "removeBody": "This takes {count} battle out of your statistics. It goes back to being a spectated battle. To undo it, add the name again. | This takes {count} battles out of your statistics. They go back to being spectated battles. To undo it, add the name again.",
+      "removeBodyUnknown": "This takes every battle under that name out of your statistics. They go back to being spectated battles. To undo it, add the name again.",
       "removeCancel": "Cancel",
       "unbound": "Done: {count} battle went back to spectated. | Done: {count} battles went back to spectated.",
       "reattributedWithReturned": "Done: {attributed} battles are now yours, {reattributed} moved to a different name, and {unattributed} went back to spectated.",
       "reattributing": "Checking your battles… {processed} / {total}",
       "reattributed": "Done: {attributed} battles are now yours, and {reattributed} moved to a different name.",
-      "reattributionFailed": "That did not finish. {processed} battles were worked through before it stopped; nothing was undone, and running it again picks up the rest."
+      "reattributionFailed": "That did not finish. {processed} battles were worked through before it stopped, and running it again carries on with the rest."
     }
   },
   "filters": {
@@ -388,7 +388,7 @@
     "title": "Spectated battles",
     "note": "The filters above do not apply here: neither player of these battles is you.",
     "search": "Find a player",
-    "noMatches": "No spectated battle has a player called “{query}”.",
+    "noMatches": "Nothing found for “{query}”.",
     "more": "Load more",
     "failed": "The spectated battles could not be read. Try again in a moment."
   }
