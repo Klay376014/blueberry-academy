@@ -96,7 +96,7 @@ const RESULT_TONE = {
              two hues from the rows can match them here. -->
         <SheetTitle class="truncate text-base">
           <span :class="left.tone" data-testid="side-name">{{ left.name }}</span>
-          <span class="text-muted-foreground">{{ t('battle.drawer.versus') }}</span>
+          <span class="text-muted-foreground mx-1">{{ t('battle.drawer.versus') }}</span>
           <span :class="right.tone" data-testid="side-name">{{ right.name }}</span>
         </SheetTitle>
         <SheetDescription class="sr-only">{{ t('battle.drawer.about') }}</SheetDescription>
