@@ -211,7 +211,9 @@ export interface TeamStatsOptions {
    * Whether bring groupings admit games where fewer Pokémon appeared than
    * `|teamsize|` says were picked.
    *
-   * Off by default: a game forfeited on turn four leaves the fourth pick
+   * Off unless a caller says otherwise — note that the dashboard's own box
+   * starts on, so this default is only what a caller that stays silent gets:
+   * a game forfeited on turn four leaves the fourth pick
    * having never shown up, so its `bring_signature` is a three-Pokémon version
    * of a four-Pokémon bring, and counted in it scatters one bring across
    * several false groupings. Forfeits are common on the ladder.

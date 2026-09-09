@@ -34,7 +34,11 @@ export interface StatsFilters {
   from: string | null
   to: string | null
 
-  /** Whether bring groupings admit games where a pick never appeared. */
+  /**
+   * Whether bring groupings and the recent list admit games where a pick
+   * never appeared. On by default; the tallies and the trend never ask
+   * (design document §7).
+   */
   includeIncompleteBrings: boolean
 }
 
@@ -44,7 +48,7 @@ export function defaultStatsFilters(): StatsFilters {
     formatId: null,
     from: null,
     to: null,
-    includeIncompleteBrings: false,
+    includeIncompleteBrings: true,
   }
 }
 

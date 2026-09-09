@@ -254,3 +254,94 @@ describe('what twenty means under a Bo3 format', () => {
     expect(useRecentBattles().recent.value).toHaveLength(20)
   })
 })
+
+describe('the games with no complete bring', () => {
+  /**
+   * A Bo3 in the event format, each game's bring completeness given in order.
+   * `ladder-3` in the fixture is the single-game case; these are the ones the
+   * fixture has no room for, because it is seeded verbatim into pgTAP.
+   */
+  function seriesOf(id: string, day: string, complete: boolean[]) {
+    return complete.map((bringComplete, index) => ({
+      ...WITH_DETAILS[0]!,
+      replay_id: `${id}-g${index + 1}`,
+      played_at: `2026-08-${day}T1${index}:00:00Z`,
+      format_id: FORMATS.EVENT,
+      series_id: id,
+      bring_complete: bringComplete,
+    }))
+  }
+
+  /** Drops the games where a pick never appeared, as the filter bar's box does. */
+  function withoutIncompleteBrings(stats: ReturnType<typeof useStats>, formatId: string) {
+    stats.filters.value = { ...stats.filters.value, formatId, includeIncompleteBrings: false }
+  }
+
+  it('drops a single game whose bring never completed', async () => {
+    // `ladder-3` is the forfeit: four picked, three ever appeared.
+    const stats = useStats()
+    stats.filters.value = { ...stats.filters.value, formatId: FORMATS.LADDER }
+    await stats.whenLoaded()
+
+    const shown = () => useRecentBattles().recent.value.map((battle) => battle.replayId)
+
+    expect(shown()).toContain('ladder-3')
+
+    stats.filters.value = { ...stats.filters.value, includeIncompleteBrings: false }
+
+    expect(shown()).not.toContain('ladder-3')
+    // The rest of the ladder games are untouched.
+    expect(shown()).toContain('ladder-2')
+  })
+
+  it('keeps a series whole when any one of its games completed', async () => {
+    // Dropping the middle game would leave the list numbering game 3 as game
+    // 2 while the drawer, which reads the series from the database, calls the
+    // same replay game 3.
+    battles().rows = seriesOf('mixed', '09', [true, false, true])
+
+    const stats = useStats()
+    withoutIncompleteBrings(stats, FORMATS.EVENT)
+    await stats.whenLoaded()
+
+    expect(useRecentBattles().recent.value.map((battle) => battle.replayId)).toEqual([
+      'mixed-g3',
+      'mixed-g2',
+      'mixed-g1',
+    ])
+  })
+
+  it('drops a series no game of which completed', async () => {
+    battles().rows = [
+      ...seriesOf('none', '09', [false, false]),
+      ...seriesOf('some', '10', [false, true]),
+    ]
+
+    const stats = useStats()
+    withoutIncompleteBrings(stats, FORMATS.EVENT)
+    await stats.whenLoaded()
+
+    const shown = useRecentBattles().recent.value.map((battle) => battle.seriesId)
+
+    expect(new Set(shown)).toEqual(new Set(['some']))
+  })
+
+  it('shows every game again once the filter is back on', async () => {
+    battles().rows = seriesOf('none', '09', [false, false])
+
+    const stats = useStats()
+    withoutIncompleteBrings(stats, FORMATS.EVENT)
+    await stats.whenLoaded()
+
+    expect(useRecentBattles().recent.value).toHaveLength(0)
+
+    const reads = battles().reads.length
+
+    stats.filters.value = { ...stats.filters.value, includeIncompleteBrings: true }
+
+    expect(useRecentBattles().recent.value).toHaveLength(2)
+    // Settled in the browser: the rows are already in memory, and this is the
+    // newly wired consumer, so it is the one that could plausibly re-fetch.
+    expect(battles().reads).toHaveLength(reads)
+  })
+})

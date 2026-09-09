@@ -71,6 +71,11 @@ async function pickFormat(
   await select.trigger('change')
 }
 
+/** Drops the games where a pick never appeared, as the filter bar's box does. */
+function withoutIncompleteBrings() {
+  useStatsFilters().value = { ...useStatsFilters().value, includeIncompleteBrings: false }
+}
+
 beforeEach(() => {
   battles.value = fakeBattles(STATS_ROWS)
 
@@ -195,15 +200,25 @@ describe('one team in detail', () => {
     }
   })
 
-  it('lists only the brings that were complete', async () => {
+  it('lists only the brings that were complete once the reader says so', async () => {
     // The forfeited game's three-Pokémon signature is not a fourth bring the
-    // user ever picked, so it is not offered as one.
+    // user ever picked, so turning the filter off stops offering it as one.
+    withoutIncompleteBrings()
+
     const page = await mountSuspended(TeamDetail)
 
     const brings = page.findAll('[data-testid="bring"]')
 
     expect(brings).toHaveLength(1)
     expect(page.html()).not.toContain('calyrexshadow|incineroar|urshifu')
+  })
+
+  it('opens showing the forfeit among the brings', async () => {
+    // The box starts ticked, so nothing has been dropped before the reader
+    // has said anything.
+    const page = await mountSuspended(TeamDetail)
+
+    expect(page.findAll('[data-testid="bring"]')).toHaveLength(2)
   })
 
   it('draws a bring against the six it was picked from', async () => {
@@ -221,6 +236,10 @@ describe('one team in detail', () => {
   })
 
   it('explains the games the brings do not account for', async () => {
+    // The gap only opens once the incomplete brings are filtered out; left in,
+    // every game is filed under one grouping or another.
+    withoutIncompleteBrings()
+
     const page = await mountSuspended(TeamDetail)
 
     // Four games for the team under the chosen name, three across its brings
