@@ -332,12 +332,48 @@ describe('the global filters', () => {
         (entry) => entry.signature === SIGNATURES.TEAM_A && entry.formatId === FORMATS.LADDER,
       )!.brings.length
 
-    expect(bringsOf()).toBe(1)
-
-    filters.value = { ...filters.value, includeIncompleteBrings: true }
-
+    // On by default, so the forfeit's three-Pokémon signature is its own
+    // grouping until the reader says otherwise.
     expect(bringsOf()).toBe(2)
+
+    filters.value = { ...filters.value, includeIncompleteBrings: false }
+
+    expect(bringsOf()).toBe(1)
     expect(battles().reads).toHaveLength(1)
+  })
+
+  it('leaves the tallies alone when the bring floor moves', async () => {
+    // The bring level drops the forfeit because a three-Pokémon signature of
+    // a four-Pokémon bring scatters one bring across several false groupings.
+    // Nothing above it has that problem: the registered six are known whatever
+    // happened, and the game was won or lost for real. Asserted rather than
+    // left implicit, because widening the toggle to the tallies is exactly the
+    // tidy-looking change somebody will reach for.
+    const { filters, whenLoaded, overall, teams, units } = useStats()
+    await whenLoaded()
+
+    filters.value = { ...filters.value, formatId: FORMATS.LADDER }
+
+    const teamOf = () =>
+      teams.value.find(
+        (entry) => entry.signature === SIGNATURES.TEAM_A && entry.formatId === FORMATS.LADDER,
+      )!
+
+    // The units themselves, not just how many: a regression that kept the
+    // count and moved a result would slip past a length check.
+    const before = {
+      overall: overall.value,
+      units: units.value,
+      tally: teamOf().tally,
+      gamesPlayed: teamOf().gamesPlayed,
+    }
+
+    filters.value = { ...filters.value, includeIncompleteBrings: false }
+
+    expect(overall.value).toEqual(before.overall)
+    expect(units.value).toEqual(before.units)
+    expect(teamOf().tally).toEqual(before.tally)
+    expect(teamOf().gamesPlayed).toBe(before.gamesPlayed)
   })
 
   it('shares one set of filters between both sections', async () => {

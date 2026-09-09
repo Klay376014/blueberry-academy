@@ -35,10 +35,34 @@ export function useRecentBattles() {
   const user = useCurrentUser()
   const storedBattles = useBattles()
   const { battles, aggregate } = useStats()
+  const filters = useStatsFilters()
 
   const extras = useState<Map<string, BattleDetails>>('recent-battle-extras', () => new Map())
   const loading = useState('recent-battles-loading', () => false)
   const error = useState<Error | null>('recent-battles-error', () => null)
+
+  /**
+   * The games the bring filter lets the list show (design document §7).
+   *
+   * A series is kept on any one complete game rather than judged game by
+   * game: dropping one out of the middle would leave the list numbering game
+   * 3 as game 2 while the drawer, which reads the series from the database,
+   * calls the same replay game 3 — the trap `newest` below already avoids at
+   * the limit.
+   */
+  const visibleGames = computed<StatsRow[]>(() => {
+    if (filters.value.includeIncompleteBrings) return battles.value
+
+    const seriesToKeep = new Set(
+      battles.value
+        .filter((row) => row.bring_complete && row.series_id !== null)
+        .map((row) => row.series_id),
+    )
+
+    return battles.value.filter((row) =>
+      row.series_id === null ? row.bring_complete : seriesToKeep.has(row.series_id),
+    )
+  })
 
   /**
    * The filtered games, newest first, in as many as the limit allows. The
@@ -59,7 +83,7 @@ export function useRecentBattles() {
    * it opens calls the same replay game 2.
    */
   const newest = computed(() => {
-    const ordered = battles.value.toSorted((a, b) => (a.played_at < b.played_at ? 1 : -1))
+    const ordered = visibleGames.value.toSorted((a, b) => (a.played_at < b.played_at ? 1 : -1))
     const shown: StatsRow[] = []
     let counted = 0
 
