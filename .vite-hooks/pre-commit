@@ -1,2 +1,4 @@
+. "$(dirname "$0")/worktree-path.sh"
+
 vp staged
 sh scripts/check-conventions.sh
