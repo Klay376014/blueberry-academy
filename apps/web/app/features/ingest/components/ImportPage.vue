@@ -34,8 +34,13 @@ const busy = ref(false)
 const items = ref<BatchItem[]>([])
 /** How many replays this attempt will work through; null until it is known. */
 const total = ref<number | null>(null)
-/** Lines that were never a replay link — refused here, still worth listing. */
+/**
+ * What a paste that named no replay at all held — listed so the reader can see
+ * what was passed over instead of an empty report.
+ */
 const badLines = ref<string[]>([])
+/** How many more lines that paste held than the report lists. */
+const ignoredRest = ref(0)
 /** A failure of the whole attempt: nothing was listed, so nothing was tried. */
 const failure = ref<{ reason: string; message: string } | null>(null)
 const truncated = ref(false)
@@ -206,27 +211,34 @@ function reset() {
   items.value = []
   total.value = null
   badLines.value = []
+  ignoredRest.value = 0
   failure.value = null
   truncated.value = false
 }
 
-/** The replays a pasted list names; every other line is kept to be reported. */
+/** Enough ignored lines to recognise the paste by; a chat log is not a report. */
+const IGNORED_SHOWN = 20
+
+/**
+ * The replays a pasted text names.
+ *
+ * Nothing is reported line by line while a link was found: the text is scanned
+ * rather than matched line by line now, and a chat log's timestamps and
+ * usernames are the expected company of a link, not replays that failed. A
+ * paste that named no replay at all is the one case still worth listing —
+ * silence there would leave a mistyped link looking like a finished import.
+ */
 function refsOf(pasted: string): ReplayRef[] {
-  const refs: ReplayRef[] = []
+  const refs = findReplayLinks(pasted)
+  if (refs.length) return refs
 
   const lines = pasted
     .split('\n')
     .map((line) => line.trim())
     .filter(Boolean)
 
-  for (const line of lines) {
-    // Parsed here rather than by Showdown: a line that could never be a
-    // replay deserves a sentence about itself, not a 404 about a replay.
-    const target = parseReplayLink(line)
-
-    if (target) refs.push(target)
-    else badLines.value.push(line)
-  }
+  badLines.value = lines.slice(0, IGNORED_SHOWN)
+  ignoredRest.value = lines.length - badLines.value.length
 
   return refs
 }
@@ -453,6 +465,10 @@ async function syncByName() {
           </span>
         </li>
       </ul>
+
+      <p v-if="ignoredRest" class="mt-2 text-sm text-muted-foreground" data-testid="ignored-more">
+        {{ t('import.ignoredMore', { count: ignoredRest }) }}
+      </p>
     </template>
 
     <article

@@ -235,24 +235,66 @@ describe('the import page', () => {
     expect(wrapper.get('[data-testid="report-counts"]').text()).toMatch(/1.*1.*1/s)
   })
 
-  it('keeps a line that is not a replay link out of the batch, and says so', async () => {
+  it('imports the replays named in a pasted chat log, and nothing around them', async () => {
     const wrapper = await mountSuspended(App, { route: '/import' })
 
-    await paste(wrapper, `${LINK}\nhttps://pokemonshowdown.com/users/notlittlestar`)
+    await paste(
+      wrapper,
+      [
+        `[10:23:07] @NotLittleStar: gg ${LINK}`,
+        '[10:23:19] DavoPro1214: profile is https://pokemonshowdown.com/users/notlittlestar',
+        '[10:24:02] @NotLittleStar: game 2 (https://replay.pokemonshowdown.com/gen9ou-2667293085)',
+      ].join('\n'),
+    )
 
-    // Refused here rather than by Showdown, and it does not stop the line
-    // above it from being imported.
-    expect(importMany.mock.calls[0]![0]).toEqual([{ id: REPLAY, password: null }])
-    expect(reportRows(wrapper).some((row: string) => row.includes('notlittlestar'))).toBe(true)
+    expect(importMany.mock.calls[0]![0]).toEqual([
+      { id: REPLAY, password: null },
+      { id: 'gen9ou-2667293085', password: null },
+    ])
+    // The chat around the links is what pasting a log looks like, so none of
+    // it is reported as a replay that failed.
+    expect(reportRows(wrapper).some((row: string) => row.includes('notlittlestar'))).toBe(false)
   })
 
-  it('imports nothing when not one line was a replay link', async () => {
+  it('carries the password of a private replay link through to the import', async () => {
     const wrapper = await mountSuspended(App, { route: '/import' })
 
-    await paste(wrapper, 'what a nice battle')
+    await paste(
+      wrapper,
+      'here it is https://replay.pokemonshowdown.com/gen9ou-2667293085-b1cd2efpw',
+    )
 
+    expect(importMany.mock.calls[0]![0]).toEqual([{ id: 'gen9ou-2667293085', password: 'b1cd2ef' }])
+  })
+
+  it('asks for a replay once however often the paste names it', async () => {
+    const wrapper = await mountSuspended(App, { route: '/import' })
+
+    await paste(wrapper, `${LINK}\n${LINK}?p2\n${REPLAY}`)
+
+    expect(importMany.mock.calls[0]![0]).toEqual([{ id: REPLAY, password: null }])
+  })
+
+  it('lists what it ignored when the paste named no replay at all', async () => {
+    const wrapper = await mountSuspended(App, { route: '/import' })
+
+    await paste(wrapper, 'what a nice battle\nhttps://pokemonshowdown.com/users/notlittlestar')
+
+    // Nothing came out of it, so the reader is shown what went in rather
+    // than an empty report.
     expect(importMany).not.toHaveBeenCalled()
-    expect(reportRows(wrapper)).toHaveLength(1)
+    const rows = reportRows(wrapper)
+    expect(rows).toHaveLength(2)
+    expect(rows.some((row: string) => row.includes('notlittlestar'))).toBe(true)
+  })
+
+  it('stops listing ignored lines once the list has said enough', async () => {
+    const wrapper = await mountSuspended(App, { route: '/import' })
+
+    await paste(wrapper, Array.from({ length: 40 }, (_, line) => `chatter ${line}`).join('\n'))
+
+    expect(reportRows(wrapper).length).toBeLessThan(40)
+    expect(wrapper.get('[data-testid="ignored-more"]').text()).toContain('20')
   })
 
   it('syncs the Showdown name that was typed', async () => {

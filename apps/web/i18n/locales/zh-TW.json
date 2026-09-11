@@ -168,6 +168,7 @@
       "counting": "已處理 {done} / {total}"
     },
     "badLink": "這不是 Showdown replay 連結。請貼 replay 本身的網址，例如 https://replay.pokemonshowdown.com/gen9championsvgc2026regmb-2667169457。私人 replay 的密碼就在網址裡，一起貼進來。",
+    "ignoredMore": "另外還有 {count} 行，裡面同樣沒有 replay 連結。",
     "unparsed": "原始紀錄已經存下來了，但這場 replay 讀不動：{message} 沒有東西弄丟，這場對戰保留著，等之後讀得懂再重新處理一次就好。",
     "status": {
       "imported": "已匯入",

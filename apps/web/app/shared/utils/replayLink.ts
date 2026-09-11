@@ -50,3 +50,53 @@ export function parseReplayLink(input: string): ReplayRef | null {
 
   return REPLAY_ID.test(id) ? { id, password } : null
 }
+
+/** The only host that serves replays; every other address names something else. */
+const REPLAY_HOST = 'replay.pokemonshowdown.com'
+
+/** What a chat log wraps a link in: `<>`, `()`, quotes, a trailing comma. */
+const WRAPPING = /^[^a-z0-9]+|[^a-z0-9]+$/gi
+
+/**
+ * The candidate a token offers, or null when it could never be a replay.
+ *
+ * `parseReplayLink` reads the last path segment of whatever it is given, which
+ * is right for a link the reader deliberately pasted and far too generous for
+ * a token swept out of arbitrary text: it would read `/threads/vgc-2026-12345`
+ * as a replay. So an address has to be Showdown's replay host, and a bare id
+ * has to carry a letter — `2026-09-11` satisfies the id grammar on its own.
+ */
+function candidateOf(token: string): string | null {
+  const bare = token.replace(WRAPPING, '')
+  if (!bare) return null
+
+  const address = bare.replace(/^[a-z][a-z0-9+.-]*:\/\//i, '')
+  const host = (address.split('/')[0] ?? '').toLowerCase()
+
+  if (bare.includes('://') || host.includes('.')) {
+    return host === REPLAY_HOST ? address : null
+  }
+
+  return /[a-z]/i.test(bare) ? bare : null
+}
+
+/**
+ * Every replay a piece of text names, in the order it names them, each one
+ * once. Pasting a chat log straight in is the point: timestamps, usernames and
+ * other links sit around the replay links and are passed over rather than
+ * refused, so the caller cannot report them as replays that failed.
+ *
+ * Design document §6 (docs/specs/2026-09-11-private-replay-sync-design.md).
+ */
+export function findReplayLinks(text: string): ReplayRef[] {
+  const found = new Map<string, ReplayRef>()
+
+  for (const token of text.split(/\s+/)) {
+    const candidate = candidateOf(token)
+    const target = candidate === null ? null : parseReplayLink(candidate)
+
+    if (target && !found.has(target.id)) found.set(target.id, target)
+  }
+
+  return [...found.values()]
+}

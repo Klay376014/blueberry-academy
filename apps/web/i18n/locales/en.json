@@ -168,6 +168,7 @@
       "counting": "{done} of {total} done"
     },
     "badLink": "That is not a Showdown replay link. Paste the address of the replay itself, like https://replay.pokemonshowdown.com/gen9championsvgc2026regmb-2667169457. A private replay keeps its password in the address, so paste that too.",
+    "ignoredMore": "And {count} more lines, with no replay link in any of them either.",
     "unparsed": "The raw record is stored, but this replay could not be read: {message} Nothing is lost. The battle is kept, and it can be read again once that record can be understood.",
     "status": {
       "imported": "Imported",
