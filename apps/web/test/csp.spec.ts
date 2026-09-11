@@ -22,9 +22,10 @@ describe('the policy', () => {
     expect(CONTENT_SECURITY_POLICY).not.toContain('unsafe-eval')
   })
 
-  it('names no Supabase project, because the Worker is told which at runtime', () => {
+  it('names no Supabase project, because neither path knows it this early', () => {
     // docs/adr/0011-nuxt-public-as-worker-runtime-vars.md. server/plugins/csp.ts
-    // adds the origin it was actually given.
+    // adds the origin the Worker was given; modules/csp.ts adds the one the
+    // build was given, which is the one the prerendered pages carry.
     expect(CONTENT_SECURITY_POLICY).not.toContain('supabase')
   })
 })

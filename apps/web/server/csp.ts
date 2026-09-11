@@ -112,13 +112,14 @@ export function allowing(policy: string, directive: string, sources: string[]): 
  *   page, inlined in `app/assets/tailwind.css`.
  * - `font-src 'self'` — Inter is self-hosted, so there is nothing else to
  *   allow (docs/adr/0007-self-hosted-inter.md).
- * - `connect-src` — the replay API the browser imports from, plus the Supabase
- *   project, which is not named here: it is a runtime variable of the Worker
+ * - `connect-src` — the replay API the browser imports from. The Supabase
+ *   project is not named here because neither delivery path knows it this
+ *   early: it is a runtime variable of the Worker
  *   (docs/adr/0011-nuxt-public-as-worker-runtime-vars.md), so the plugin adds
- *   the origin it was actually given. The four prerendered pages are static
- *   files with an empty one baked in, so no client is ever created on them and
- *   they ask for nothing — measured, and the day that stops being true they
- *   need a source here.
+ *   the origin the Worker was given, and `modules/csp.ts` adds the one the
+ *   build was given. Both are needed. `plugins/supabase.client.ts` has no route
+ *   condition, so every page — the four prerendered ones included — creates a
+ *   client and can renew a token over the network.
  * - `frame-ancestors 'none'` — nothing here is meant to be framed, and this is
  *   the modern spelling of X-Frame-Options.
  * - `form-action 'self'` — the sign-in flow leaves by `location.assign`, not by
