@@ -96,6 +96,11 @@ export default defineNuxtConfig({
     // Everything, including every address that does not exist: the SPA shell,
     // rendered by nobody. The four exceptions below are more specific, and a
     // more specific rule wins.
+    //
+    // `modules/csp.ts` puts a `headers` entry on this rule during the build.
+    // It is not written here because the Content-Security-Policy names the hash
+    // of every inline script the prerendered pages carry, and those change with
+    // every build.
     '/**': { ssr: false },
 
     '/about': { ssr: true, prerender: true },
