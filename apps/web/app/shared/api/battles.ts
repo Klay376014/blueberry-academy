@@ -4,41 +4,19 @@ import { toID } from 'replay-parser'
 import type { SideId } from 'replay-parser'
 
 /**
- * Everything the app knows about reading and writing the `battles` table, as
- * one interface bound to one user.
+ * The one place `battles` queries are assembled: column lists, the `user_id`
+ * scope, paging and the row shapes live here so no caller can get them wrong.
+ * Readers: docs/specs/2026-08-16-replay-analytics-design.md §7,
+ * docs/specs/2026-08-20-battle-timeline-design.md §4, issue #52.
  *
- * Nothing outside this file assembles a `battles` query. The column lists, the
- * `user_id` scope, the paging, the row shapes and the opponent-side derivation
- * live here once, so a caller cannot get any of them subtly wrong. The readers
- * above it are docs/specs/2026-08-16-replay-analytics-design.md §7 (the
- * dashboard) and docs/specs/2026-08-20-battle-timeline-design.md §4 (the
- * drawer); the move itself is issue #52.
- *
- * It sits in `shared/lib/` rather than `shared/utils/` because everything in
- * `utils/` is a pure function and this is the app's one piece of I/O over
- * `battles` — and in `shared/` rather than in a feature because the dashboard,
- * the timeline and the importer all read the same table (issue #61).
- *
- * The interface exists for a second reason as well as the first: it is the
- * seam the tests need. The in-memory adapter behind it is
- * `test/fakes/battles.ts`, which is why the row mapping below is exported.
- *
- * `scripts/reparse.ts` deliberately does not use this: it reads across users,
- * by id, with `select('*')`, and widening the interface to cover both would
- * put back the shallowness this removes.
- *
- * Two row shapes on one interface, on purpose. `battlesOf` answers in the
- * database's own snake_case (`StatsRow`) because the stats layer and its
- * fixtures are written in those names; everything else answers in camelCase.
- * Renaming the stats path would turn this into a rewrite of `battleStats.ts`
- * and every fixture under it. `attributableRows` is snake_case for a third
- * reason: its columns *are* `battle-row`'s `Attribution`, which is written in
- * the database's names because that is what it is for (#67), and renaming
- * them here and back again would be a mapping that could drift.
- *
- * Failures throw. `null` and an absent map entry mean "the read worked and
- * there is no such row" — what to show for a failure is each page's decision,
- * and the drawer, the importer and the dashboard all answer it differently.
+ * Traps this shape exists for:
+ * - `scripts/reparse.ts` deliberately stays outside it — it reads across users.
+ * - The stats and attribution paths answer in snake_case on purpose; renaming
+ *   would pull in `battleStats.ts`, every fixture, and `battle-row` (#67).
+ * - Failures throw. `null` or an absent map entry means the read worked and
+ *   there is no such row; what to show for a failure is each page's call.
+ * - The interface is the seam `test/fakes/battles.ts` stands in at, which is
+ *   why the row mappings below are exported.
  */
 
 export type BattleResult = 'win' | 'loss' | 'tie'
@@ -105,7 +83,6 @@ export interface DateRange {
   to: string | null
 }
 
-/** One row of `battles`, read out. */
 export interface BattleRecord {
   replayId: string
   playedAt: string
@@ -459,9 +436,8 @@ export interface NamedRow {
 /**
  * Battles per Showdown name, keyed by the name's `toID()` form.
  *
- * Exported, like the two mappings below, for the in-memory adapter: one
- * derivation and two adapters, rather than a fake that quietly counts
- * differently from the module it stands in for.
+ * Exported, like the mappings below, so `test/fakes/battles.ts` shares the
+ * derivation rather than quietly counting differently.
  */
 export function tallyNames(counts: Map<string, number>, rows: NamedRow[]): void {
   for (const row of rows) {
@@ -470,13 +446,7 @@ export function tallyNames(counts: Map<string, number>, rows: NamedRow[]): void 
   }
 }
 
-/**
- * A date with no time in it covers the whole of that day.
- *
- * Exported, like the two mappings below, for the in-memory adapter in
- * `test/fakes/battles.ts`: one derivation and two adapters, rather than a fake
- * that quietly answers differently from the module it stands in for.
- */
+/** A date with no time in it covers the whole of that day. */
 export function endOfDay(bound: string): string {
   return bound.includes('T') ? bound : `${bound}T23:59:59.999Z`
 }
@@ -526,7 +496,6 @@ export interface StoredRecordRow extends StoredDetailRow {
   parse_error: string | null
 }
 
-/** A string field of a stored side, or null for anything jsonb happens to hold. */
 function textOf(value: unknown): string | null {
   return typeof value === 'string' && value !== '' ? value : null
 }
@@ -562,7 +531,6 @@ function opponentSideOf(
   return theirs ? sides[theirs] : null
 }
 
-/** Who the log said won, or null for anything that is not one of its answers. */
 function winnerOf(row: StoredRecordRow): SideId | 'tie' | null {
   const { winner } = row.details ?? {}
 

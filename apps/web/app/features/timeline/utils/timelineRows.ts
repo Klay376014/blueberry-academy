@@ -4,14 +4,10 @@ import type { Combatant, HealthChange, SideId, TimelineEvent, TimelineTurn } fro
 /**
  * One turn of a battle as the rows the drawer draws.
  *
- * Two rules from the design document (§1, §3) live here rather than in the
- * template. A row carries the identifiers the log gave it — a species id, a
- * move's English name — and the components are what put those into the
- * reader's language (ADR-0014, ADR-0015); what a row says in words is a
- * `message` key with parameters, which the component hands to `t()`. And a row never
- * claims causality: a move and the damage that followed it are two rows in
- * time order, because the log's `|-damage|` carries no attribution and
- * inventing one is not this project's job.
+ * Two rules from docs/specs/2026-08-20-battle-timeline-design.md §1 and §3 live
+ * here rather than in the template: a row carries the log's own identifiers and
+ * the components localise them (ADR-0014, ADR-0015), and a row never claims a
+ * causality the log did not state.
  */
 
 /** Which glyph a row wears. Semantic, so the icon set can change without this. */
@@ -703,15 +699,10 @@ const CLOSES_ACTION = new Set<TimelineEvent['kind']>(['move', 'switch'])
 /**
  * The rows a turn becomes, with each action's results gathered onto its own row.
  *
- * A result — how the hit landed, a Protect that held, a miss — is a fact about
- * the move that just went out, and Showdown shows it on that move's line. It is
- * folded rather than dropped: a row of its own for `resisted` says nothing the
- * move's row cannot say better, and thirty-seven of them per game were behind
- * the "show the rest of this turn" switch (issue #96).
- *
- * This is not the damage attribution decision T5 declined. The events folded
- * here each name the Pokémon they are about, and the group they land in is
- * closed by the next move or switch — nothing is inferred from proximity alone.
+ * Folding rather than a row apiece: thirty-seven `resisted`-style rows per game
+ * were behind the "show the rest of this turn" switch (issue #96). This is not
+ * the damage attribution decision T5 declined — every folded event names the
+ * Pokémon it is about, and the group is closed by the next move or switch.
  */
 export function rowsOf(turn: TimelineTurn, { detailed }: RowOptions): TimelineRow[] {
   const rows: TimelineRow[] = []

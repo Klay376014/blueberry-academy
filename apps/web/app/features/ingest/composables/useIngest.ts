@@ -35,7 +35,6 @@ export type IngestFailure =
   | ShowdownFailure
   /** The raw log could not be stored, so nothing derived from it was written. */
   | 'store-failed'
-  /** The row itself was refused. */
   | 'write-failed'
 
 export type IngestOutcome =
@@ -46,7 +45,6 @@ export type IngestOutcome =
    * derived column is empty. A re-parse can fill them in without Showdown.
    */
   | { status: 'unparsed'; battle: BattleRow; message: string }
-  /** Nothing was written. */
   | { status: 'failed'; reason: IngestFailure; message: string }
 
 /** What became of one replay in a batch, `skipped` included. */

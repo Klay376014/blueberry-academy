@@ -7,20 +7,12 @@ import type { StatsRow } from '~/shared/api/battles'
 
 /**
  * One filtered read of `battles`, and the aggregates both dashboard sections
- * derive from it.
+ * derive from it. See docs/specs/2026-08-16-replay-analytics-design.md §7.
  *
- * The win rate curve needs the individual games anyway, so there is one fetch
- * and the arithmetic happens in `utils/battleStats.ts`. The read itself — the
- * columns, the `user_id` scope, the paging, spectated battles staying out —
- * belongs to `app/shared/api/battles.ts`.
- *
- * The interface is state plus three verbs. When to re-read is this module's
- * business, not a sequence of steps a page has to remember in the right order
- * (issue #53); what a page still knows, and this cannot, is that something
- * happened — `refresh()` — and which team the address is pointing at —
- * `focusTeam()`.
- *
- * See docs/specs/2026-08-16-replay-analytics-design.md §7.
+ * State plus three verbs: when to re-read is this module's business, not a
+ * sequence a page has to remember in the right order (issue #53). What a page
+ * knows and this cannot is that something happened (`refresh()`) and which team
+ * the address points at (`focusTeam()`).
  */
 
 export function useStats() {
@@ -344,21 +336,14 @@ export function useStats() {
 }
 
 /**
- * Runs `register` once per session, however many times `useStats()` is called
- * — a watcher per caller would turn one filter change into three reads, which
- * is the trap `BattleDrawer.vue` documents on its own side.
+ * Runs `register` once per session, however many times `useStats()` is called —
+ * a watcher per caller would turn one filter change into three reads, the trap
+ * `BattleDrawer.vue` documents on its own side.
  *
- * The scope is detached because these watchers belong to the session and not
- * to whichever component happened to call first: registered in that
- * component's scope they would be disposed the moment it unmounted, and the
- * next page to mount would find the guard set and no watchers left.
- *
- * The scope is what the guard holds, rather than a boolean beside it, so the
- * two cannot come apart: both live on the Nuxt instance and a new instance
- * gets a new pair. Nothing stops the old scope — the app has no teardown to
- * hang that on and lives as long as the tab does. In a test run a torn-down
- * instance therefore leaves an inert scope behind, watching refs that nothing
- * writes to again.
+ * The scope is detached, so the watchers outlive whichever component called
+ * first, and it doubles as the guard so the two cannot come apart. Nothing ever
+ * stops it: the app has no teardown and lives as long as the tab, so a
+ * torn-down test instance leaves an inert scope behind.
  */
 function onceForTheSession(register: () => void): void {
   const watchers = useState<EffectScope | null>('stats-watchers', () => null)

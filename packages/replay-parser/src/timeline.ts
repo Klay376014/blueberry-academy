@@ -609,7 +609,6 @@ function targetsOf(field: Map<string, Combatant>, args: string[]): Combatant[] {
   return target ? [target] : []
 }
 
-/** Records who now stands at a position, and returns them. */
 function enter(
   field: Map<string, Combatant>,
   positionArg: string,
@@ -728,7 +727,6 @@ function effectNameOf(effect: string): string {
 /** The stages a stat can stand at, either way. */
 const MAX_STAGES = 6
 
-/** A stage count held inside the range the game has for it. */
 function heldToStages(stages: number): number {
   return Math.max(-MAX_STAGES, Math.min(MAX_STAGES, Math.trunc(stages)))
 }
