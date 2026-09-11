@@ -145,6 +145,19 @@ export default defineConfig({
         },
       },
       {
+        // The Showdown password of a reader passes through this folder, and
+        // Cloudflare's observability records exactly two things: invocation
+        // metadata and whatever `console.*` printed. So the leak to guard
+        // against is one stray `console.log`, and this is the same answer as
+        // the seams above -- an executable rule rather than a convention.
+        // `server/utils/secret.ts` covers the rest; see the design document
+        // docs/specs/2026-09-11-private-replay-sync-design.md §5.2 §5.3.
+        files: ['apps/web/server/**'],
+        rules: {
+          'no-console': 'error',
+        },
+      },
+      {
         // shared/ is under every feature, so it may know none of them.
         files: ['apps/web/app/shared/**'],
         rules: {
