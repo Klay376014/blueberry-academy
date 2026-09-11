@@ -159,7 +159,6 @@ function asSeries(rows: StatsRow[]): ResultUnit[] {
   })
 }
 
-/** The rows as result units, under the given aggregation. */
 export function resultUnits(rows: StatsRow[], aggregate: Aggregate): ResultUnit[] {
   return aggregate === 'series' ? asSeries(rows) : asGames(rows)
 }

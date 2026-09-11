@@ -106,7 +106,6 @@ const field = computed(() => ({
   abilities: props.snapshot.fieldAbilities,
 }))
 
-/** Whether the row has anything to say at all. */
 const hasField = computed(
   () =>
     field.value.effects.length > 0 ||
