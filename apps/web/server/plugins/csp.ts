@@ -1,6 +1,20 @@
 import { allowing, inlineScriptHashes } from '../csp'
 
 /**
+ * The Supabase origin, remembered across requests for the reason the hashes are
+ * (server/csp.ts): a Worker is told that URL once, at deploy time
+ * (docs/adr/0011-nuxt-public-as-worker-runtime-vars.md), so parsing it again on
+ * every request spends ADR-0001's 10ms CPU budget on a constant.
+ */
+let parsed: { url: string; sources: string[] } | undefined
+
+function supabaseSources(url: string): string[] {
+  if (parsed?.url !== url) parsed = { url, sources: url === '' ? [] : [new URL(url).origin] }
+
+  return parsed.sources
+}
+
+/**
  * The Content-Security-Policy of everything the Worker renders, which is every
  * address except the four prerendered ones (server/csp.ts).
  *
@@ -21,12 +35,11 @@ export default defineNitroPlugin((nitroApp) => {
     if (policy === undefined || typeof response.body !== 'string') return
 
     const { supabaseUrl } = useRuntimeConfig(event).public
-    const supabase = supabaseUrl === '' ? [] : [new URL(supabaseUrl).origin]
 
     response.headers = {
       ...response.headers,
       'content-security-policy': allowing(
-        allowing(policy, 'connect-src', supabase),
+        allowing(policy, 'connect-src', supabaseSources(supabaseUrl)),
         'script-src',
         await inlineScriptHashes(response.body),
       ),

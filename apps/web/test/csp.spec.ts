@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { CONTENT_SECURITY_POLICY, allowing, inlineScriptHashes } from '../server/csp'
 
 /**
@@ -56,6 +56,22 @@ describe('hashing the inline scripts of a page', () => {
 
   it('says each hash once, however many pages share the script', async () => {
     expect(await inlineScriptHashes('<script>a</script><script>a</script>')).toHaveLength(1)
+  })
+
+  it('hashes a body it has already seen no second time', async () => {
+    // Every Worker response but the first would otherwise pay for this again,
+    // and the answer cannot have changed: see the note on the cache.
+    const html = `<script>${Math.random()}</script><script type="module">x</script>`
+    const digest = vi.spyOn(crypto.subtle, 'digest')
+
+    const first = await inlineScriptHashes(html)
+    expect(digest).toHaveBeenCalledTimes(2)
+
+    digest.mockClear()
+    expect(await inlineScriptHashes(html)).toEqual(first)
+    expect(digest).not.toHaveBeenCalled()
+
+    digest.mockRestore()
   })
 })
 

@@ -31,6 +31,27 @@ const EXECUTABLE_TYPES = new Set([
 ])
 
 /**
+ * What a response body hashed to last time it was seen.
+ *
+ * The hashing is the same answer every time within one deployment — the shell
+ * is a build artefact, and the runtime variables written into it are pinned by
+ * `wrangler deploy --var` (docs/adr/0011-nuxt-public-as-worker-runtime-vars.md)
+ * — so recomputing it per request spends the one budget ADR-0001 turned SSR
+ * down over: 10ms of CPU per request on the Workers free plan. Under a
+ * millisecond of it, but that is the axis the whole rendering design is built
+ * on, and nothing here needs to be on it.
+ *
+ * Keyed by the body rather than computed once and kept forever, so a second
+ * kind of rendered HTML — an error page, a server route added later — is
+ * hashed as itself instead of being handed the shell's hashes. Emptied rather
+ * than grown without bound, because "a handful of distinct bodies" is a
+ * property of today's app, not a guarantee.
+ */
+const HASHES = new Map<string, string[]>()
+
+const HASHES_KEPT = 16
+
+/**
  * `'sha256-…'` for every inline script in `html`, deduplicated and in the
  * order met.
  *
@@ -42,6 +63,9 @@ const EXECUTABLE_TYPES = new Set([
  * not knowable at build time.
  */
 export async function inlineScriptHashes(html: string): Promise<string[]> {
+  const remembered = HASHES.get(html)
+  if (remembered !== undefined) return remembered
+
   const hashes: string[] = []
 
   for (const [, attributes = '', body = ''] of html.matchAll(INLINE_SCRIPT)) {
@@ -51,6 +75,9 @@ export async function inlineScriptHashes(html: string): Promise<string[]> {
     const hash = `'sha256-${await sha256(body)}'`
     if (!hashes.includes(hash)) hashes.push(hash)
   }
+
+  if (HASHES.size >= HASHES_KEPT) HASHES.clear()
+  HASHES.set(html, hashes)
 
   return hashes
 }
