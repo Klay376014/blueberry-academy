@@ -136,12 +136,25 @@ const move = computed(() =>
             :label="labelled(target.species)"
             :size="row.mark === 'switch' ? 40 : 30"
           />
+          <!-- One line per hit, each with the results the log stated before
+               it: a move that hit three times said six things about them, and
+               in one line they read as one long list of nobody's (#170). -->
+          <span v-if="target.hits.length" class="flex flex-col gap-0.5">
+            <span
+              v-for="(hit, at) of target.hits"
+              :key="`${hit.change.kind}-${hit.change.hpAfter}-${at}`"
+              class="flex items-center gap-1"
+              data-testid="row-hit"
+            >
+              <BattleRowNotes :notes="hit.notes" />
+              <BattleRowHealth :change="hit.change" />
+            </span>
+          </span>
+
+          <!-- After the hits, because that is where the log put them: a note
+               a hit did not claim is one that arrived once the last hit was
+               over — a confusion a punch left behind. -->
           <BattleRowNotes :notes="target.notes" />
-          <BattleRowHealth
-            v-for="(change, hit) of target.health"
-            :key="`${change.kind}-${change.hpAfter}-${hit}`"
-            :change
-          />
         </span>
       </template>
 

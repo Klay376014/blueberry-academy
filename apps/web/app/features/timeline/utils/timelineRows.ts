@@ -32,19 +32,38 @@ export interface RowNote {
   quiet: boolean
 }
 
+/**
+ * One hit an action landed on one Pokémon: the HP it moved, with the results
+ * the log stated before it.
+ *
+ * A multi-hit move reports every hit exactly as a single hit is reported, and
+ * the damage line is the only boundary between them — so the results waiting
+ * when one arrives are that hit's, and the next hit starts empty (#170).
+ */
+export interface RowHit {
+  /** What the log said about this hit: a crit, a resist, both, or neither. */
+  notes: RowNote[]
+  /**
+   * The HP it cost, or gave back.
+   *
+   * Only ever the changes the two conditions in `foldsHealth` let through:
+   * this is a display decision the UI makes on fields the log itself filled
+   * in, not an attribution the parser performed (design decision T26).
+   */
+  change: HealthChange
+}
+
 /** A Pokémon an action reached, and what the log said happened to it. */
 export interface RowPokemon {
   species: string
-  notes: RowNote[]
   /**
-   * The HP this action cost it, or gave it back — one entry per change, so a
-   * multi-hit move shows both of its hits rather than the last one only.
-   *
-   * Only ever the changes the two conditions in `foldsHealth` let through: this
-   * is a display decision the UI makes on fields the log itself filled in, not
-   * an attribution the parser performed (design decision T26).
+   * What the action did to it that no hit claimed: everything on a Pokémon
+   * nothing hit — a Protect that held, a miss — and anything the log stated
+   * after the last hit, which nothing closed.
    */
-  health: HealthChange[]
+  notes: RowNote[]
+  /** The hits it took, in the order the log reported them. */
+  hits: RowHit[]
 }
 
 export interface TimelineRow {
@@ -223,7 +242,7 @@ export function rowOf(event: TimelineEvent): TimelineRow | null {
         mark: 'switch',
         side: event.pokemon.side,
         species: trade ? event.replaced!.species : event.pokemon.species,
-        targets: trade ? [{ species: event.pokemon.species, notes: [], health: [] }] : [],
+        targets: trade ? [{ species: event.pokemon.species, notes: [], hits: [] }] : [],
         message: {
           key: event.how === 'replace' ? 'wasAnIllusion' : trade ? 'cameInFor' : 'cameIn',
         },
@@ -301,7 +320,7 @@ export function rowOf(event: TimelineEvent): TimelineRow | null {
         ...blank(),
         side: event.actor.side,
         species: event.actor.species,
-        targets: event.target ? [{ species: event.target.species, notes: [], health: [] }] : [],
+        targets: event.target ? [{ species: event.target.species, notes: [], hits: [] }] : [],
         message: { key: 'missed' },
       }
 
@@ -374,7 +393,7 @@ export function rowOf(event: TimelineEvent): TimelineRow | null {
         species: event.pokemon.species,
         // The other one behind the arrow: a trade is about two Pokémon, and
         // the row would otherwise say a thing was swapped with nobody.
-        targets: [{ species: event.target.species, notes: [], health: [] }],
+        targets: [{ species: event.target.species, notes: [], hits: [] }],
         message:
           event.stats.length === 0
             ? { key: 'allBoostsSwapped' }
@@ -386,7 +405,7 @@ export function rowOf(event: TimelineEvent): TimelineRow | null {
         ...blank(),
         side: event.pokemon.side,
         species: event.pokemon.species,
-        targets: [{ species: event.target.species, notes: [], health: [] }],
+        targets: [{ species: event.target.species, notes: [], hits: [] }],
         message: { key: 'boostsCopied' },
       }
 
@@ -409,7 +428,7 @@ export function rowOf(event: TimelineEvent): TimelineRow | null {
         bystanders:
           event.source === null || event.source.position === event.pokemon.position
             ? []
-            : [{ species: event.source.species, notes: [], health: [] }],
+            : [{ species: event.source.species, notes: [], hits: [] }],
         message: {
           key: event.phase === 'start' ? 'effectStarted' : activationKey(event.effect),
           params: { effect: event.effect },
@@ -607,7 +626,7 @@ function actionOf(event: MoveEvent): OpenAction {
     side: event.actor.side,
     species: event.actor.species,
     move: event.move,
-    targets: aimedAt.map((target) => ({ species: target.species, notes: [], health: [] })),
+    targets: aimedAt.map((target) => ({ species: target.species, notes: [], hits: [] })),
   }
 
   return {
@@ -737,7 +756,7 @@ function slotFor(action: OpenAction, pokemon: Combatant): { notes: RowNote[] } {
   const known = action.slots.get(pokemon.position)
   if (known) return known.pokemon
 
-  const bystander: RowPokemon = { species: pokemon.species, notes: [], health: [] }
+  const bystander: RowPokemon = { species: pokemon.species, notes: [], hits: [] }
   action.row.bystanders.push(bystander)
   action.slots.set(pokemon.position, { pokemon: bystander, target: false })
 
@@ -763,16 +782,11 @@ function slotFor(action: OpenAction, pokemon: Combatant): { notes: RowNote[] } {
  * change is drawn rather than whether, so the flag is asked here too — without
  * it, what Showdown hid would reappear on the move's row.
  */
-function foldedHealth(
-  action: OpenAction,
-  event: TimelineEvent,
-): { into: HealthChange[]; change: HealthChange } | null {
+function foldedHealth(action: OpenAction, event: TimelineEvent): RowPokemon | null {
   if (event.kind !== 'damage' && event.kind !== 'heal') return null
   if (event.silent || event.from !== null) return null
 
-  const slot = targetSlot(action, event.pokemon)
-
-  return slot ? { into: slot.health, change: event } : null
+  return targetSlot(action, event.pokemon)
 }
 
 /**
@@ -793,8 +807,8 @@ function saidByTheRow(action: OpenAction, event: TimelineEvent): boolean {
   if (event.kind !== 'faint') return false
 
   return (
-    targetSlot(action, event.pokemon)?.health.some(
-      (change) => change.kind === 'damage' && change.hpAfter === 0,
+    targetSlot(action, event.pokemon)?.hits.some(
+      (hit) => hit.change.kind === 'damage' && hit.change.hpAfter === 0,
     ) ?? false
   )
 }
@@ -818,9 +832,13 @@ export function rowsOf(turn: TimelineTurn, { detailed }: RowOptions): TimelineRo
     if (isPlumbingFor(turn.events, index)) return
     if (action && pin(action, event)) return
 
-    const health = action && foldedHealth(action, event)
-    if (health) {
-      health.into.push(health.change)
+    const hurt = action && foldedHealth(action, event)
+    if (hurt && (event.kind === 'damage' || event.kind === 'heal')) {
+      // The notes waiting on that Pokémon are this hit's, and the next hit
+      // starts with none: the damage line is the only boundary a multi-hit
+      // move has (#170).
+      hurt.hits.push({ notes: hurt.notes, change: event })
+      hurt.notes = []
       return
     }
 

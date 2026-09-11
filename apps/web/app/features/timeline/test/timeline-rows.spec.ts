@@ -7,6 +7,7 @@ import lifeOrb from '../../../../../../packages/replay-parser/test/fixtures/gen9
 import recoil from '../../../../../../packages/replay-parser/test/fixtures/gen9championsvgc2026regmb-2674380893.json'
 import recoilToo from '../../../../../../packages/replay-parser/test/fixtures/gen9championsvgc2026regmb-2674448634.json'
 import skillSwap from '../../../../../../packages/replay-parser/test/fixtures/gen9championsvgc2026regma-2592519449.json'
+import multiHit from '../../../../../../packages/replay-parser/test/fixtures/gen9vgc2024regf-2082942604.json'
 
 /** One out on each side, which is what turn 0's own tests read. */
 const TWO_UP = [
@@ -63,7 +64,7 @@ describe('the rows one turn becomes', () => {
         side: 'p1',
         species: 'Scrafty',
         move: 'Knock Off',
-        targets: [{ species: 'Whimsicott', notes: [], health: [] }],
+        targets: [{ species: 'Whimsicott', notes: [], hits: [] }],
         bystanders: [],
         notes: [],
         message: null,
@@ -456,7 +457,7 @@ describe('the results an action gathers onto its own row', () => {
     expect(rows(lines, true).at(-1)).toMatchObject({
       species: 'Scrafty',
       targets: [],
-      bystanders: [{ species: 'Toxapex', notes: [], health: [] }],
+      bystanders: [{ species: 'Toxapex', notes: [], hits: [] }],
       message: { key: 'effectActivated', params: { effect: 'Skill Swap' } },
     })
   })
@@ -632,8 +633,8 @@ describe('the results an action gathers onto its own row', () => {
     // In the order the log listed the targets, not the order the results
     // arrived in: the icons stay where the reader last saw them.
     expect(rows(lines).at(-1)?.targets).toEqual([
-      { species: 'Whimsicott', notes: [{ key: 'hit.resisted', quiet: false }], health: [] },
-      { species: 'Gholdengo', notes: [{ key: 'hit.supereffective', quiet: false }], health: [] },
+      { species: 'Whimsicott', notes: [{ key: 'hit.resisted', quiet: false }], hits: [] },
+      { species: 'Gholdengo', notes: [{ key: 'hit.supereffective', quiet: false }], hits: [] },
     ])
   })
 
@@ -675,7 +676,7 @@ describe('the damage an action gathers onto its own row', () => {
     expect(rows(lines)).toMatchObject([
       {
         move: 'Knock Off',
-        targets: [{ species: 'Whimsicott', health: [{ hpBefore: 100, hpAfter: 38 }] }],
+        targets: [{ species: 'Whimsicott', hits: [{ change: { hpBefore: 100, hpAfter: 38 } }] }],
       },
     ])
     expect(rows(lines)).toHaveLength(1)
@@ -700,7 +701,7 @@ describe('the damage an action gathers onto its own row', () => {
       ['health', 'Scrafty', 'item: Leftovers'],
     ])
     // The one with no source of its own is the one that went onto the row.
-    expect(rows(lines)[0]?.targets[0]?.health).toMatchObject([{ hpAfter: 62 }])
+    expect(rows(lines)[0]?.targets[0]?.hits).toMatchObject([{ change: { hpAfter: 62 } }])
   })
 
   it('folds nothing onto a Pokémon the move was never aimed at', () => {
@@ -718,7 +719,7 @@ describe('the damage an action gathers onto its own row', () => {
       {
         species: 'Garchomp',
         notes: [{ key: 'effectHeld', params: { effect: 'Protect' }, quiet: false }],
-        health: [],
+        hits: [],
       },
     ])
     expect(hurt).toMatchObject({ mark: 'health', species: 'Garchomp' })
@@ -731,7 +732,65 @@ describe('the damage an action gathers onto its own row', () => {
       '|-damage|p2a: Whimsicott|41/100',
     ]
 
-    expect(rows(lines)[0]?.targets[0]?.health).toMatchObject([{ hpAfter: 70 }, { hpAfter: 41 }])
+    expect(rows(lines)[0]?.targets[0]?.hits).toMatchObject([
+      { change: { hpAfter: 70 } },
+      { change: { hpAfter: 41 } },
+    ])
+  })
+
+  it('gives each hit the results that arrived before it, and not its neighbour’s', () => {
+    // Surging Strikes reports every hit the way a single hit is reported, so
+    // the only boundary is the damage line that closes one (#170). Which hit a
+    // crit belongs to is what a reading of one hit per line is made of.
+    const lines = [
+      '|move|p1a: Scrafty|Surging Strikes|p2a: Whimsicott',
+      '|-resisted|p2a: Whimsicott',
+      '|-crit|p2a: Whimsicott',
+      '|-damage|p2a: Whimsicott|87/100',
+      '|-crit|p2a: Whimsicott',
+      '|-damage|p2a: Whimsicott|75/100',
+    ]
+
+    expect(rows(lines)[0]?.targets[0]).toMatchObject({
+      notes: [],
+      hits: [
+        {
+          notes: [{ key: 'hit.resisted' }, { key: 'hit.crit' }],
+          change: { hpAfter: 87 },
+        },
+        { notes: [{ key: 'hit.crit' }], change: { hpAfter: 75 } },
+      ],
+    })
+  })
+
+  it('leaves a result that followed the last hit off every hit', () => {
+    // Nothing closes it, and hanging it on the hit before would say the move
+    // did it in that bite. It stays the target's own note, as it is today.
+    const lines = [
+      '|move|p1a: Scrafty|Knock Off|p2a: Whimsicott',
+      '|-damage|p2a: Whimsicott|38/100',
+      '|-activate|p2a: Whimsicott|move: Protect',
+    ]
+
+    expect(rows(lines)[0]?.targets[0]).toMatchObject({
+      notes: [{ key: 'effectHeld', params: { effect: 'Protect' } }],
+      hits: [{ notes: [], change: { hpAfter: 38 } }],
+    })
+  })
+
+  it('pairs every hit of a real multi-hit move with its own crit and resist', () => {
+    // The battle #170 was reported from: three hits on one Rillaboom in one
+    // turn, with a Fake Out on the other slot in the same turn — the neighbour
+    // a per-hit reading must not swallow.
+    const turn = parseTimeline(multiHit.log).turns.find((it) => it.number === 1)
+    const row = rowsOf(turn!, { detailed: false }).find((it) => it.move === 'Surging Strikes')
+
+    expect(row?.targets).toHaveLength(1)
+    expect(row?.targets[0]?.hits).toMatchObject([
+      { notes: [{ key: 'hit.resisted' }, { key: 'hit.crit' }], change: { hpAfter: 87 } },
+      { notes: [{ key: 'hit.resisted' }, { key: 'hit.crit' }], change: { hpAfter: 75 } },
+      { notes: [{ key: 'hit.resisted' }, { key: 'hit.crit' }], change: { hpAfter: 64 } },
+    ])
   })
 
   it('gives each target of a spread move its own numbers, in the log’s order', () => {
@@ -745,7 +804,7 @@ describe('the damage an action gathers onto its own row', () => {
     expect(
       rows(lines)
         .at(-1)
-        ?.targets.map((target) => [target.species, target.health.map((change) => change.hpAfter)]),
+        ?.targets.map((target) => [target.species, target.hits.map((hit) => hit.change.hpAfter)]),
     ).toEqual([
       ['Whimsicott', [0]],
       ['Gholdengo', [61]],
@@ -760,7 +819,7 @@ describe('the damage an action gathers onto its own row', () => {
       '|-damage|p2a: Whimsicott|38/100|[silent]',
     ]
 
-    expect(rows(lines)[0]?.targets[0]?.health).toEqual([])
+    expect(rows(lines)[0]?.targets[0]?.hits).toEqual([])
     expect(rows(lines, true)).toHaveLength(1)
   })
 })
@@ -778,7 +837,7 @@ describe('a move that missed', () => {
     ])
 
     expect(row?.targets).toEqual([
-      { species: 'Whimsicott', notes: [{ key: 'missed', quiet: false }], health: [] },
+      { species: 'Whimsicott', notes: [{ key: 'missed', quiet: false }], hits: [] },
     ])
     // Not on the Pokémon that used it: the row's subject did not dodge
     // anything, and saying it there is what left the reader guessing.
@@ -802,9 +861,9 @@ describe('a move that missed', () => {
     // The one it hit is a target; the one it missed the log never called one,
     // so it stands where a Pokémon an action reached without targeting does.
     expect(row?.targets.map((target) => target.species)).toEqual(['Garchomp'])
-    expect(row?.targets[0]?.health.map((change) => change.hpAfter)).toEqual([69])
+    expect(row?.targets[0]?.hits.map((hit) => hit.change.hpAfter)).toEqual([69])
     expect(row?.bystanders).toEqual([
-      { species: 'Whimsicott', notes: [{ key: 'missed', quiet: false }], health: [] },
+      { species: 'Whimsicott', notes: [{ key: 'missed', quiet: false }], hits: [] },
     ])
   })
 
@@ -827,7 +886,7 @@ describe('a Pokémon knocked out', () => {
     // The hit that took it to nothing is on the move's row already, and the
     // health chip says so — a row of its own said the same word again.
     expect(drawn.map((row) => row.mark)).toEqual(['move'])
-    expect(drawn[0]?.targets[0]?.health.map((change) => change.hpAfter)).toEqual([0])
+    expect(drawn[0]?.targets[0]?.hits.map((hit) => hit.change.hpAfter)).toEqual([0])
   })
 
   it('keeps a row of its own when its own move recoiled on it', () => {
@@ -907,7 +966,7 @@ describe('whole games', () => {
             earlier.targets.some(
               (target) =>
                 target.species === row.species &&
-                target.health.some((change) => change.kind === 'damage' && change.hpAfter === 0),
+                target.hits.some((hit) => hit.change.kind === 'damage' && hit.change.hpAfter === 0),
             ),
           )
 
@@ -951,7 +1010,7 @@ describe('whole games', () => {
       const swallowed = rows
         .flatMap((row) => row.targets)
         .filter((target) =>
-          target.health.some((change) => change.kind === 'damage' && change.hpAfter === 0),
+          target.hits.some((hit) => hit.change.kind === 'damage' && hit.change.hpAfter === 0),
         ).length
 
       expect(drawn + swallowed).toBe(faintLines)
