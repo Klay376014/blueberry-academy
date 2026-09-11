@@ -6,6 +6,7 @@ import fieldFixture from './fixtures/gen9championsvgc2026regmb-2674299387.json'
 import seriesFixture from './fixtures/gen9championsvgc2026regmbbo3-2667582547.json'
 import tieFixture from './fixtures/gen9ou-2667293085.json'
 import longFixture from './fixtures/gen9ou-2667299955.json'
+import multiHitFixture from './fixtures/gen9vgc2024regf-2082942604.json'
 
 interface TimelineLog {
   /** Everything after the opening switches, i.e. what the test is about. */
@@ -41,6 +42,19 @@ function eventsOfKind<K extends TimelineEvent['kind']>(
   return timeline.turns
     .flatMap((turn) => turn.events)
     .filter((event): event is Extract<TimelineEvent, { kind: K }> => event.kind === kind)
+}
+
+/**
+ * The events of the turn a real multi-hit move was used in: three hits of
+ * Surging Strikes on one Rillaboom, the shape #170 is about. Found by the
+ * move rather than by a turn number, so the test says what it is looking for.
+ */
+function surgingStrikes(): TimelineEvent[] {
+  const turn = parseTimeline(multiHitFixture.log).turns.find((it) =>
+    it.events.some((event) => event.kind === 'move' && event.move === 'Surging Strikes'),
+  )
+
+  return turn?.events ?? []
 }
 
 describe('parseTimeline', () => {
@@ -873,5 +887,53 @@ describe('parseTimeline', () => {
       { kind: 'ability', ability: 'Stamina', pokemon: { species: 'Whimsicott' } },
       { kind: 'mustRecharge', pokemon: { species: 'Scrafty' } },
     ])
+  })
+
+  it('keeps every hit of a real multi-hit move, with what each one took', () => {
+    // Surging Strikes hits three times and the log reports each hit exactly
+    // as it reports a single one — `-resisted`, `-crit`, `-damage` — with
+    // nothing between them but the next one starting. The running HP is what
+    // turns the three `-damage` lines into three separate bites (#170).
+    // Narrowed to the target: the same turn also holds a Fake Out on the
+    // other slot, which is exactly the neighbour a per-hit reading must not
+    // swallow.
+    // `flatMap` rather than `filter`: damage and heal share one union member,
+    // so `Extract<TimelineEvent, { kind: 'damage' }>` is `never` and the
+    // narrowing has to happen inside the callback.
+    const hits = surgingStrikes().flatMap((event) =>
+      event.kind === 'damage' && event.pokemon.species === 'Rillaboom' ? [event] : [],
+    )
+
+    expect(hits.map((hit) => [hit.hpBefore, hit.hpAfter, hit.hpDelta])).toEqual([
+      [100, 87, -13],
+      [87, 75, -12],
+      [75, 64, -11],
+    ])
+  })
+
+  it('keeps each hit of a multi-hit move carrying its own crit and resist', () => {
+    // Six results for three hits rather than two for the move: they arrive
+    // between the damage lines, one pair per hit. Which hit a crit belongs to
+    // is the thing a timeline drawing one hit per line needs (#170).
+    const results = surgingStrikes().filter((event) => event.kind === 'hitResult')
+
+    expect(results.map((event) => event.result)).toEqual([
+      'resisted',
+      'crit',
+      'resisted',
+      'crit',
+      'resisted',
+      'crit',
+    ])
+  })
+
+  it('says how many hits the move landed, which the log states outright', () => {
+    // `|-hitcount|p2a: Rillaboom|3` closes the sequence. Unread for now, so it
+    // reaches the timeline as an unknown line rather than being dropped.
+    const raw = surgingStrikes()
+      .filter((event) => event.kind === 'unknown')
+      .map((event) => event.raw)
+
+    expect(raw).toContain('|-hitcount|p2a: Rillaboom|3')
   })
 })

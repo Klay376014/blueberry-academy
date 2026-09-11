@@ -145,10 +145,15 @@ carry a replay password — `test/package.test.ts` fails if a private one is eve
 
 | Fixture                                   | What it is there for                                                                       |
 | ----------------------------------------- | ------------------------------------------------------------------------------------------ |
+| `gen9championsvgc2026regma-2592519449`    | A Skill Swap, whose `-activate` names the other Pokémon and nothing else does              |
 | `gen9championsvgc2026regmb-2667169457`    | A ladder Bo1: Mega, a regional forme, an Illusion, and both sides holding the same Pokémon |
 | `gen9championsvgc2026regmb-2667301751`    | A forfeit, which the protocol only reports as free text                                    |
+| `gen9championsvgc2026regmb-2674299387`    | The field itself: terrain, screens and the rest, which move rows never carry               |
+| `gen9championsvgc2026regmb-2674380893`    | A spread move that hit one target and missed the other, and a bare `confusion`             |
+| `gen9championsvgc2026regmb-2674448634`    | Items announcing themselves as effects: Quick Claw, Custap Berry                           |
 | `gen9ou-2667293085`                       | A tie — 100 turns of two identical stall teams                                             |
 | `gen9ou-2667296078`                       | Singles, where a side has one field position                                               |
 | `gen9ou-2667299955`                       | 31 turns; of 408 public Champions doubles replays scanned, none passed 20                  |
 | `gen9championsvgc2026regmbbo3-2667579302` | A Bo3 game with no rating anywhere, and open team sheets                                   |
 | `gen9championsvgc2026regmbbo3-2667582547` | Game 2 of a Bo3: a ladder rating going in, none coming out                                 |
+| `gen9vgc2024regf-2082942604`              | A multi-hit move: three hits on one target in one turn, closed by `\|-hitcount\|`          |
