@@ -1,0 +1,317 @@
+# 私人 replay 的同步 — 設計文件
+
+- 日期：2026-09-11
+- 狀態：已定案，待實作（§6 的 spike 是其餘部分的前提）
+- 相關文件：[replay 分析主設計](2026-08-16-replay-analytics-design.md) §2 §3 §10、[CONTEXT.md](../../CONTEXT.md)、[實作守則](../../AGENTS.md)
+- 實作票：GitHub issue #175（spike）、#176（`Secret`）、#177（CSP）、#178（Worker route）、#179（表單）、#180（`refsOf`）、#181（OAuth 陳述更正）
+
+這份文件記錄「為什麼」。實作步驟見 GitHub issue，領域詞彙見 CONTEXT.md。
+
+---
+
+## 1. 目標
+
+讓**私人 replay** 也能像公開場次一樣被同步進來，使用者不必在每場打完的當下記得複製
+連結。
+
+現況：`useIngest.syncAccount` 走 `search.json?user=`，而那個端點只認得公開 replay
+（`useShowdown.ts` 的註解已經寫著「Private replays are not in a search and come in by
+their link instead」）。私人場次因此是**唯一一類「不當場保存就會從我們這邊消失」**的
+場次 —— 而 CONTEXT.md 在意的賽事 Bo3 正好大量落在這一類（隱藏房的對戰，replay 一律
+帶密碼）。
+
+### 明確不做的事
+
+**不做常駐連線。** 曾經評估以 PS 的 OAuth + WebSocket 開一條長連線，在對戰結束當下
+自動 `/savereplay` 並收下含密碼的連結（§9 決策 D1）。技術上可行且已驗證到協定層，但
+它要求一個常駐服務、一次向 PS 申請的 `client_id`，以及按牆鐘計費的成本。這次不做。
+
+**不儲存任何 Showdown 憑證。** 密碼與 session 都只活在一次請求裡（§5）。
+
+**不改動 ingest 管線。** `useIngest`、`packages/replay-parser`、`packages/battle-row`、
+`scripts/reparse.ts` 一行不動。Worker 只回傳 `ReplayRef[]`，抓取、存 raw log、解析、
+寫列全部留在瀏覽器 —— 主設計 §2 §3 的「ingest 在瀏覽器」原封不動。
+
+**不改變別名的信任模式。** 私人同步成功其實**證明了**該帳號的擁有權（PS 要求登入的
+身分必須在搜尋的名單裡，§2.2），但把「已驗證」引進 `profiles` 會牽動歸屬推導與
+ADR-0012，不屬於這張票。留待 §10。
+
+---
+
+## 2. 已驗證的外部事實
+
+分兩類，因為證據強度不同。
+
+### 2.1 實測（curl，2026-09-11）
+
+**CORS 的分界線就是這件事的全部。** 對每個端點帶 `Origin: https://example.com`：
+
+| 端點                                         | 回應                                                                                         |
+| -------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| `/search.json?user=zarel`                    | `access-control-allow-origin: https://example.com`、`access-control-allow-credentials: true` |
+| `/api/replays/search?username=zarel`         | 同上                                                                                         |
+| `/<id>-<pw>pw.json`                          | 同上（404 亦帶標頭）                                                                         |
+| `/api/replays/searchprivate?username=zarel`  | **完全沒有任何 `access-control-*` 標頭**                                                     |
+| `/api/replays/check-login`                   | 同上，沒有                                                                                   |
+| `play.pokemonshowdown.com/api/login`（POST） | 同上，沒有                                                                                   |
+
+`searchprivate` 未登入時的回應本體是 `]{"actionerror":"Access denied: You must be logged
+in."}`（前導 `]` 是 PS 的防 JSON 劫持前綴，客戶端要切掉）。
+
+**結論：私人 replay 的「列出」在瀏覽器裡永遠做不到**，無論怎麼帶 credentials。這不是
+暫時的限制，是 PS 刻意只對自家網域開口（`Config.cors` 白名單，`server.ts:188`
+`verifyCrossDomainRequest`）。
+
+### 2.2 讀 PS 原始碼（**未實測**，spike 的對象見 §6）
+
+來源：[`smogon/pokemon-showdown-loginserver`](https://github.com/smogon/pokemon-showdown-loginserver)。
+
+1. **session 可以走 POST body，不必是 cookie** —— `src/user.ts:481`：
+
+   ```ts
+   const scookie = body.sid || this.cookies.get('sid')
+   ```
+
+   PS 自己的 testclient 就是這樣運作的（client repo 的
+   `POKEMON_SHOWDOWN_TESTCLIENT_KEY`）。
+
+2. **格式是三段式，而且 body 路徑不解碼。** cookie 的值是
+   `encodeURIComponent([name, sessionId, sidhash].join(','))`（`user.ts:119`），
+   cookie 路徑會 `decodeURIComponent`（`user.ts:93`），**`body.sid` 路徑不會**。
+   所以傳進 body 的必須是**解碼後**的 `name,sessionId,sidhash`。這是最容易做錯的一步。
+
+3. **`act=login`** 必須 POST，回 `{ actionsuccess, assertion, curuser }`，並以
+   `Set-Cookie` 發出 sid（`actions.ts:210`）。回應本體**不含** sid。
+
+4. **session 效期 14 天** —— `SID_DURATION = 2 * 7 * 24 * 60 * 60`（`user.ts:21`）。
+
+5. **`act=logout`** POST + `userid`，執行 `sessions.delete(this.session)`
+   （`actions.ts:195`）。只刪這一個 session，**不會把使用者在別處登出**。
+
+6. **`searchprivate` 只讓你搜自己** —— `actions.ts:1095`：
+   `if (!(user.isSysop() || usernames.includes(user.id)))` 就拒絕。
+
+7. **驗證不綁 IP** —— `checkLoggedIn` 只比對 sid hash、`timeout`、`userid`
+   （`user.ts:502`）。session 建立時記錄的 `ip` 不參與驗證，所以 Worker 換出口 IP 不影響。
+
+8. **使用者有 kill switch** —— 改密碼會執行
+   `sessions.deleteAll() WHERE userid = ...`（`user.ts:355`）。
+
+9. **沒有事後補救的途徑**：`replays/edit` 第一行是
+   `if (!user.isLeader()) throw new ActionError('Access denied.')`（`actions.ts:1108`），
+   使用者連把自己的私人 replay 改成公開都做不到；`replays/batch` 的 SQL 寫死
+   `WHERE private = 0`（`replays.ts:247`）；密碼是 `generatePassword(length = 31)` 以
+   `crypto.randomInt` 逐字產生，猜不到。
+
+> **這幾條是讀原始碼推得的，不是量到的。** §6 的 spike 就是為了把 2.2 整段升級成
+> 「實測」，在它通過之前不要動其餘的票。
+
+---
+
+## 3. 硬點
+
+1. **必須有伺服器中繼。** 由 §2.1 直接推出。這是這個功能第一次讓
+   `apps/web/server/` 有實質邏輯。
+
+2. **密碼無法避免地會經過我們的 Worker。** PS 確實有 OAuth
+   （`loginserver/src/oauth.ts`），但它換到的是 **assertion**，只對 sim server
+   （WebSocket）有效；loginserver 的 HTTP action 一律走 session。兩者不互通，所以
+   OAuth **換不到** `searchprivate` 需要的東西。走這條路就是接受密碼過境。
+
+3. **風險集中在我們自己的日誌輸出。** Cloudflare 的 observability 記錄的是叫用
+   metadata 與 `console.*` 的輸出，**不記 request body**。所以要防的不是平台，是一行
+   手滑的 `console.log`。這可以用型別擋掉（§5）。
+
+4. **拿到的連結含密碼，而 ingest 早就準備好了。**
+   `shared/utils/replayLink.ts` 的 `parseReplayLink` 已經會剝 `-<password>pw` 後綴並把
+   密碼放在 `ReplayRef.password`；`useShowdown.fetchReplay` 已經會把它拼回
+   `<id>-<pw>pw.json`。**所以匯入端一行都不用改。**
+
+5. **本專案目前沒有 CSP。** `nuxt.config.ts` 沒有設任何 headers，`apps/web/public/`
+   只有圖示檔。要在頁面上收密碼，這一項得先補。
+
+---
+
+## 4. 架構
+
+```
+瀏覽器                    我們的 Worker                     Showdown
+  │                            │                               │
+  │ POST {name, password} ────>│                               │
+  │                            │ POST act=login ──────────────>│
+  │                            │<────────── Set-Cookie: sid ───│
+  │                            │ POST act=replays/searchprivate│
+  │                            │      (sid in body, 逐頁) ────>│
+  │                            │<──────── 含密碼的清單 ────────│
+  │                            │ POST act=logout ─────────────>│
+  │<──── ReplayRef[] ──────────│                               │
+  │                            │  (sid 與密碼隨請求結束消失)
+  │
+  │ importMany(refs) ─────────────────────────────────────────>│ 逐一抓 replay
+  │ （現有管線，未改動）
+```
+
+**Worker 只做翻譯，不做匯入。** 它回傳的是 `ReplayRef[]`，交給現有的
+`useIngest.importMany`。這維持了主設計 §2 §3 的理由（Workers 免費方案的 50 subrequest
+與 10ms CPU 預算做不完一次匯入），也讓這條 route 保持**完全無狀態** —— 不寫 Supabase、
+不寫 KV、不寫 Durable Object。
+
+`searchprivate` 一頁 51 筆、頁與頁之間共用一列，與 `listReplays` 現有的分頁處理同構，
+分頁與去重的規則沿用 `useShowdown.ts` 既有的那一套，不另外發明。
+
+---
+
+## 5. 憑證怎麼處理
+
+五層，由內而外。
+
+### 5.1 架構上就沒有東西可洩漏
+
+那條 route 無狀態。sid 只活在一次請求的閉包裡，用完立刻 `act=logout`
+（§2.2.5）—— 我們來過，並且把門帶上。
+
+### 5.2 讓密碼「印不出來」
+
+不透明包裝型別，值放在 `WeakMap` 側表：
+
+```ts
+const values = new WeakMap<Secret, string>()
+
+export class Secret {
+  constructor(value: string) {
+    values.set(this, value)
+  }
+  /** The one place the value comes back out. */
+  expose() {
+    return values.get(this)!
+  }
+  toString() {
+    return '[redacted]'
+  }
+  toJSON() {
+    return '[redacted]'
+  }
+}
+```
+
+**值不能放在物件欄位上，`#private` 也不行** —— V8 inspector 會把 private field 印出來，
+而 `console.log` 走的正是它。放在 `WeakMap` 裡，物件本身沒有任何屬性，
+`console.log(secret)` 印出的是 `Secret {}`，`JSON.stringify` 是 `"[redacted]"`，
+樣板字串也是 `[redacted]`。
+
+拿到值的唯一途徑是 `.expose()`，而整個 repo 裡那個呼叫點只會有一個：送去 PS 的那一行。
+**要洩漏得刻意為之。**
+
+### 5.3 lint 擋住 console
+
+那個資料夾禁用 `console`。這跟 `vite.config.ts` 現在用 `no-restricted-imports` 守
+feature 邊界是同一套做法 —— 可執行的規則，不是註解裡的約定。
+
+### 5.4 憑證不進 URL
+
+密碼與 sid 一律走 POST body。query string 會進各層 access log。
+
+### 5.5 CSP
+
+全站加 CSP（§3.5）。這件事不管做不做私人同步都該做，而且代價很低：ADR-0007 已經自架
+Inter、Supabase SDK 也是打包進去的，本來就幾乎沒有第三方來源。
+
+### 沒有技術解的一項
+
+密碼管理員會把 PS 密碼記在我們的網域下，而這會養成「把 PS 密碼打進非 PS 網站」的習慣。
+只能在表單旁邊誠實寫明，技術上無解。**UI 必須講清楚密碼會被送到哪裡、留存多久
+（不留存）、以及可以改密碼一鍵失效所有 session（§2.2.8）。**
+
+---
+
+## 6. 實作順序
+
+**#1 是其餘所有票的前提。**
+
+| 票   | 內容                                                                                                                                 | 相依       |
+| ---- | ------------------------------------------------------------------------------------------------------------------------------------ | ---------- |
+| #175 | **Spike**：用真帳號驗證 `act=login` → `body.sid` → `searchprivate` → `act=logout` 的完整往返，把 §2.2 升級成實測                     | —          |
+| #176 | `Secret` 包裝型別 + 禁用 `console` 的 lint 規則                                                                                      | —          |
+| #177 | 全站 CSP                                                                                                                             | —          |
+| #178 | `server/api/showdown/sync-private` route                                                                                             | #175, #176 |
+| #179 | 匯入頁的私人同步表單                                                                                                                 | #177, #178 |
+| #180 | `refsOf` 改成能從任意文字撈出連結                                                                                                    | —          |
+| #181 | 更正「Showdown 沒有 OAuth」的陳述（`useProfile.ts` 的 JSDoc、`profiles.showdown_usernames` 的 column comment，後者要一支 migration） | —          |
+
+相依關係以 GitHub 原生的 issue dependencies 表示，不是只寫在內文裡。
+#176、#177、#180、#181 彼此獨立，也不等 spike。
+
+---
+
+## 7. 測試策略
+
+- **Worker route**：以 fixture 模擬 PS 的三個回應（login 的 `Set-Cookie`、searchprivate
+  的帶 `]` 前綴的 JSON、logout），測分頁、去重、`]` 前綴、錯誤密碼、以及**用完一定
+  呼叫 logout**。
+- **`Secret`**：測 `console.log` 之外的三條洩漏路徑都印出 `[redacted]`
+  （`String()`、樣板字串、`JSON.stringify`）。
+- **lint 規則**：照 `test/architecture.spec.ts` 的既有做法，規則本身要有測試。
+- **`refsOf`**：貼一段含雜訊的聊天記錄，撈出全部連結。
+- 不對 PS 發真實請求 —— 沿用 `packages/replay-parser` 以真實 log 當 fixture 的精神。
+
+---
+
+## 8. 已知限制與接受的風險
+
+1. **密碼過境我們的伺服器。** 這是走這條路的入場費，§5 把它壓到「要洩漏得刻意為之」，
+   但壓不到零。適用範圍是「自己 + 認識的朋友」；要開放給陌生人，這個設計要重審。
+2. **每次同步都要重新輸入密碼。** 這是刻意的（不存 sid），批次同步的節奏讓它可接受。
+3. **`searchprivate` 的分頁上限沿用 PS 的限制。** 與 `listReplays` 現有的 `truncated`
+   處理一致，不另行處理。
+4. **綁定仍是信任模式。** 見 §1「明確不做的事」與 §10。
+
+---
+
+## 9. 決策紀錄
+
+**D1 — 不做 WebSocket 常駐連線。**
+唯一能做到「零操作且涵蓋私人場次」的方案，而且調查到協定層都是通的：PS 有完整 OAuth
+（`loginserver/src/oauth.ts`，授權頁導回 `?assertion&token&user`）；
+`wss://sim3.psim.us/showdown/websocket` 實測回 101 並立刻送出 `|challstr|`，是純文字
+frame 不含 SockJS 封裝；`|updatesearch|` 的 `JSON.games` 會在對戰開始與結束時送出，
+而私人對戰的 roomid 本身就含密碼；`/savereplay` 後伺服器以 `|popup|` 把含密碼的完整
+網址送回**該條連線**（`pokemon-showdown/server/rooms.ts:2102`）。
+否決的理由不在協定，在維運：**Cloudflare 的出站 WebSocket 不會休眠**
+（「Hibernation is only supported when a Durable Object acts as a WebSocket server.
+Outgoing WebSockets do not hibernate.」），所以一條常駐連線按牆鐘計費 ——
+0.125 GB × 86,400s = 10,800 GB-s/天，免費方案的每日額度是 13,000，付費方案每月含
+400,000（常駐一個月 328,500）。第一條塞得進 $5 月費，**第二條起約 $4.1/月/同時在線
+使用者**。再加上一次時程不可控的 `client_id` 申請，以及這個專案第一次會有「半夜自己
+壞掉」的東西。它買的是方便，不是資料不遺失（見 D3）。
+
+**D2 — 不儲存 sid。**
+存 sid 可以換掉「每次輸入密碼」，效期 14 天。否決是因為它把風險從**傳輸中**換成
+**靜態儲存**：sid 不是唯讀的 replay 權限，它就是那個帳號。而使用者的同步節奏是累積一批
+才回頭處理，省下的那次輸入不值得。
+
+**D3 — 不做 bookmarklet，儘管它零憑證。**
+一個跑在 `replay.pokemonshowdown.com` 上的 bookmarklet 可以同源呼叫
+`searchprivate`、翻完所有頁、把清單帶回我們的匯入頁，全程沒有任何憑證離開 PS 的網域，
+而且不需要 `client_id`。否決的理由是使用習慣：它要求使用者改變動線（先去 PS 的頁面、
+點書籤、再回來），而且手機上難用。
+
+> **順帶更正一個前期的錯誤判斷：私人 replay 不會永久遺失。** 使用者本人隨時可以在
+> `replay.pokemonshowdown.com` 登入後選「Private (your own replays only)」把它們找回來，
+> 而且結果清單渲染出來的連結**本身就含密碼**
+> （client repo `replay.pokemonshowdown.com/src/replays-index.tsx:27`）。
+> 所以這整個功能買的是**省去人工**，不是**避免資料遺失**。這個區分直接決定了 D1 的
+> 成本效益，值得記下來。
+
+**D4 — Worker 只回傳清單，不做匯入。**
+維持主設計 §2 §3。順帶讓這條 route 保持無狀態，這正是 §5.1 的基礎。
+
+---
+
+## 10. 未來方向
+
+- **把私人同步的成功當成擁有權證明。** PS 要求登入的身分必須在搜尋名單裡
+  （§2.2.6），所以一次成功的私人同步，就是 CONTEXT.md 目前說「無法驗證」的那件事的
+  證明。要用它得動 `profiles`、歸屬推導與 ADR-0012，值得單獨一份設計。
+- **PS 的 OAuth 可以做到同一件事而且不碰密碼**，代價是向 PS 申請 `client_id`。若哪天
+  要開放給陌生人，這是該走的路。
+- D1 的調查結果保留在本文件，之後要回頭撿不必重查。

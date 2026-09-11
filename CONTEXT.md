@@ -85,8 +85,9 @@ Showdown 的顯示名稱可含大小寫與符號；`userid` 是它的正規化�
 把名字拿掉，那些場次退回旁觀。它是歸屬推導中唯一會變的輸入 —— 另一個輸入是該場對戰
 本身的兩側資料，那不會變 —— 所以改動清單就是改動全部場次的歸屬。
 
-> Showdown 沒有 OAuth，`pokemonshowdown.com/users/<id>.json` 也沒有可放驗證碼的欄位，
-> 因此**系統無法驗證 Showdown 帳號的擁有權**。綁定是純粹的信任模式，UI 必須誠實標示。
+> **系統目前不驗證 Showdown 帳號的擁有權。** 綁定是純粹的信任模式，UI 必須誠實標示。
+> 這是選擇而非限制：Showdown 有 OAuth（`loginserver/src/oauth.ts`），但它綁定一組要向
+> PS 申請、且與來源網域逐字比對的 `client_id`，本專案沒有申請。
 > 這在安全上可接受：所有相關 replay 本來就是 Showdown 上公開可查的資料。
 > 也因為無法驗證，綁錯名字並不罕見 —— 解綁必須真的能把那些場次清出統計，否則錯誤
 > 無從修復。
@@ -111,6 +112,15 @@ Showdown 的顯示名稱可含大小寫與符號；`userid` 是它的正規化�
 裡，所以來回轉換不需要重新解析、也不需要讀 Storage。
 
 ## 解析
+
+**公開 replay / 私人 replay**
+一個 replay 是否出現在 Showdown 的搜尋裡。天梯對戰上傳後是公開的；隱藏房、私人房、
+賽事的對戰上傳後是私人的，位址帶一段 31 字元的密碼後綴（`<id>-<password>pw`）。
+
+私人**不等於**「使用者自己看不到」—— 本人在 Showdown 登入後查得到，且查出來的連結
+就含密碼。私人的意思是**第三方程式列不出來**：Showdown 只對自家網域開放列出私人
+replay 的端點。因此「私人場次要怎麼進來」在這個系統裡始終是一個獨立的問題，
+見 [私人 replay 的同步](docs/specs/2026-09-11-private-replay-sync-design.md)。
 
 **Raw log**
 Showdown replay 的原始內容，來自 `<replay-id>.json` 的 `log` 欄位。原封不動 gzip 後存進
