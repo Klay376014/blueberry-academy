@@ -15,9 +15,12 @@ export type BindResult =
  * shows — while every comparison goes through `toID()`. Callers never
  * normalise for themselves; that rule lives here and nowhere else.
  *
- * Binding is a trust model: Showdown has no OAuth and its user API has no
- * field to put a code in, so ownership of an account cannot be verified, and
- * the same name may be bound by several users. See the design document §10.
+ * Binding is a trust model: ownership of an account is not verified, so the
+ * same name may be bound by several users. That is a choice, not a limitation
+ * — Showdown does have OAuth (`loginserver/src/oauth.ts`), but it binds a
+ * `client_id` that has to be applied for from PS and is matched verbatim
+ * against the origin domain, and this project has not applied for one.
+ * See the design document §10.
  */
 export function useProfile() {
   const { $supabase } = useNuxtApp()
