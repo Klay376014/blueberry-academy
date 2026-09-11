@@ -81,7 +81,7 @@ const notesOf = (row: TimelineRow): RowNote[] => [
 /** Every HP change a row draws, its own and its targets'. */
 const healthOf = (row: TimelineRow) => [
   ...(row.health === null ? [] : [row.health]),
-  ...row.targets.flatMap((target) => target.health),
+  ...row.targets.flatMap((target) => target.hits.map((hit) => hit.change)),
 ]
 
 /** One named parameter of one of these message keys, from a row or a note. */

@@ -19,7 +19,7 @@ const row: TimelineRow = {
   side: 'p1',
   species: 'Ninetales-Alola',
   move: null,
-  targets: [{ species: 'Pikachu', notes: [], health: [] }],
+  targets: [{ species: 'Pikachu', notes: [], hits: [] }],
   bystanders: [],
   notes: [],
   message: { key: 'cameInFor' },
@@ -139,7 +139,7 @@ const moveRow: TimelineRow = {
     {
       species: 'Ninetales-Alola',
       notes: [{ key: 'effectHeld', params: { effect: 'Protect' }, quiet: false }],
-      health: [],
+      hits: [],
     },
   ],
   bystanders: [],
@@ -303,7 +303,7 @@ const setBoostRow: TimelineRow = {
 /** Power Swap: the one row whose parameter is several stat names at once. */
 const swapBoostRow: TimelineRow = {
   ...abilityRow,
-  targets: [{ species: 'Pikachu', notes: [], health: [] }],
+  targets: [{ species: 'Pikachu', notes: [], hits: [] }],
   message: { key: 'boostsSwapped', params: { stats: 'atk,spa' } },
 }
 
