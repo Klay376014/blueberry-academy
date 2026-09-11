@@ -46,3 +46,35 @@ export function baseSpeciesId(species: string, registered: readonly string[] = [
 
   return origins.find((origin) => registered.includes(origin)) ?? origins[0] ?? id
 }
+
+/**
+ * The base species whose forme Team Preview hides, from Showdown's
+ * `teampreview` ruleset (`data/rulesets.ts`): it rewrites the `|poke|` details
+ * to `Urshifu-*` for these, so a side that registered Urshifu-Rapid-Strike is
+ * registered as `urshifu` and only names the forme when it walks out.
+ *
+ * Checked against @pkmn/dex: every forme of these nine is its base id plus a
+ * suffix, so this needs a prefix test rather than a generated table.
+ */
+const TEAM_PREVIEW_HIDDEN_BASES: ReadonlySet<string> = new Set([
+  'dudunsparce',
+  'gourgeist',
+  'greninja',
+  'pumpkaboo',
+  'silvally',
+  'urshifu',
+  'xerneas',
+  'zacian',
+  'zamazenta',
+])
+
+/**
+ * Whether `appeared` is the forme the Pokémon registered as `base` turned out
+ * to be — the same Pokémon under the two ids Team Preview leaves behind.
+ *
+ * Signatures keep both ids as they are: a registered six can never say which
+ * strike style an Urshifu was, and a bring always can.
+ */
+export function isTeamPreviewHiddenForme(base: string, appeared: string): boolean {
+  return appeared !== base && appeared.startsWith(base) && TEAM_PREVIEW_HIDDEN_BASES.has(base)
+}

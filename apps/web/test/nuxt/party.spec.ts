@@ -65,4 +65,29 @@ describe('partyOf', () => {
   it('is empty when there is nothing to draw', () => {
     expect(partyOf(null, null)).toEqual([])
   })
+
+  it('draws the forme that walked out in the slot Team Preview hid it in', () => {
+    // `|poke|` says `Urshifu-*` and `|switch|` says Urshifu-Rapid-Strike, so
+    // the six holds `urshifu` and the bring holds `urshifurapidstrike` for one
+    // Pokémon. Drawing both would put a seventh member on a team of six.
+    const hidden = partyOf(TEAM, 'calyrexshadow|incineroar|ironhands|urshifurapidstrike')
+
+    expect(hidden).toHaveLength(6)
+    expect(hidden[5]).toEqual({ id: 'urshifurapidstrike', appeared: true })
+  })
+
+  it('leaves the base forme absent when its side never brought it', () => {
+    expect(partyOf(TEAM, 'calyrexshadow|incineroar|ironhands|ragingbolt')).toContainEqual({
+      id: 'urshifu',
+      appeared: false,
+    })
+  })
+
+  it('does not read an unrelated Pokémon as a hidden forme', () => {
+    // The absorbing is limited to the base species Showdown actually hides:
+    // Rillaboom is not a forme of anything, whatever its id starts with.
+    const drifted = partyOf('rillaboom|urshifu', 'rillaboomgmax|urshifu')
+
+    expect(drifted).toHaveLength(3)
+  })
 })

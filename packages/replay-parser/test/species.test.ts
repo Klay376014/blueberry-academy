@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vite-plus/test'
-import { baseSpeciesId, speciesOfDetails, toID } from '../src/species'
+import { baseSpeciesId, isTeamPreviewHiddenForme, speciesOfDetails, toID } from '../src/species'
 
 describe('toID', () => {
   it('lowercases and strips everything that is not alphanumeric', () => {
@@ -86,5 +86,25 @@ describe('baseSpeciesId', () => {
 
   it('leaves a formeless species alone', () => {
     expect(baseSpeciesId('Toxapex')).toBe('toxapex')
+  })
+})
+
+describe('isTeamPreviewHiddenForme', () => {
+  it('reads a forme Team Preview hid back to what was registered', () => {
+    // gen9vgc2024regf-2082942604: `|poke|p1|Urshifu-*, L50, F|` registers the
+    // base id, and `|switch|` names Urshifu-Rapid-Strike once it walks out.
+    expect(isTeamPreviewHiddenForme('urshifu', 'urshifurapidstrike')).toBe(true)
+    expect(isTeamPreviewHiddenForme('greninja', 'greninjabond')).toBe(true)
+    expect(isTeamPreviewHiddenForme('dudunsparce', 'dudunsparcethreesegment')).toBe(true)
+  })
+
+  it('is false for a base species Team Preview shows in full', () => {
+    // Rillaboom-Gmax is registered as Rillaboom-Gmax, so the two ids being
+    // different is a real difference rather than a hidden forme.
+    expect(isTeamPreviewHiddenForme('rillaboom', 'rillaboomgmax')).toBe(false)
+  })
+
+  it('is false for the same id', () => {
+    expect(isTeamPreviewHiddenForme('urshifu', 'urshifu')).toBe(false)
   })
 })
