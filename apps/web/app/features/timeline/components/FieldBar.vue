@@ -43,7 +43,6 @@ const labelled = (species: string) => speciesLabel(toID(species), locale.value)
  */
 const condition = (name: string) => fieldConditionDisplayName(name, locale.value)
 
-/** What to call a side, in the reader's language. */
 const sideName = useSideName()
 const label = (side: SideId) => sideName(side, props.mySide)
 
