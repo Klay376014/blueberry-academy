@@ -8,6 +8,9 @@ export { PARSER_VERSION } from './version.ts'
 // too: an alias list is only "the same me" if both sides normalise the same
 // way. See CONTEXT.md, "身分".
 export { toID } from './species.ts'
+// Team Preview's hidden formes, exported because the app draws a registered
+// six against a bring and has to know the two ids are one Pokémon.
+export { isTeamPreviewHiddenForme } from './species.ts'
 export type { ProtocolLine } from './protocol.ts'
 export type { SideId } from './replay.ts'
 export type { EndReason, ParsedBattle, ParsedSide, ReplayMeta } from './summarize.ts'
