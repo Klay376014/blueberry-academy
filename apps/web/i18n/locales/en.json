@@ -188,7 +188,9 @@
       "unavailable": "Showdown did not answer. It may be down or rate limiting; wait a moment and import the link again.",
       "malformed": "Showdown answered with something that is not a replay. Nothing was stored.",
       "storeFailed": "The raw record could not be stored, so no battle was recorded. Nothing is half-imported, so try the link again.",
-      "writeFailed": "The raw record was stored, but the battle could not be written to your data. Import the link again."
+      "writeFailed": "The raw record was stored, but the battle could not be written to your data. Import the link again.",
+      "signedOut": "You are signed out, so nothing was synced — and your Showdown password was not sent anywhere. Sign in again and run it once more.",
+      "rejected": "Showdown did not accept that name and password. Check both: the password is your Showdown one, not the one you sign in here with."
     },
     "battle": {
       "win": "Win",
@@ -199,6 +201,24 @@
       "turns": "Turns",
       "rating": "Score",
       "spectated": "Neither player is on your list of Showdown names, so this battle is stored but counts towards none of your statistics and will not show up. Add the name you played under and it becomes yours right away. The replay is already here and nothing needs importing again."
+    },
+    "private": {
+      "title": "Sync private replays",
+      "tagline": "A private replay is in no search, so this signs in to Showdown as you and asks it for the list. Only the list: the replays themselves come in exactly the way everything else here does, and anything already imported is skipped.",
+      "nameLabel": "Showdown name",
+      "passwordLabel": "Showdown password",
+      "submit": "Sync private",
+      "working": "Syncing…",
+      "disclosure": {
+        "title": "What happens to your password",
+        "where": "It goes to our server and to Showdown, and nowhere else. It is used once, to trade for a Showdown session, and then it is gone: nothing writes it down, nothing logs it, and nothing keeps it in this browser.",
+        "session": "That session is closed the moment the list has been read, so nothing of yours is left signed in here. You will have to type the password again next time, which is the point.",
+        "killSwitch": "You do not have to take our word for any of it. Changing your password on Showdown ends every session at once, this one included.",
+        "habit": "And the part we cannot fix: this is not Showdown, and your password manager will offer to remember a Showdown password under our address. Nothing but Showdown should ever ask you for it."
+      },
+      "notBound": "That is not one of your Showdown names. Showdown only lets an account list its own private replays, so this has to be a name you have bound here first.",
+      "truncated": "This account has more private replays than one sync can list, and the rest cannot be reached this way: the listing always starts at the newest, so running it again lists the same ones. Everything here now is the newest batch. For anything older, paste its link into the box at the top — a private replay link carries its own password.",
+      "noPassword": "Fill in your Showdown password as well. Nothing was sent without it."
     }
   },
   "settings": {

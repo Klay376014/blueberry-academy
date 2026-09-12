@@ -188,7 +188,9 @@
       "unavailable": "Showdown 沒有回應。可能是它掛了或在限流，等一下再貼一次這個連結。",
       "malformed": "Showdown 回了一個不是 replay 的東西。沒有存下任何資料。",
       "storeFailed": "原始紀錄沒能存起來，所以這場對戰沒有寫進去。不會有匯入到一半的狀況，再試一次這個連結。",
-      "writeFailed": "原始紀錄已經存好了，但這場對戰沒能寫進你的資料。再匯入一次這個連結。"
+      "writeFailed": "原始紀錄已經存好了，但這場對戰沒能寫進你的資料。再匯入一次這個連結。",
+      "signedOut": "你已經登出了，所以什麼都沒有同步 —— 你的 Showdown 密碼也沒有被送出去。重新登入後再跑一次。",
+      "rejected": "Showdown 不接受這組名稱與密碼。兩個都檢查一下：密碼是你的 Showdown 密碼，不是你登入這個網站用的那組。"
     },
     "battle": {
       "win": "勝",
@@ -199,6 +201,24 @@
       "turns": "回合數",
       "rating": "積分",
       "spectated": "兩位玩家都不在你的 Showdown 名稱清單裡，所以這場對戰有存下來，但不計入統計，也不會出現在總覽上。到設定加上你當時用的名稱，它馬上就會算成你的。replay 已經在這裡了，不用重新匯入。"
+    },
+    "private": {
+      "title": "同步私人 replay",
+      "tagline": "私人 replay 不會出現在任何搜尋裡，所以這裡會以你的身分登入 Showdown 去要清單。只要清單：replay 本身的匯入方式與其他入口完全一樣，已經匯入過的一樣會跳過。",
+      "nameLabel": "Showdown 名稱",
+      "passwordLabel": "Showdown 密碼",
+      "submit": "同步私人場次",
+      "working": "同步中…",
+      "disclosure": {
+        "title": "你的密碼會發生什麼事",
+        "where": "它只會送到我們的伺服器和 Showdown，不會去別的地方。它只被用一次，換一個 Showdown session，然後就消失了：不會被寫下來、不會進日誌、也不會留在這個瀏覽器裡。",
+        "session": "清單一讀完，那個 session 立刻被關掉，你不會有任何東西留在這裡登入著。下次要再打一次密碼 —— 這正是重點。",
+        "killSwitch": "你不需要相信我們的說法。在 Showdown 改密碼會立刻讓所有 session 失效，包括這一個。",
+        "habit": "還有我們修不掉的一件事：這裡不是 Showdown，而你的密碼管理員會想把 Showdown 密碼記在我們的網址底下。除了 Showdown 本身，任何地方都不該跟你要這組密碼。"
+      },
+      "notBound": "這不是你綁定的 Showdown 名稱。Showdown 只允許一個帳號列出自己的私人 replay，所以這裡只能填你已經綁定的名字。",
+      "truncated": "這個帳號的私人 replay 比一次同步能列出的還多，而剩下的用這個方式拿不到：列出永遠從最新的開始，再跑一次只會拿到同一批。現在匯入的就是最新的那批。更舊的請把連結貼到最上面的框裡 —— 私人 replay 的連結本身就帶著密碼。",
+      "noPassword": "密碼也要填。沒有它什麼都沒有送出去。"
     }
   },
   "settings": {

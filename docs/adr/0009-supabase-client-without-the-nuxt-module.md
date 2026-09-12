@@ -1,8 +1,8 @@
 # ADR-0009：Supabase 用手寫 plugin 接入，不裝 `@nuxtjs/supabase`
 
-- 狀態：Accepted
+- 狀態：Accepted（2026-09-13 補充，見文末「那一天到了一半」）
 - 日期：2026-08-20
-- 相關：#8、#7、#9
+- 相關：#8、#7、#9、#178 / #179（`server/api/showdown/sync-private`）
 
 ## 脈絡
 
@@ -77,3 +77,25 @@ server 端讀不到登入狀態**，得自己補 cookie 那一段（或屆時改
   server 部分，換來的功能這個 app 不需要
 - **每個元件各自 `createClient()`** —— 會產生多個 client 與多份 session 監聽，
   `onAuthStateChange` 的訂閱數隨元件數成長
+
+---
+
+## 補充：那一天到了一半（2026-09-13，#179）
+
+上面寫「值得裝回來的時機只有一個：**真的有路由要開 SSR 或 server route 要讀登入狀態**」。
+`server/api/showdown/sync-private` 就是一條要讀登入狀態的 server route
+（[私人 replay 的同步](../specs/2026-09-11-private-replay-sync-design.md) §8）—— 它必須
+擋掉未登入的呼叫者，否則它是一個公開的 Showdown 登入代理。
+
+**但這不構成裝回模組的理由**，因為它不需要模組賣的那樣東西。模組值錢的是**從 cookie
+還原 session**，而這條 route 不從 cookie 讀任何東西：瀏覽器把自己的 access token 明確
+放進 `Authorization` header，Worker 拿它打一次 Supabase 自己的 `/auth/v1/user`
+（`server/caller.ts`）。沒有 cookie、沒有 SSR、沒有 server middleware，session 仍然存在
+localStorage，上面「唯一真正的債」那段原封不動。
+
+所以修正的是這份 ADR 的**判準**，不是決定：觸發條件其實是「server 端要**從 cookie**讀
+登入狀態」，而不是「server 端要知道是誰」。後者一個 header 加一個 subrequest 就夠了。
+
+代價記在這裡：`apps/web/server/` 從此知道 Supabase 存在，而 `ssr: false` 下「瀏覽器是
+唯一跟 Supabase 講話的東西」這句話不再完全成立 —— 現在還有一條 route 會問它「這個 token
+是誰的」。它不讀任何資料列，也不碰 `service_role`（那把 key 仍然只屬於 `scripts/`）。

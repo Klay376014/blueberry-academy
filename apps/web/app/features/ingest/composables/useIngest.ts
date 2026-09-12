@@ -73,10 +73,41 @@ export interface ImportOptions {
   onResult?: (item: BatchItem) => void
 }
 
+/**
+ * Why a listing never happened. The two beyond `IngestFailure` belong to the
+ * private sync, which goes through our own Worker and so can fail in two ways
+ * a replay never does: our session, and Showdown's own answer to a name and
+ * password.
+ */
+export type SyncFailure =
+  | IngestFailure
+  /** Nobody is signed in here, so the Worker will not take the request. */
+  | 'signed-out'
+  /** Showdown would not accept that Showdown name and password. */
+  | 'rejected'
+
 export type SyncOutcome =
   | { status: 'listed'; report: ImportReport; truncated: boolean }
   /** The listing itself failed, so there is nothing to report per replay. */
-  | { status: 'failed'; reason: IngestFailure; message: string }
+  | { status: 'failed'; reason: SyncFailure; message: string }
+
+/** Our own Worker, which is the only thing that can list a private replay. */
+const PRIVATE_SYNC_ROUTE = '/api/showdown/sync-private'
+
+/**
+ * The route's statuses, which are deliberately distinct where it matters: 401
+ * is our session, 422 is Showdown's answer to the name and password. Reading
+ * both as one would tell a reader to sign in again over a typed password.
+ */
+function privateSyncFailureOf(status: number): SyncFailure {
+  if (status === 401) return 'signed-out'
+  // 422 and only 422 is Showdown's verdict on the name and password. A 400 is
+  // the route refusing the body, which means Showdown never saw either.
+  if (status === 422) return 'rejected'
+  if (status >= 500) return 'unavailable'
+
+  return 'malformed'
+}
 
 /** gzip, the way the browser does it, with no library in the way. */
 async function gzip(text: string): Promise<Blob> {
@@ -267,7 +298,69 @@ export function useIngest() {
     }
   }
 
-  return { importReplay, importMany, syncAccount }
+  /**
+   * Every **private** replay of a Showdown account, which no search will
+   * admit to and the browser cannot ask for: `replays/searchprivate` sends
+   * this origin no CORS headers at all, so the listing goes through our own
+   * Worker (design document §2.1, §4).
+   *
+   * Only the listing. What comes back is `ReplayRef[]` and goes straight into
+   * `importMany` — `fetchReplay` has always built `<id>-<password>pw.json`
+   * from a ref, so nothing downstream of here knows this list arrived by a
+   * different road (§3.4).
+   *
+   * The password is a plain string on this side and there is no way around
+   * that: it is what the reader typed. It is not stored, not put in a URL,
+   * and not held after this call returns.
+   */
+  async function syncPrivate(
+    username: string,
+    password: string,
+    options: ImportOptions = {},
+  ): Promise<SyncOutcome> {
+    const { data } = await $supabase.auth.getSession()
+    const token = data.session?.access_token
+
+    // Asked here as well as on the Worker: without a token the request can
+    // only come back 401, and sending the password to find that out would be
+    // for nothing.
+    if (!token) return { status: 'failed', reason: 'signed-out', message: '' }
+
+    let response: Awaited<ReturnType<typeof fetch>>
+    try {
+      response = await fetch(PRIVATE_SYNC_ROUTE, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` },
+        body: JSON.stringify({ name: username, password }),
+      })
+    } catch {
+      return { status: 'failed', reason: 'unavailable', message: '' }
+    }
+
+    if (!response.ok) {
+      return { status: 'failed', reason: privateSyncFailureOf(response.status), message: '' }
+    }
+
+    let listed: { refs?: unknown; truncated?: unknown }
+    try {
+      listed = JSON.parse(await response.text()) as typeof listed
+    } catch {
+      return { status: 'failed', reason: 'malformed', message: '' }
+    }
+
+    if (!Array.isArray(listed.refs)) {
+      return { status: 'failed', reason: 'malformed', message: '' }
+    }
+
+    return {
+      status: 'listed',
+      report: await importMany(listed.refs as ReplayRef[], options),
+      // Passed on rather than swallowed: silence would read as "that was all".
+      truncated: listed.truncated === true,
+    }
+  }
+
+  return { importReplay, importMany, syncAccount, syncPrivate }
 }
 
 function messageOf(error: unknown): string {

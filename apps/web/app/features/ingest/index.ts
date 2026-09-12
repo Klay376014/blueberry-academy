@@ -12,6 +12,7 @@ export type {
   ImportReport,
   IngestFailure,
   IngestOutcome,
+  SyncFailure,
   SyncOutcome,
 } from './composables/useIngest'
 export { ShowdownError, useShowdown } from './composables/useShowdown'

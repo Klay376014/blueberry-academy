@@ -294,12 +294,16 @@ export function credentialsOf(body: unknown): { name: string; password: Secret }
 }
 
 /**
- * What the route answers with. An unrecognised failure is 500 rather than
- * 401: telling a reader their password was rejected when something else broke
- * sends them to change a password that was fine.
+ * What the route answers with when Showdown is the one that said no.
+ *
+ * 422 rather than 401 for a refusal: the route answers 401 on its own account
+ * when the caller is not signed in (server/caller.ts), and a reader whose
+ * Showdown password was rejected needs to be told that and not this. An
+ * unrecognised failure is 500 rather than either — saying a password was
+ * rejected when something else broke sends them to change one that was fine.
  */
 export function statusOf(error: unknown): number {
   if (!(error instanceof ShowdownSyncError)) return 500
 
-  return error.reason === 'refused' ? 401 : 502
+  return error.reason === 'refused' ? 422 : 502
 }

@@ -372,10 +372,14 @@ describe('what the route makes of a request body', () => {
 })
 
 describe('what the route answers with', () => {
-  it('passes a refusal on as a 401, so a wrong password reads as one', () => {
+  it('keeps a Showdown refusal apart from an unauthenticated caller', () => {
+    // 401 is "you are not signed in to this app", which the route now answers
+    // on its own account. A rejected Showdown password is a well-formed
+    // request the far end said no to; spelling both 401 would leave the form
+    // unable to tell the reader which of the two happened.
     expect(
       statusOf(new ShowdownSyncError('refused', 'Showdown refused login: Wrong password.')),
-    ).toBe(401)
+    ).toBe(422)
   })
 
   it('reports Showdown being unreachable as a bad gateway', () => {
