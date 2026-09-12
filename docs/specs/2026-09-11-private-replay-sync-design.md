@@ -172,9 +172,16 @@ in."}`（前導 `]` 是 PS 的防 JSON 劫持前綴，客戶端要切掉）。
 判準 —— 看 `actionsuccess` 與有沒有拿到 sid。
 
 **Worker 只做翻譯，不做匯入。** 它回傳的是 `ReplayRef[]`，交給現有的
-`useIngest.importMany`。這維持了主設計 §2 §3 的理由（Workers 免費方案的 50 subrequest
+`useIngest.importMany`。
+
+這維持了主設計 §2 §3 的理由（Workers 免費方案的 50 subrequest
 與 10ms CPU 預算做不完一次匯入），也讓這條 route 保持**完全無狀態** —— 不寫 Supabase、
 不寫 KV、不寫 Durable Object。
+
+> 實作時（#178）多帶了一個 `truncated`，回傳 `{ refs, truncated }` —— 與
+> `useShowdown.listReplays` 回 `ReplayList` 同一個理由。免費方案一次叫用只有 50 個
+> subrequest，login 與 logout 各佔一個，所以翻頁上限是 45 頁（約 2250 場）。碰到上限
+> 而不說，等於默默漏掉後面的場次。#179 可以忽略這個欄位，但它得存在。
 
 `searchprivate` 一頁 51 筆、頁與頁之間共用一列，與 `listReplays` 現有的分頁處理同構，
 分頁與去重的規則沿用 `useShowdown.ts` 既有的那一套，不另外發明。**這一句仍然只讀過
@@ -285,6 +292,23 @@ Inter、Supabase SDK 也是打包進去的，本來就幾乎沒有第三方來�
 3. **`searchprivate` 的分頁上限沿用 PS 的限制。** 與 `listReplays` 現有的 `truncated`
    處理一致，不另行處理。
 4. **綁定仍是信任模式。** 見 §1「明確不做的事」與 §10。
+
+### 未解決：這條 route 對第三方是開放的
+
+第 1 點說「密碼過境我們的伺服器」，講的是**使用者自己的**密碼。它沒有涵蓋另一件事：
+`POST /api/showdown/sync-private` 沒有任何呼叫者驗證，所以知道網址的人都能送任意
+`{ name, password }`，並從 401 與 200 的差別讀出「這組帳密對不對」—— 也就是拿我們的
+網域與 Cloudflare 出口 IP 當 Showdown 的撞庫 oracle。`readBody` 收
+`application/x-www-form-urlencoded`，跨站表單連 preflight 都不需要。
+
+**#178 實作完成但刻意不合併**，就是為了不讓 `main` 多出這個端點（CI 合併即部署）。
+決定留給 #179 一起做，候選方案：
+
+- **要求已登入的呼叫者**：呼叫者的 Supabase access token 放 `Authorization`，Worker 拿
+  它打一次 `${supabaseUrl}/auth/v1/user`。一個 subrequest，仍然無狀態，不需要
+  `service_role`。匯入頁本來就在登入後面。代價是 `server/` 第一次認識 Supabase 的存在，
+  [ADR-0009](../adr/0009-supabase-client-without-the-nuxt-module.md) 的陳述要一併更新。
+- **每 IP 限流**：要狀態（KV 或 Durable Object），與 §4「完全無狀態」相衝。
 
 ---
 
