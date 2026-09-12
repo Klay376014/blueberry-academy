@@ -1,8 +1,8 @@
 # 私人 replay 的同步 — 設計文件
 
 - 日期：2026-09-11
-- 狀態：已定案，待實作（§6 的 spike 是其餘部分的前提）
-- 相關文件：[replay 分析主設計](2026-08-16-replay-analytics-design.md) §2 §3 §10、[CONTEXT.md](../../CONTEXT.md)、[實作守則](../../AGENTS.md)
+- 狀態：已定案，待實作。§6 的 spike 已於 2026-09-12 通過（#175），其餘的票不再被擋
+- 相關文件：[replay 分析主設計](2026-08-16-replay-analytics-design.md) §2 §3 §10、[spike 實測筆記](2026-09-11-private-replay-sync-spike.md)、[CONTEXT.md](../../CONTEXT.md)、[實作守則](../../AGENTS.md)
 - 實作票：GitHub issue #175（spike）、#176（`Secret`）、#177（CSP）、#178（Worker route）、#179（表單）、#180（`refsOf`）、#181（OAuth 陳述更正）
 
 這份文件記錄「為什麼」。實作步驟見 GitHub issue，領域詞彙見 CONTEXT.md。
@@ -62,7 +62,7 @@ in."}`（前導 `]` 是 PS 的防 JSON 劫持前綴，客戶端要切掉）。
 暫時的限制，是 PS 刻意只對自家網域開口（`Config.cors` 白名單，`server.ts:188`
 `verifyCrossDomainRequest`）。
 
-### 2.2 讀 PS 原始碼（**未實測**，spike 的對象見 §6）
+### 2.2 讀 PS 原始碼，並以真帳號實測（spike，2026-09-12）
 
 來源：[`smogon/pokemon-showdown-loginserver`](https://github.com/smogon/pokemon-showdown-loginserver)。
 
@@ -84,6 +84,10 @@ in."}`（前導 `]` 是 PS 的防 JSON 劫持前綴，客戶端要切掉）。
    `Set-Cookie` 發出 sid（`actions.ts:210`）。回應本體**不含** sid。
 
 4. **session 效期 14 天** —— `SID_DURATION = 2 * 7 * 24 * 60 * 60`（`user.ts:21`）。
+   **這一條的 spike 結果存疑**：實際發出的 cookie 是 `Max-Age=31363200`（約 363 天），
+   比這裡大一個數量級。兩者未必矛盾（`Max-Age` 是瀏覽器留多久，`SID_DURATION` 是伺服器
+   認多久），但唯一量得到的數字不支持它，而量伺服器端要等 14 天，沒量。
+   對本設計無影響 —— D2 不存 sid，用完就 logout。詳見 spike 筆記。
 
 5. **`act=logout`** POST + `userid`，執行 `sessions.delete(this.session)`
    （`actions.ts:195`）。只刪這一個 session，**不會把使用者在別處登出**。
@@ -103,8 +107,19 @@ in."}`（前導 `]` 是 PS 的防 JSON 劫持前綴，客戶端要切掉）。
    `WHERE private = 0`（`replays.ts:247`）；密碼是 `generatePassword(length = 31)` 以
    `crypto.randomInt` 逐字產生，猜不到。
 
-> **這幾條是讀原始碼推得的，不是量到的。** §6 的 spike 就是為了把 2.2 整段升級成
-> 「實測」，在它通過之前不要動其餘的票。
+> **spike（#175）量到哪裡為止，逐條記在
+> [spike 實測筆記](2026-09-11-private-replay-sync-spike.md)。**
+>
+> - **量過且成立**：1（sid 走 POST body）、2（decode，實際做過才通）、3（`act=login`
+>   的形狀與 `Set-Cookie`）、5 的前半（logout 之後那個 sid 就被拒絕）、7（換出口 IP 仍有效）。
+> - **量過但存疑**：4（見上，唯一量得到的數字比它大一個數量級）。
+> - **只量到一半**：6 —— 確認了「登入後搜自己拿得到」，**沒有**試過搜別人是否被拒。
+>   5 的後半（不影響別處的 session）同理，spike 當時只有一個 session。
+> - **完全沒量**：8（改密碼讓所有 session 失效 —— 不會拿真帳號的密碼去試）、9（沒有事後
+>   補救的途徑），以及 §4 的分頁假設 —— `searchprivate` 要超過 51 筆私人 replay 才翻得到
+>   第二頁，測試帳號只有 32 筆。#178 的分頁只能對 fixture 驗。
+>
+> **沒有任何一條被實測推翻。** 但「沒推翻」不等於「都量過了」，上面的分類就是差別所在。
 
 ---
 
@@ -151,13 +166,19 @@ in."}`（前導 `]` 是 PS 的防 JSON 劫持前綴，客戶端要切掉）。
   │ （現有管線，未改動）
 ```
 
+三個呼叫的 host 不同一個（spike 實測）：`login` 與 `logout` 在
+`play.pokemonshowdown.com`，`replays/searchprivate` 在 `replay.pokemonshowdown.com`。
+另外 `login` 回的 `assertion` 在沒有 challstr 時就是一句錯誤訊息，**不是**登入成敗的
+判準 —— 看 `actionsuccess` 與有沒有拿到 sid。
+
 **Worker 只做翻譯，不做匯入。** 它回傳的是 `ReplayRef[]`，交給現有的
 `useIngest.importMany`。這維持了主設計 §2 §3 的理由（Workers 免費方案的 50 subrequest
 與 10ms CPU 預算做不完一次匯入），也讓這條 route 保持**完全無狀態** —— 不寫 Supabase、
 不寫 KV、不寫 Durable Object。
 
 `searchprivate` 一頁 51 筆、頁與頁之間共用一列，與 `listReplays` 現有的分頁處理同構，
-分頁與去重的規則沿用 `useShowdown.ts` 既有的那一套，不另外發明。
+分頁與去重的規則沿用 `useShowdown.ts` 既有的那一套，不另外發明。**這一句仍然只讀過
+原始碼**：spike 的帳號只有 32 筆私人 replay，翻不到第二頁（§2.2 的但書）。
 
 ---
 
@@ -228,15 +249,15 @@ Inter、Supabase SDK 也是打包進去的，本來就幾乎沒有第三方來�
 
 **#1 是其餘所有票的前提。**
 
-| 票   | 內容                                                                                                                                 | 相依       |
-| ---- | ------------------------------------------------------------------------------------------------------------------------------------ | ---------- |
-| #175 | **Spike**：用真帳號驗證 `act=login` → `body.sid` → `searchprivate` → `act=logout` 的完整往返，把 §2.2 升級成實測                     | —          |
-| #176 | `Secret` 包裝型別 + 禁用 `console` 的 lint 規則                                                                                      | —          |
-| #177 | 全站 CSP                                                                                                                             | —          |
-| #178 | `server/api/showdown/sync-private` route                                                                                             | #175, #176 |
-| #179 | 匯入頁的私人同步表單                                                                                                                 | #177, #178 |
-| #180 | `refsOf` 改成能從任意文字撈出連結                                                                                                    | —          |
-| #181 | 更正「Showdown 沒有 OAuth」的陳述（`useProfile.ts` 的 JSDoc、`profiles.showdown_usernames` 的 column comment，後者要一支 migration） | —          |
+| 票   | 內容                                                                                                                                                                                                     | 相依       |
+| ---- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
+| #175 | ~~**Spike**：用真帳號驗證 `act=login` → `body.sid` → `searchprivate` → `act=logout` 的完整往返，把 §2.2 升級成實測~~ **已完成 2026-09-12**，見 [spike 實測筆記](2026-09-11-private-replay-sync-spike.md) | —          |
+| #176 | `Secret` 包裝型別 + 禁用 `console` 的 lint 規則                                                                                                                                                          | —          |
+| #177 | 全站 CSP                                                                                                                                                                                                 | —          |
+| #178 | `server/api/showdown/sync-private` route                                                                                                                                                                 | #175, #176 |
+| #179 | 匯入頁的私人同步表單                                                                                                                                                                                     | #177, #178 |
+| #180 | `refsOf` 改成能從任意文字撈出連結                                                                                                                                                                        | —          |
+| #181 | 更正「Showdown 沒有 OAuth」的陳述（`useProfile.ts` 的 JSDoc、`profiles.showdown_usernames` 的 column comment，後者要一支 migration）                                                                     | —          |
 
 相依關係以 GitHub 原生的 issue dependencies 表示，不是只寫在內文裡。
 #176、#177、#180、#181 彼此獨立，也不等 spike。

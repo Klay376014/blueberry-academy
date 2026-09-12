@@ -20,6 +20,18 @@ describe('what the command line asked for', () => {
     // argv is world-readable through `ps`; the password comes in by env var.
     expect(() => optionsOf(['--password', 'hunter2'])).toThrow(/--password/)
   })
+
+  it('refuses the --flag=value spelling too, and does not echo the value', () => {
+    // `--password=hunter2` is one argv entry. Comparing it whole misses the
+    // flag, and the "unknown flag" message would then print the password.
+    expect(() => optionsOf(['--password=hunter2'])).toThrow(/--password/)
+    expect(() => optionsOf(['--password=hunter2'])).not.toThrow(/hunter2/)
+    expect(() => optionsOf(['--sid=a,b,c'])).toThrow(/--sid/)
+  })
+
+  it('keeps an unknown flag from carrying its value into the message', () => {
+    expect(() => optionsOf(['--nope=hunter2'])).not.toThrow(/hunter2/)
+  })
 })
 
 describe('the sid out of Set-Cookie', () => {
