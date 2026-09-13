@@ -12,13 +12,14 @@ import type { BatchItem, ImportOptions, ImportReport } from '../../app/features/
 // The import itself is faked; the page, the link parsing and the alias state
 // are real. What this asserts is what a user is told, which is the part
 // useIngest cannot decide for itself.
-const { importMany, syncAccount, load } = vi.hoisted(() => ({
+const { importMany, syncAccount, syncPrivate, load } = vi.hoisted(() => ({
   importMany: vi.fn(),
   syncAccount: vi.fn(),
+  syncPrivate: vi.fn(),
   load: vi.fn(),
 }))
 
-mockNuxtImport('useIngest', () => () => ({ importMany, syncAccount }))
+mockNuxtImport('useIngest', () => () => ({ importMany, syncAccount, syncPrivate }))
 
 /**
  * The dashboard's own reads, because this page now asks for one when a batch
@@ -110,6 +111,14 @@ async function sync(wrapper: Wrapper, name: string) {
   await nextTick()
 }
 
+/** Fills the private form and presses its button. */
+async function syncPrivately(wrapper: Wrapper, name: string, password: string) {
+  await wrapper.get('[data-testid="private-name"]').setValue(name)
+  await wrapper.get('[data-testid="private-password"]').setValue(password)
+  await wrapper.get('[data-testid="private-form"]').trigger('submit')
+  await nextTick()
+}
+
 /** The per-replay lines of the report, as `<status> <label>`. */
 function reportRows(wrapper: Wrapper): string[] {
   return wrapper
@@ -129,6 +138,11 @@ describe('the import page', () => {
     load.mockReset().mockResolvedValue(undefined)
     importMany.mockReset().mockResolvedValue(report([imported()]))
     syncAccount.mockReset().mockResolvedValue({
+      status: 'listed',
+      report: report([imported()]),
+      truncated: false,
+    })
+    syncPrivate.mockReset().mockResolvedValue({
       status: 'listed',
       report: report([imported()]),
       truncated: false,
@@ -644,5 +658,184 @@ describe('the import page', () => {
 
     expect(wrapper.get('[data-testid="import-submit"]').attributes('disabled')).toBeDefined()
     expect(wrapper.get('[data-testid="sync-submit"]').attributes('disabled')).toBeDefined()
+  })
+})
+
+describe('syncing private replays', () => {
+  beforeEach(() => {
+    signIn()
+    useShowdownAliases().value = ['DavoPro1214']
+    importMany.mockReset().mockResolvedValue(report([imported()]))
+    syncPrivate.mockReset().mockResolvedValue({
+      status: 'listed',
+      report: report([imported()]),
+      truncated: false,
+    })
+  })
+
+  it('hands the name and the password over as typed', async () => {
+    const wrapper = await mountSuspended(App, { route: '/import' })
+
+    await syncPrivately(wrapper, 'DavoPro1214', 'hunter2')
+
+    expect(syncPrivate.mock.calls[0]?.slice(0, 2)).toEqual(['DavoPro1214', 'hunter2'])
+  })
+
+  it('says what happens to the password, next to the field it is typed into', async () => {
+    // The one thing about this form that has no technical answer (§5): the
+    // reader is being asked to type a Showdown password somewhere that is not
+    // Showdown, and the only honest response is to say so.
+    // Asserted on the rendered words rather than on the message keys: the
+    // four points below are the promise, and a key that renders to something
+    // else would still match itself.
+    const wrapper = await mountSuspended(App, { route: '/import' })
+    const said = wrapper.get('[data-testid="private-disclosure"]').text()
+
+    // Where it goes, how long it is kept, the way out, and the habit.
+    expect(said).toContain('our server and to Showdown, and nowhere else')
+    expect(said).toContain('closed the moment the list has been read')
+    expect(said).toContain('Changing your password on Showdown ends every session')
+    expect(said).toContain('this is not Showdown')
+    expect(wrapper.findAll('[data-testid="private-disclosure"] li')).toHaveLength(4)
+  })
+
+  it('forgets the password as soon as the attempt is over', async () => {
+    const wrapper = await mountSuspended(App, { route: '/import' })
+
+    await syncPrivately(wrapper, 'DavoPro1214', 'hunter2')
+    await settle()
+
+    expect(
+      (wrapper.get('[data-testid="private-password"]').element as HTMLInputElement).value,
+    ).toBe('')
+  })
+
+  it('never puts the password in a field the browser will remember by name', async () => {
+    const wrapper = await mountSuspended(App, { route: '/import' })
+    const field = wrapper.get('[data-testid="private-password"]')
+
+    expect(field.attributes('type')).toBe('password')
+    expect(field.attributes('autocomplete')).toBe('off')
+  })
+
+  it('refuses a name the reader has not bound, without sending the password', async () => {
+    // Showdown refuses it too (§2.2.6), but only after the password has been
+    // sent — and its wording is not for a reader of this page.
+    const wrapper = await mountSuspended(App, { route: '/import' })
+
+    await syncPrivately(wrapper, 'SomebodyElse', 'hunter2')
+
+    expect(syncPrivate).not.toHaveBeenCalled()
+    expect(wrapper.get('[data-testid="import-error"]').text()).toContain(
+      'not one of your Showdown names',
+    )
+  })
+
+  it('forgets the password even when the name never passed the check', async () => {
+    // The likeliest way to get here is a typo in the name, which is no reason
+    // to leave a Showdown password sitting in a form field.
+    const wrapper = await mountSuspended(App, { route: '/import' })
+
+    await syncPrivately(wrapper, 'SomebodyElse', 'hunter2')
+
+    expect(
+      (wrapper.get('[data-testid="private-password"]').element as HTMLInputElement).value,
+    ).toBe('')
+  })
+
+  it('does not send an empty password to find out that it is empty', async () => {
+    const wrapper = await mountSuspended(App, { route: '/import' })
+
+    await wrapper.get('[data-testid="private-name"]').setValue('DavoPro1214')
+    await wrapper.get('[data-testid="private-form"]').trigger('submit')
+    await nextTick()
+
+    expect(syncPrivate).not.toHaveBeenCalled()
+    // And not the wording about Showdown refusing it, which it never saw.
+    expect(wrapper.get('[data-testid="import-error"]').text()).toContain('password')
+    expect(wrapper.get('[data-testid="import-error"]').text()).not.toContain('Showdown did not')
+  })
+
+  it('does not promise a second run will reach what this one could not', async () => {
+    // The listing always starts at page one, so re-running re-lists the same
+    // pages. Saying otherwise would send a reader round a loop.
+    syncPrivate.mockResolvedValue({
+      status: 'listed',
+      report: report([imported()]),
+      truncated: true,
+    })
+
+    const wrapper = await mountSuspended(App, { route: '/import' })
+    await syncPrivately(wrapper, 'DavoPro1214', 'hunter2')
+
+    const note = wrapper.get('[data-testid="private-truncated"]').text()
+
+    expect(note).not.toContain('Run it again')
+    expect(note).toContain('paste')
+  })
+
+  it('compares bound names the way Showdown does, not letter by letter', async () => {
+    useShowdownAliases().value = ['Davo Pro 1214']
+
+    const wrapper = await mountSuspended(App, { route: '/import' })
+    await syncPrivately(wrapper, 'davopro1214', 'hunter2')
+
+    expect(syncPrivate).toHaveBeenCalled()
+  })
+
+  it('tells a signed-out reader that the password went nowhere', async () => {
+    syncPrivate.mockResolvedValue({ status: 'failed', reason: 'signed-out', message: '' })
+
+    const wrapper = await mountSuspended(App, { route: '/import' })
+    await syncPrivately(wrapper, 'DavoPro1214', 'hunter2')
+
+    expect(wrapper.get('[data-testid="import-error"]').text()).toContain(
+      'your Showdown password was not sent anywhere',
+    )
+  })
+
+  it('says it was the Showdown password that was refused, not the session here', async () => {
+    syncPrivate.mockResolvedValue({ status: 'failed', reason: 'rejected', message: '' })
+
+    const wrapper = await mountSuspended(App, { route: '/import' })
+    await syncPrivately(wrapper, 'DavoPro1214', 'hunter2')
+
+    expect(wrapper.get('[data-testid="import-error"]').text()).toContain(
+      'not the one you sign in here with',
+    )
+  })
+
+  it('has its own answer for a listing that ran out, not the account one', async () => {
+    // A private sync stops at the Worker's subrequest budget, which is a
+    // different thing from Showdown running out of search pages, and running
+    // it again is the way out of this one.
+    syncPrivate.mockResolvedValue({
+      status: 'listed',
+      report: report([imported()]),
+      truncated: true,
+    })
+
+    const wrapper = await mountSuspended(App, { route: '/import' })
+    await syncPrivately(wrapper, 'DavoPro1214', 'hunter2')
+
+    expect(wrapper.get('[data-testid="private-truncated"]').text()).toContain(
+      'cannot be reached this way',
+    )
+    expect(wrapper.find('[data-testid="sync-truncated"]').exists()).toBe(false)
+  })
+
+  it('reports what came in the same way every other entrance does', async () => {
+    const wrapper = await mountSuspended(App, { route: '/import' })
+    await syncPrivately(wrapper, 'DavoPro1214', 'hunter2')
+    await settle()
+
+    expect(reportRows(wrapper)).toHaveLength(1)
+  })
+
+  it('is translated', async () => {
+    expect(Object.keys(zhTW.import.private)).toEqual(Object.keys(en.import.private))
+    expect(Object.keys(zhTW.import.private.disclosure)).toEqual(
+      Object.keys(en.import.private.disclosure),
+    )
   })
 })

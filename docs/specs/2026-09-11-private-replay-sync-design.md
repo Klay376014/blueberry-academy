@@ -172,9 +172,20 @@ in."}`（前導 `]` 是 PS 的防 JSON 劫持前綴，客戶端要切掉）。
 判準 —— 看 `actionsuccess` 與有沒有拿到 sid。
 
 **Worker 只做翻譯，不做匯入。** 它回傳的是 `ReplayRef[]`，交給現有的
-`useIngest.importMany`。這維持了主設計 §2 §3 的理由（Workers 免費方案的 50 subrequest
+`useIngest.importMany`。
+
+這維持了主設計 §2 §3 的理由（Workers 免費方案的 50 subrequest
 與 10ms CPU 預算做不完一次匯入），也讓這條 route 保持**完全無狀態** —— 不寫 Supabase、
 不寫 KV、不寫 Durable Object。
+
+> 實作時（#178）多帶了一個 `truncated`，回傳 `{ refs, truncated }` —— 與
+> `useShowdown.listReplays` 回 `ReplayList` 同一個理由。碰到上限而不說，等於默默漏掉
+> 後面的場次。
+>
+> 上限是 **20 頁**（約 1000 場），比 subrequest 允許的 48 頁保守得多。真正緊的是 10ms
+> CPU：每一頁都是一次 body 解碼加一次 51 列的 `JSON.parse`，而**兩個預算都沒有在這條
+> 路上量過**。超過 CPU 是直接被砍 —— 沒有回應，`finally` 裡的 logout 也不會跑 ——
+> 不是程式承諾的 `truncated`。要調高得先量。
 
 `searchprivate` 一頁 51 筆、頁與頁之間共用一列，與 `listReplays` 現有的分頁處理同構，
 分頁與去重的規則沿用 `useShowdown.ts` 既有的那一套，不另外發明。**這一句仍然只讀過
@@ -285,6 +296,44 @@ Inter、Supabase SDK 也是打包進去的，本來就幾乎沒有第三方來�
 3. **`searchprivate` 的分頁上限沿用 PS 的限制。** 與 `listReplays` 現有的 `truncated`
    處理一致，不另行處理。
 4. **綁定仍是信任模式。** 見 §1「明確不做的事」與 §10。
+5. **超過上限的私人 replay 用這條路拿不到。** 列出永遠從第一頁開始，沒有 cursor 也沒有
+   起始頁參數，所以碰到 20 頁上限之後**再跑一次只會拿到同一批**。UI 因此不說「再試一次」
+   —— 它說的是實話：這是最新的那批，更舊的請貼連結（連結本身帶密碼，§3.4）。
+   要真的拿到，得把起始頁一路穿過 route 與 `syncPrivate`，而那需要一個「從哪裡繼續」的
+   UI，不屬於這張票。
+
+### 未解決：這條 route 對第三方是開放的
+
+第 1 點說「密碼過境我們的伺服器」，講的是**使用者自己的**密碼。它沒有涵蓋另一件事：
+`POST /api/showdown/sync-private` 沒有任何呼叫者驗證，所以知道網址的人都能送任意
+`{ name, password }`，並從 401 與 200 的差別讀出「這組帳密對不對」—— 也就是拿我們的
+網域與 Cloudflare 出口 IP 當 Showdown 的撞庫 oracle。`readBody` 收
+`application/x-www-form-urlencoded`，跨站表單連 preflight 都不需要。
+
+**已解決（#179）：要求已登入的呼叫者。** 呼叫者的 Supabase access token 放
+`Authorization`，Worker 拿它打一次 `${supabaseUrl}/auth/v1/user`（`server/caller.ts`），
+200 才往下走。一個 subrequest，仍然無狀態，不需要 `service_role`，而匯入頁本來就在登入
+後面，所以使用者無感。#178 因此刻意不單獨合併 —— 那會讓 `main` 一度多出一個公開端點
+（CI 合併即部署）。
+
+代價是 `apps/web/server/` 第一次認識 Supabase 的存在；
+[ADR-0009](../adr/0009-supabase-client-without-the-nuxt-module.md) 已補上說明，並修正了
+它原本的判準（觸發條件是「server 端要**從 cookie** 讀登入狀態」，不是「要知道是誰」）。
+
+否決的替代方案：
+
+- **每 IP 限流** —— 要狀態（KV 或 Durable Object），與 §4「完全無狀態」相衝。
+- **只比對 `Origin`** —— 擋得住瀏覽器裡的第三方網頁，擋不住 curl，而撞庫用的正是後者。
+
+**仍未擋的事**：已登入的使用者可以拿這條 route 試別人的 Showdown 帳密，而且**次數沒有
+上限** —— 驗的是「有沒有登入」，不是「這個人試了幾次」（`callerOf` 回的 id 目前沒有被
+用到）。範圍是「自己 + 認識的朋友」（§8.1）；要開放給陌生人，per-caller 的節流是第一
+件要補的事，而它需要狀態，與 §4 的無狀態相衝。
+
+### 狀態碼要分得開
+
+`401` 是「你沒登入**我們**」，`422` 是「Showdown 不接受這組帳密」。兩者都拼成 401 會讓
+表單無法分辨，而它們的下一步完全不同：一個是重新登入，一個是檢查 Showdown 密碼。
 
 ---
 

@@ -20,7 +20,7 @@ const emit = defineEmits<{
 
 const { t, locale } = useI18n()
 const localePath = useLocalePath()
-const { importMany, syncAccount } = useIngest()
+const { importMany, syncAccount, syncPrivate } = useIngest()
 
 /** One line per replay, the way a pasted list arrives. */
 const links = ref('')
@@ -43,7 +43,14 @@ const badLines = ref<string[]>([])
 const ignoredRest = ref(0)
 /** A failure of the whole attempt: nothing was listed, so nothing was tried. */
 const failure = ref<{ reason: string; message: string } | null>(null)
-const truncated = ref(false)
+
+/**
+ * Which listing ran out, because the two run out for different reasons and
+ * only one of them is worth trying again: an account sync reaches the end of
+ * Showdown's search pages, a private sync reaches this Worker's subrequest
+ * budget.
+ */
+const truncated = ref<'account' | 'private' | null>(null)
 
 /**
  * The name to sync, prefilled with the first bound alias — the account whose
@@ -51,9 +58,27 @@ const truncated = ref(false)
  */
 const syncName = ref(props.aliases[0] ?? '')
 
+/**
+ * The private form's own pair. The name is prefilled like the one above it;
+ * the password is never prefilled and never kept — it is cleared the moment
+ * the attempt is over (design document §5).
+ */
+const privateName = ref(props.aliases[0] ?? '')
+const privatePassword = ref('')
+
 /** Unique per instance, so each label points at its own field. */
 const linksInputId = useId()
 const syncInputId = useId()
+const privateNameId = useId()
+const privatePasswordId = useId()
+
+/**
+ * Showdown only lets an account list its own private replays (§2.2.6), so a
+ * name the reader has not bound here could only ever come back refused — and
+ * refused by Showdown, after the password has already been sent, in wording
+ * written for somebody else.
+ */
+const boundIds = computed(() => new Set(props.aliases.map((alias) => toID(alias))))
 
 interface ReportRow {
   key: string
@@ -70,6 +95,8 @@ function reasonOf(reason: string) {
     malformed: t('import.failed.malformed'),
     'store-failed': t('import.failed.storeFailed'),
     'write-failed': t('import.failed.writeFailed'),
+    'signed-out': t('import.failed.signedOut'),
+    rejected: t('import.failed.rejected'),
   }
 
   return messages[reason] ?? reason
@@ -213,7 +240,7 @@ function reset() {
   badLines.value = []
   ignoredRest.value = 0
   failure.value = null
-  truncated.value = false
+  truncated.value = null
 }
 
 /** Enough ignored lines to recognise the paste by; a chat log is not a report. */
@@ -288,7 +315,50 @@ async function syncByName() {
     }
 
     absorb(outcome.report)
-    truncated.value = outcome.truncated
+    if (outcome.truncated) truncated.value = 'account'
+  })
+}
+
+/**
+ * The third entrance: the replays no search will admit to. The listing goes
+ * through our own Worker (design document §2.1); everything after it is the
+ * same pipeline as the other two.
+ */
+async function syncPrivateReplays() {
+  if (busy.value || !props.aliasesLoaded) return
+
+  reset()
+
+  // Out of the field first, before anything can return early. A password left
+  // in a form is one refresh away from a password manager offering to keep
+  // it, and the likeliest way to leave this function early is a typo in the
+  // name — exactly when the password has just been typed.
+  const password = privatePassword.value
+  privatePassword.value = ''
+
+  if (!boundIds.value.has(toID(privateName.value))) {
+    failure.value = { reason: 'not-bound', message: '' }
+    return
+  }
+
+  // Asked here rather than by sending it: an empty password can only come
+  // back as the route refusing the body, and the reader would be told to
+  // check something Showdown never saw.
+  if (!password) {
+    failure.value = { reason: 'no-password', message: '' }
+    return
+  }
+
+  await run(async () => {
+    const outcome = await syncPrivate(privateName.value, password, watching)
+
+    if (outcome.status === 'failed') {
+      failure.value = { reason: outcome.reason, message: outcome.message }
+      return
+    }
+
+    absorb(outcome.report)
+    if (outcome.truncated) truncated.value = 'private'
   })
 }
 </script>
@@ -362,18 +432,100 @@ async function syncByName() {
       </UiButton>
     </form>
 
+    <h2 class="mt-10 text-xl font-semibold tracking-tight">{{ t('import.private.title') }}</h2>
+    <p class="mt-1 text-sm text-muted-foreground">{{ t('import.private.tagline') }}</p>
+
+    <!-- Above the fields, not below them: the reader is about to type a
+         Showdown password into something that is not Showdown, and being told
+         afterwards is no use to them (design document §5, "沒有技術解的一項"). -->
+    <div
+      class="mt-3 rounded-md border border-border bg-muted/40 p-3 text-sm text-muted-foreground"
+      data-testid="private-disclosure"
+    >
+      <p class="font-medium text-foreground">{{ t('import.private.disclosure.title') }}</p>
+      <ul class="mt-2 list-disc space-y-1 pl-5">
+        <li>{{ t('import.private.disclosure.where') }}</li>
+        <li>{{ t('import.private.disclosure.session') }}</li>
+        <li>{{ t('import.private.disclosure.killSwitch') }}</li>
+        <li>{{ t('import.private.disclosure.habit') }}</li>
+      </ul>
+    </div>
+
+    <form
+      class="mt-3 flex flex-wrap items-end gap-2"
+      :aria-label="t('import.private.title')"
+      data-testid="private-form"
+      @submit.prevent="syncPrivateReplays"
+    >
+      <div class="min-w-40 flex-1">
+        <label class="text-sm font-medium" :for="privateNameId">
+          {{ t('import.private.nameLabel') }}
+        </label>
+        <input
+          :id="privateNameId"
+          v-model="privateName"
+          class="mt-1 h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs transition-colors placeholder:text-muted-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none disabled:opacity-50"
+          :disabled="!aliasesLoaded"
+          autocapitalize="off"
+          autocomplete="off"
+          spellcheck="false"
+          data-testid="private-name"
+        />
+      </div>
+      <div class="min-w-40 flex-1">
+        <label class="text-sm font-medium" :for="privatePasswordId">
+          {{ t('import.private.passwordLabel') }}
+        </label>
+        <!-- `autocomplete="off"` rather than `current-password`: the browser
+             offering to keep a Showdown password under our address is the
+             habit the note above is about, and inviting it would be worse
+             than the hint being only a hint. -->
+        <input
+          :id="privatePasswordId"
+          v-model="privatePassword"
+          type="password"
+          class="mt-1 h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs transition-colors placeholder:text-muted-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none disabled:opacity-50"
+          :disabled="!aliasesLoaded"
+          autocapitalize="off"
+          autocomplete="off"
+          spellcheck="false"
+          data-testid="private-password"
+        />
+      </div>
+      <UiButton type="submit" :disabled="!aliasesLoaded || busy" data-testid="private-submit">
+        {{ busy ? t('import.private.working') : t('import.private.submit') }}
+      </UiButton>
+    </form>
+
     <p v-if="failure" class="mt-4 text-sm text-destructive" data-testid="import-error">
       {{
-        failure.reason === 'unusable-name' ? t('import.sync.unusable') : reasonOf(failure.reason)
+        failure.reason === 'unusable-name'
+          ? t('import.sync.unusable')
+          : failure.reason === 'not-bound'
+            ? t('import.private.notBound')
+            : failure.reason === 'no-password'
+              ? t('import.private.noPassword')
+              : reasonOf(failure.reason)
       }}
     </p>
 
     <p
-      v-if="truncated"
+      v-if="truncated === 'account'"
       class="mt-4 rounded-md border border-border bg-muted/40 p-3 text-sm text-muted-foreground"
       data-testid="sync-truncated"
     >
       {{ t('import.sync.truncated') }}
+    </p>
+
+    <!-- A different ceiling, and one with no way out from here: the listing
+         always starts at page one, so running it again re-lists the same
+         pages. Saying "try again" would be a loop. -->
+    <p
+      v-else-if="truncated === 'private'"
+      class="mt-4 rounded-md border border-border bg-muted/40 p-3 text-sm text-muted-foreground"
+      data-testid="private-truncated"
+    >
+      {{ t('import.private.truncated') }}
     </p>
 
     <!-- While the batch is in the air: how far along, out of how many. A
