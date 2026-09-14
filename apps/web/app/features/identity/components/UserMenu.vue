@@ -2,6 +2,7 @@
 import {
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuPortal,
   DropdownMenuRoot,
   DropdownMenuSeparator,
@@ -27,6 +28,17 @@ const { t } = useI18n()
 const localePath = useLocalePath()
 const { user, signOut } = useAuth()
 
+/**
+ * The trigger's accessible name. Icon-only, it is the only thing a screen
+ * reader gets from the header — so it carries the address when there is one,
+ * which is the same question the menu's first line answers for everybody else
+ * (issue #192). WCAG 2.5.3 has nothing to object to: the button has no visible
+ * text for this name to contain.
+ */
+const triggerLabel = computed(() =>
+  user.value?.email ? `${t('a11y.accountMenu')} — ${user.value.email}` : t('a11y.accountMenu'),
+)
+
 const ITEM =
   'flex min-h-11 cursor-pointer select-none items-center gap-2 rounded-sm px-2 text-sm outline-none [&_svg]:size-4'
 </script>
@@ -34,21 +46,24 @@ const ITEM =
 <template>
   <DropdownMenuRoot>
     <DropdownMenuTrigger as-child>
+      <!-- The icon and the chevron at every width, which is what 375px always
+           got. Printing the address here cost the header its fixed width and
+           still could not show it: `max-w-52` cut a Google address to
+           `ads1029384756@g…`. It is not navigation — it answers "which account
+           is this?", and that question is asked on the way into the menu,
+           where the address now sits in full (issue #192).
+
+           With no visible text left on the button, WCAG 2.5.3 no longer has a
+           visible name to contain, so the accessible one is an `aria-label`
+           rather than the `sr-only` span it used to need. -->
       <UiButton
         variant="ghost"
         size="sm"
-        class="min-h-11 min-w-11 max-w-52"
+        class="min-h-11 min-w-11"
+        :aria-label="triggerLabel"
         data-testid="user-menu"
       >
         <UserRound />
-        <!-- The address only where there is room for it: at 375px the button
-             is the icon and the chevron. What stands in for it there is a name
-             only a screen reader hears, rather than an `aria-label` over the
-             whole button: an accessible name that does not contain the visible
-             one is what WCAG 2.5.3 is about, and it breaks "press the button
-             that says …" for anyone driving this by voice. -->
-        <span class="hidden truncate sm:inline">{{ user?.email ?? t('nav.account') }}</span>
-        <span class="sr-only sm:hidden">{{ t('a11y.accountMenu') }}</span>
         <ChevronDown class="opacity-60" />
       </UiButton>
     </DropdownMenuTrigger>
@@ -57,9 +72,26 @@ const ITEM =
       <DropdownMenuContent
         align="end"
         :side-offset="6"
-        class="z-50 min-w-56 rounded-md border border-border bg-popover p-1 text-popover-foreground shadow-md"
+        class="z-50 min-w-56 max-w-72 rounded-md border border-border bg-popover p-1 text-popover-foreground shadow-md"
         data-testid="user-menu-content"
       >
+        <!-- A label, not an item: the address is what the menu says, not
+             something to press, and the arrow keys should walk past it rather
+             than stop on it. `break-all` rather than another truncation —
+             cutting it here would only move the header's problem indoors — and
+             the whole block goes when there is no address, since a Supabase
+             user can carry none and "Signed in as" over a blank says less than
+             nothing. -->
+        <template v-if="user?.email">
+          <DropdownMenuLabel class="px-2 py-1.5" data-testid="menu-identity">
+            <span class="block text-xs font-normal text-muted-foreground">
+              {{ t('nav.signedIn') }}
+            </span>
+            <span class="block break-all text-sm font-medium">{{ user.email }}</span>
+          </DropdownMenuLabel>
+          <DropdownMenuSeparator class="my-1 h-px bg-border" />
+        </template>
+
         <DropdownMenuItem as-child>
           <NuxtLink
             :to="localePath('/settings')"
