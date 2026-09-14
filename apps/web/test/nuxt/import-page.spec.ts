@@ -111,12 +111,39 @@ async function sync(wrapper: Wrapper, name: string) {
   await nextTick()
 }
 
-/** Fills the private form and presses its button. */
-async function syncPrivately(wrapper: Wrapper, name: string, password: string) {
-  await wrapper.get('[data-testid="private-name"]').setValue(name)
-  await wrapper.get('[data-testid="private-password"]').setValue(password)
-  await wrapper.get('[data-testid="private-form"]').trigger('submit')
+/**
+ * Opens the password dialog the private button leads to. It lives in a
+ * portal, so everything inside it is reached through the document rather
+ * than through the wrapper.
+ */
+async function openPrivate(wrapper: Wrapper, name: string) {
+  await wrapper.get('[data-testid="sync-input"]').setValue(name)
+  await wrapper.get('[data-testid="private-open"]').trigger('click')
   await nextTick()
+  await settle()
+}
+
+function inDialog(selector: string) {
+  return [...document.body.querySelectorAll<HTMLElement>(selector)].at(-1) ?? null
+}
+
+/** Fills the dialog's password field and submits it. */
+async function submitPassword(password: string) {
+  const field = inDialog('[data-testid="private-password"]') as HTMLInputElement
+  field.value = password
+  field.dispatchEvent(new Event('input'))
+  await nextTick()
+  inDialog('[data-testid="private-form"]')?.dispatchEvent(
+    new Event('submit', { bubbles: true, cancelable: true }),
+  )
+  await nextTick()
+}
+
+/** The whole private path: name, dialog, password, go. */
+async function syncPrivately(wrapper: Wrapper, name: string, password: string) {
+  await openPrivate(wrapper, name)
+  if (!inDialog('[data-testid="private-password"]')) return
+  await submitPassword(password)
 }
 
 /** The per-replay lines of the report, as `<status> <label>`. */
@@ -663,6 +690,10 @@ describe('the import page', () => {
 
 describe('syncing private replays', () => {
   beforeEach(() => {
+    // The dialog lives in a portal on `document.body`, and an unmounted
+    // wrapper leaves its own behind — so without this, "no password field is
+    // on the page" would be answered by the last test's dialog.
+    document.body.innerHTML = ''
     signIn()
     useShowdownAliases().value = ['DavoPro1214']
     importMany.mockReset().mockResolvedValue(report([imported()]))
@@ -681,7 +712,7 @@ describe('syncing private replays', () => {
     expect(syncPrivate.mock.calls[0]?.slice(0, 2)).toEqual(['DavoPro1214', 'hunter2'])
   })
 
-  it('says what happens to the password, next to the field it is typed into', async () => {
+  it('says what happens to the password, in the dialog that asks for it', async () => {
     // The one thing about this form that has no technical answer (§5): the
     // reader is being asked to type a Showdown password somewhere that is not
     // Showdown, and the only honest response is to say so.
@@ -689,14 +720,43 @@ describe('syncing private replays', () => {
     // four points below are the promise, and a key that renders to something
     // else would still match itself.
     const wrapper = await mountSuspended(App, { route: '/import' })
-    const said = wrapper.get('[data-testid="private-disclosure"]').text()
+    await openPrivate(wrapper, 'DavoPro1214')
+    const said = inDialog('[data-testid="private-disclosure"]')!.textContent ?? ''
 
     // Where it goes, how long it is kept, the way out, and the habit.
-    expect(said).toContain('our server and to Showdown, and nowhere else')
-    expect(said).toContain('closed the moment the list has been read')
-    expect(said).toContain('Changing your password on Showdown ends every session')
+    expect(said).toContain('only passes through our server on its way to Showdown')
+    expect(said).toContain('that pass is thrown away')
+    expect(said).toContain('Change your password on Showdown')
     expect(said).toContain('this is not Showdown')
-    expect(wrapper.findAll('[data-testid="private-disclosure"] li')).toHaveLength(4)
+    expect(inDialog('[data-testid="private-disclosure"]')!.querySelectorAll('li')).toHaveLength(4)
+  })
+
+  it('never says "session" to a reader who has no reason to know the word', async () => {
+    // The note is the whole defence of this form, and a defence nobody can
+    // read is not one.
+    const wrapper = await mountSuspended(App, { route: '/import' })
+    await openPrivate(wrapper, 'DavoPro1214')
+
+    const said = inDialog('[data-testid="private-dialog"]')!.textContent ?? ''
+
+    expect(said.toLowerCase()).not.toContain('session')
+  })
+
+  it('asks for nothing but a name until the private button is pressed', async () => {
+    // The two syncs share one row and one name field; the password belongs to
+    // the path that needs it, not to the page.
+    const wrapper = await mountSuspended(App, { route: '/import' })
+
+    expect(wrapper.find('[data-testid="private-password"]').exists()).toBe(false)
+    expect(inDialog('[data-testid="private-password"]')).toBeNull()
+  })
+
+  it('syncs the name in the shared field, so the two buttons cannot disagree', async () => {
+    const wrapper = await mountSuspended(App, { route: '/import' })
+
+    await syncPrivately(wrapper, 'DavoPro1214', 'hunter2')
+
+    expect(syncPrivate.mock.calls[0]![0]).toBe('DavoPro1214')
   })
 
   it('forgets the password as soon as the attempt is over', async () => {
@@ -705,55 +765,64 @@ describe('syncing private replays', () => {
     await syncPrivately(wrapper, 'DavoPro1214', 'hunter2')
     await settle()
 
-    expect(
-      (wrapper.get('[data-testid="private-password"]').element as HTMLInputElement).value,
-    ).toBe('')
+    // Either it is gone with the dialog, or it is gone from the field.
+    const field = inDialog('[data-testid="private-password"]') as HTMLInputElement | null
+    expect(field?.value ?? '').toBe('')
+  })
+
+  it('forgets the password when the dialog is closed without syncing', async () => {
+    const wrapper = await mountSuspended(App, { route: '/import' })
+    await openPrivate(wrapper, 'DavoPro1214')
+
+    const typed = inDialog('[data-testid="private-password"]') as HTMLInputElement
+    typed.value = 'hunter2'
+    typed.dispatchEvent(new Event('input'))
+    await nextTick()
+
+    inDialog('[data-testid="private-cancel"]')!.click()
+    await settle()
+    await openPrivate(wrapper, 'DavoPro1214')
+
+    expect((inDialog('[data-testid="private-password"]') as HTMLInputElement).value).toBe('')
+    expect(syncPrivate).not.toHaveBeenCalled()
   })
 
   it('never puts the password in a field the browser will remember by name', async () => {
     const wrapper = await mountSuspended(App, { route: '/import' })
-    const field = wrapper.get('[data-testid="private-password"]')
+    await openPrivate(wrapper, 'DavoPro1214')
+    const field = inDialog('[data-testid="private-password"]')!
 
-    expect(field.attributes('type')).toBe('password')
-    expect(field.attributes('autocomplete')).toBe('off')
+    expect(field.getAttribute('type')).toBe('password')
+    expect(field.getAttribute('autocomplete')).toBe('off')
   })
 
-  it('refuses a name the reader has not bound, without sending the password', async () => {
+  it('refuses a name the reader has not bound before asking for a password', async () => {
     // Showdown refuses it too (§2.2.6), but only after the password has been
-    // sent — and its wording is not for a reader of this page.
+    // sent — and its wording is not for a reader of this page. Refused here
+    // the dialog never opens, so nobody types a password for nothing.
     const wrapper = await mountSuspended(App, { route: '/import' })
 
-    await syncPrivately(wrapper, 'SomebodyElse', 'hunter2')
+    await openPrivate(wrapper, 'SomebodyElse')
 
+    expect(inDialog('[data-testid="private-password"]')).toBeNull()
     expect(syncPrivate).not.toHaveBeenCalled()
     expect(wrapper.get('[data-testid="import-error"]').text()).toContain(
-      'not one of your Showdown names',
+      'not one of your bound Showdown names',
     )
-  })
-
-  it('forgets the password even when the name never passed the check', async () => {
-    // The likeliest way to get here is a typo in the name, which is no reason
-    // to leave a Showdown password sitting in a form field.
-    const wrapper = await mountSuspended(App, { route: '/import' })
-
-    await syncPrivately(wrapper, 'SomebodyElse', 'hunter2')
-
-    expect(
-      (wrapper.get('[data-testid="private-password"]').element as HTMLInputElement).value,
-    ).toBe('')
   })
 
   it('does not send an empty password to find out that it is empty', async () => {
     const wrapper = await mountSuspended(App, { route: '/import' })
+    await openPrivate(wrapper, 'DavoPro1214')
 
-    await wrapper.get('[data-testid="private-name"]').setValue('DavoPro1214')
-    await wrapper.get('[data-testid="private-form"]').trigger('submit')
-    await nextTick()
+    await submitPassword('')
 
     expect(syncPrivate).not.toHaveBeenCalled()
-    // And not the wording about Showdown refusing it, which it never saw.
-    expect(wrapper.get('[data-testid="import-error"]').text()).toContain('password')
-    expect(wrapper.get('[data-testid="import-error"]').text()).not.toContain('Showdown did not')
+    // Said in the dialog, where the empty field is, and not in the wording
+    // about Showdown refusing it, which it never saw.
+    const said = inDialog('[data-testid="private-password-error"]')!.textContent ?? ''
+    expect(said).toContain('password')
+    expect(said).not.toContain('Showdown did not')
   })
 
   it('does not promise a second run will reach what this one could not', async () => {
@@ -819,7 +888,7 @@ describe('syncing private replays', () => {
     await syncPrivately(wrapper, 'DavoPro1214', 'hunter2')
 
     expect(wrapper.get('[data-testid="private-truncated"]').text()).toContain(
-      'cannot be reached this way',
+      'copy their links from Showdown',
     )
     expect(wrapper.find('[data-testid="sync-truncated"]').exists()).toBe(false)
   })
