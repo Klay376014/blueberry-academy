@@ -54,22 +54,27 @@ const truncated = ref<'account' | 'private' | null>(null)
 
 /**
  * The name to sync, prefilled with the first bound alias — the account whose
- * battles these are is almost always the one already on the profile.
+ * battles these are is almost always the one already on the profile. One
+ * field for both buttons: public and private replays belong to the same
+ * account, and asking for the name twice only invited the two to disagree.
  */
 const syncName = ref(props.aliases[0] ?? '')
 
 /**
- * The private form's own pair. The name is prefilled like the one above it;
- * the password is never prefilled and never kept — it is cleared the moment
- * the attempt is over (design document §5).
+ * The password, asked for only when it is needed — in a dialog the private
+ * button opens, so the public path never has a password field standing next
+ * to it. Never prefilled and never kept: it is cleared the moment the attempt
+ * is over (design document §5).
  */
-const privateName = ref(props.aliases[0] ?? '')
 const privatePassword = ref('')
+const askingPassword = ref(false)
+/** Said inside the dialog, because that is where the empty field is. */
+const passwordMissing = ref(false)
+const passwordField = useTemplateRef<HTMLInputElement>('passwordField')
 
 /** Unique per instance, so each label points at its own field. */
 const linksInputId = useId()
 const syncInputId = useId()
-const privateNameId = useId()
 const privatePasswordId = useId()
 
 /**
@@ -320,6 +325,46 @@ async function syncByName() {
 }
 
 /**
+ * The second button on the same row. The name is checked before the dialog
+ * opens rather than after: a name this reader has not bound could only ever
+ * come back refused, and finding that out afterwards would mean they typed a
+ * Showdown password for nothing.
+ */
+function askForPassword() {
+  if (busy.value || !props.aliasesLoaded) return
+
+  reset()
+
+  if (!boundIds.value.has(toID(syncName.value))) {
+    failure.value = { reason: 'not-bound', message: '' }
+    return
+  }
+
+  privatePassword.value = ''
+  passwordMissing.value = false
+  askingPassword.value = true
+}
+
+/**
+ * The password field rather than the cancel button, which is where an alert
+ * dialog would put it: there is nothing destructive behind this one, and the
+ * reader opened it to type something.
+ */
+function focusPassword(event: { preventDefault: () => void }) {
+  event.preventDefault()
+  passwordField.value?.focus()
+}
+
+/** Shut by cancelling, by finishing, or by pressing Escape — all the same. */
+function closePasswordDialog(open: boolean) {
+  if (open) return
+
+  askingPassword.value = false
+  privatePassword.value = ''
+  passwordMissing.value = false
+}
+
+/**
  * The third entrance: the replays no search will admit to. The listing goes
  * through our own Worker (design document §2.1); everything after it is the
  * same pipeline as the other two.
@@ -327,30 +372,27 @@ async function syncByName() {
 async function syncPrivateReplays() {
   if (busy.value || !props.aliasesLoaded) return
 
-  reset()
-
   // Out of the field first, before anything can return early. A password left
   // in a form is one refresh away from a password manager offering to keep
-  // it, and the likeliest way to leave this function early is a typo in the
-  // name — exactly when the password has just been typed.
+  // it.
   const password = privatePassword.value
   privatePassword.value = ''
 
-  if (!boundIds.value.has(toID(privateName.value))) {
-    failure.value = { reason: 'not-bound', message: '' }
-    return
-  }
-
   // Asked here rather than by sending it: an empty password can only come
   // back as the route refusing the body, and the reader would be told to
-  // check something Showdown never saw.
+  // check something Showdown never saw. The dialog stays open — the field
+  // they have to fill in is the one inside it.
   if (!password) {
-    failure.value = { reason: 'no-password', message: '' }
+    passwordMissing.value = true
     return
   }
 
+  passwordMissing.value = false
+  askingPassword.value = false
+  reset()
+
   await run(async () => {
-    const outcome = await syncPrivate(privateName.value, password, watching)
+    const outcome = await syncPrivate(syncName.value, password, watching)
 
     if (outcome.status === 'failed') {
       failure.value = { reason: outcome.reason, message: outcome.message }
@@ -407,13 +449,17 @@ async function syncPrivateReplays() {
     <h2 class="mt-10 text-xl font-semibold tracking-tight">{{ t('import.sync.title') }}</h2>
     <p class="mt-1 text-sm text-muted-foreground">{{ t('import.sync.tagline') }}</p>
 
+    <!-- One name, two buttons. Public and private replays belong to the same
+         account, so they read as two things to do with one name rather than
+         as two forms — and the password is only asked for down the path that
+         actually needs it. -->
     <form
-      class="mt-3 flex items-end gap-2"
+      class="mt-3 flex flex-wrap items-end gap-2"
       :aria-label="t('import.sync.title')"
       data-testid="sync-form"
       @submit.prevent="syncByName"
     >
-      <div class="flex-1">
+      <div class="min-w-40 flex-1">
         <label class="text-sm font-medium" :for="syncInputId">{{ t('import.sync.label') }}</label>
         <input
           :id="syncInputId"
@@ -430,72 +476,87 @@ async function syncPrivateReplays() {
       <UiButton type="submit" :disabled="!aliasesLoaded || busy" data-testid="sync-submit">
         {{ busy ? t('import.working') : t('import.sync.submit') }}
       </UiButton>
-    </form>
-
-    <h2 class="mt-10 text-xl font-semibold tracking-tight">{{ t('import.private.title') }}</h2>
-    <p class="mt-1 text-sm text-muted-foreground">{{ t('import.private.tagline') }}</p>
-
-    <!-- Above the fields, not below them: the reader is about to type a
-         Showdown password into something that is not Showdown, and being told
-         afterwards is no use to them (design document §5, "沒有技術解的一項"). -->
-    <div
-      class="mt-3 rounded-md border border-border bg-muted/40 p-3 text-sm text-muted-foreground"
-      data-testid="private-disclosure"
-    >
-      <p class="font-medium text-foreground">{{ t('import.private.disclosure.title') }}</p>
-      <ul class="mt-2 list-disc space-y-1 pl-5">
-        <li>{{ t('import.private.disclosure.where') }}</li>
-        <li>{{ t('import.private.disclosure.session') }}</li>
-        <li>{{ t('import.private.disclosure.killSwitch') }}</li>
-        <li>{{ t('import.private.disclosure.habit') }}</li>
-      </ul>
-    </div>
-
-    <form
-      class="mt-3 flex flex-wrap items-end gap-2"
-      :aria-label="t('import.private.title')"
-      data-testid="private-form"
-      @submit.prevent="syncPrivateReplays"
-    >
-      <div class="min-w-40 flex-1">
-        <label class="text-sm font-medium" :for="privateNameId">
-          {{ t('import.private.nameLabel') }}
-        </label>
-        <input
-          :id="privateNameId"
-          v-model="privateName"
-          class="mt-1 h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs transition-colors placeholder:text-muted-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none disabled:opacity-50"
-          :disabled="!aliasesLoaded"
-          autocapitalize="off"
-          autocomplete="off"
-          spellcheck="false"
-          data-testid="private-name"
-        />
-      </div>
-      <div class="min-w-40 flex-1">
-        <label class="text-sm font-medium" :for="privatePasswordId">
-          {{ t('import.private.passwordLabel') }}
-        </label>
-        <!-- `autocomplete="off"` rather than `current-password`: the browser
-             offering to keep a Showdown password under our address is the
-             habit the note above is about, and inviting it would be worse
-             than the hint being only a hint. -->
-        <input
-          :id="privatePasswordId"
-          v-model="privatePassword"
-          type="password"
-          class="mt-1 h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs transition-colors placeholder:text-muted-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none disabled:opacity-50"
-          :disabled="!aliasesLoaded"
-          autocapitalize="off"
-          autocomplete="off"
-          spellcheck="false"
-          data-testid="private-password"
-        />
-      </div>
-      <UiButton type="submit" :disabled="!aliasesLoaded || busy" data-testid="private-submit">
-        {{ busy ? t('import.private.working') : t('import.private.submit') }}
+      <UiButton
+        type="button"
+        variant="outline"
+        :disabled="!aliasesLoaded || busy"
+        data-testid="private-open"
+        @click="askForPassword"
+      >
+        {{ t('import.private.open') }}
       </UiButton>
     </form>
+
+    <p class="mt-2 text-sm text-muted-foreground">{{ t('import.private.tagline') }}</p>
+
+    <!-- The password is asked for here, one step in, rather than sitting on
+         the page next to a button that never needs it. What happens to it is
+         said above the field and not below: the reader is about to type a
+         Showdown password into something that is not Showdown, and being told
+         afterwards is no use to them (design document §5). -->
+    <UiAlertDialog :open="askingPassword" @update:open="closePasswordDialog">
+      <UiAlertDialogContent data-testid="private-dialog" @open-auto-focus="focusPassword">
+        <UiAlertDialogTitle>{{ t('import.private.title') }}</UiAlertDialogTitle>
+        <UiAlertDialogDescription>
+          {{ t('import.private.forName', { name: syncName }) }}
+        </UiAlertDialogDescription>
+
+        <div
+          class="rounded-md border border-border bg-muted/40 p-3 text-sm text-muted-foreground"
+          data-testid="private-disclosure"
+        >
+          <p class="font-medium text-foreground">{{ t('import.private.disclosure.title') }}</p>
+          <ul class="mt-2 list-disc space-y-1 pl-5">
+            <li>{{ t('import.private.disclosure.where') }}</li>
+            <li>{{ t('import.private.disclosure.session') }}</li>
+            <li>{{ t('import.private.disclosure.killSwitch') }}</li>
+            <li>{{ t('import.private.disclosure.habit') }}</li>
+          </ul>
+        </div>
+
+        <form
+          :aria-label="t('import.private.title')"
+          data-testid="private-form"
+          @submit.prevent="syncPrivateReplays"
+        >
+          <label class="text-sm font-medium" :for="privatePasswordId">
+            {{ t('import.private.passwordLabel') }}
+          </label>
+          <!-- `autocomplete="off"` rather than `current-password`: the browser
+               offering to keep a Showdown password under our address is the
+               habit the note above is about, and inviting it would be worse
+               than the hint being only a hint. -->
+          <input
+            :id="privatePasswordId"
+            ref="passwordField"
+            v-model="privatePassword"
+            type="password"
+            class="mt-1 h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs transition-colors placeholder:text-muted-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none disabled:opacity-50"
+            autocapitalize="off"
+            autocomplete="off"
+            spellcheck="false"
+            data-testid="private-password"
+          />
+
+          <p
+            v-if="passwordMissing"
+            class="mt-2 text-sm text-destructive"
+            data-testid="private-password-error"
+          >
+            {{ t('import.private.noPassword') }}
+          </p>
+
+          <UiAlertDialogFooter class="mt-4">
+            <UiAlertDialogCancel data-testid="private-cancel">
+              {{ t('import.private.cancel') }}
+            </UiAlertDialogCancel>
+            <UiButton type="submit" :disabled="busy" data-testid="private-submit">
+              {{ busy ? t('import.private.working') : t('import.private.submit') }}
+            </UiButton>
+          </UiAlertDialogFooter>
+        </form>
+      </UiAlertDialogContent>
+    </UiAlertDialog>
 
     <p v-if="failure" class="mt-4 text-sm text-destructive" data-testid="import-error">
       {{
@@ -503,9 +564,7 @@ async function syncPrivateReplays() {
           ? t('import.sync.unusable')
           : failure.reason === 'not-bound'
             ? t('import.private.notBound')
-            : failure.reason === 'no-password'
-              ? t('import.private.noPassword')
-              : reasonOf(failure.reason)
+            : reasonOf(failure.reason)
       }}
     </p>
 

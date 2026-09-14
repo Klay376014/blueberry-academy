@@ -153,13 +153,13 @@
     "submit": "匯入",
     "working": "匯入中…",
     "sync": {
-      "title": "同步帳號",
-      "tagline": "這個名稱在 Showdown 上查得到的全部公開 replay。已經匯入過的會自動跳過，中斷了再按一次，會從沒做完的地方接著跑。",
+      "title": "同步 Showdown 帳號",
+      "tagline": "輸入 Showdown 名稱可以即時同步公開的 replay，私人 replay 則需要輸入密碼。已經匯入過的都會自動跳過，如果同步中斷了，重新同步會接著上次的進度繼續。",
       "label": "Showdown 名稱",
       "placeholder": "",
-      "submit": "同步",
+      "submit": "同步公開 replay",
       "unusable": "這不是 Showdown 名稱，至少要有一個英數字元。",
-      "truncated": "Showdown 的搜尋只翻得到這裡，這個帳號的 replay 還沒抓完，所以這不是完整的紀錄。一次搜尋大概到 5000 場，再舊的要用更細的條件才找得到。"
+      "truncated": "搜尋已達 Showdown 上限，可能會有遺漏的場次。"
     },
     "profileFailed": "讀不到你的 Showdown 名稱清單，現在沒辦法匯入：沒有它就不知道一場對戰哪一邊是你。重新載入頁面再試一次。",
     "progress": {
@@ -204,21 +204,24 @@
     },
     "private": {
       "title": "同步私人 replay",
-      "tagline": "私人 replay 不會出現在任何搜尋裡，所以這裡會以你的身分登入 Showdown 去要清單。只要清單：replay 本身的匯入方式與其他入口完全一樣，已經匯入過的一樣會跳過。",
+      "tagline": "私人 replay 必須以 Showdown 密碼登入才拿得到清單。",
       "nameLabel": "Showdown 名稱",
       "passwordLabel": "Showdown 密碼",
-      "submit": "同步私人場次",
+      "submit": "開始同步",
       "working": "同步中…",
       "disclosure": {
         "title": "你的密碼會發生什麼事",
-        "where": "它只會送到我們的伺服器和 Showdown，不會去別的地方。它只被用一次，換一個 Showdown session，然後就消失了：不會被寫下來、不會進日誌、也不會留在這個瀏覽器裡。",
-        "session": "清單一讀完，那個 session 立刻被關掉，你不會有任何東西留在這裡登入著。下次要再打一次密碼 —— 這正是重點。",
-        "killSwitch": "你不需要相信我們的說法。在 Showdown 改密碼會立刻讓所有 session 失效，包括這一個。",
+        "where": "它只會經由我們的伺服器送去 Showdown，取得通行證獲取 replay。",
+        "session": "清單一讀完，那張通行證立刻作廢，你的 Showdown 密碼不會留存在這個網站的任何地方。",
+        "killSwitch": "你不需要相信我們的說法。到 Showdown 改一次密碼，這裡拿到的通行證馬上就失效，別的地方也一樣。",
         "habit": "還有我們修不掉的一件事：這裡不是 Showdown，而你的密碼管理員會想把 Showdown 密碼記在我們的網址底下。除了 Showdown 本身，任何地方都不該跟你要這組密碼。"
       },
-      "notBound": "這不是你綁定的 Showdown 名稱。Showdown 只允許一個帳號列出自己的私人 replay，所以這裡只能填你已經綁定的名字。",
-      "truncated": "這個帳號的私人 replay 比一次同步能列出的還多，而剩下的用這個方式拿不到：列出永遠從最新的開始，再跑一次只會拿到同一批。現在匯入的就是最新的那批。更舊的請把連結貼到最上面的框裡 —— 私人 replay 的連結本身就帶著密碼。",
-      "noPassword": "密碼也要填。沒有它什麼都沒有送出去。"
+      "notBound": "這不是你綁定的 Showdown 名稱。要匯入私人 replay，請先至設定頁連結此名稱。",
+      "truncated": "這個帳號的私人 replay 已達搜尋上限，如果要匯入更舊的 replay，請從 Showdown 的 replay 取得連結後手動貼上。",
+      "noPassword": "請輸入密碼。",
+      "open": "同步私人 replay",
+      "cancel": "取消",
+      "forName": "要同步 {name} 的私人 replay。"
     }
   },
   "settings": {

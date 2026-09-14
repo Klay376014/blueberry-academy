@@ -153,13 +153,13 @@
     "submit": "Import",
     "working": "Importing…",
     "sync": {
-      "title": "Sync an account",
-      "tagline": "Every public replay Showdown will admit to for this name. Anything already imported is skipped, so pressing this again after a stopped import will pick up where it left off.",
+      "title": "Sync a Showdown account",
+      "tagline": "Enter a Showdown name to sync its public replays right away; the private ones need your password too. Anything already imported is skipped, so a sync that stopped partway picks up where it left off.",
       "label": "Showdown name",
       "placeholder": "",
-      "submit": "Sync",
+      "submit": "Sync public replays",
       "unusable": "That is not a Showdown name. It needs at least one letter or digit.",
-      "truncated": "Showdown ran out of search pages before this account ran out of replays, so this is not the whole history. A single search reaches about 5000 replays, and the rest need a narrower search."
+      "truncated": "This search reached Showdown’s limit, so some battles may be missing."
     },
     "profileFailed": "We could not read your Showdown names, so nothing can be imported right now: without them there is no way to tell which side of a battle is yours. Reload the page to try again.",
     "progress": {
@@ -204,21 +204,24 @@
     },
     "private": {
       "title": "Sync private replays",
-      "tagline": "A private replay is in no search, so this signs in to Showdown as you and asks it for the list. Only the list: the replays themselves come in exactly the way everything else here does, and anything already imported is skipped.",
+      "tagline": "Private replays are only reachable with your Showdown password.",
       "nameLabel": "Showdown name",
       "passwordLabel": "Showdown password",
-      "submit": "Sync private",
+      "submit": "Start syncing",
       "working": "Syncing…",
       "disclosure": {
         "title": "What happens to your password",
-        "where": "It goes to our server and to Showdown, and nowhere else. It is used once, to trade for a Showdown session, and then it is gone: nothing writes it down, nothing logs it, and nothing keeps it in this browser.",
-        "session": "That session is closed the moment the list has been read, so nothing of yours is left signed in here. You will have to type the password again next time, which is the point.",
-        "killSwitch": "You do not have to take our word for any of it. Changing your password on Showdown ends every session at once, this one included.",
+        "where": "It only passes through our server on its way to Showdown, to get the pass that fetches the replays.",
+        "session": "The moment the list has been read that pass is thrown away, and your Showdown password is kept nowhere on this site.",
+        "killSwitch": "You do not have to take our word for it. Change your password on Showdown once and the pass we were given stops working immediately, along with every other one.",
         "habit": "And the part we cannot fix: this is not Showdown, and your password manager will offer to remember a Showdown password under our address. Nothing but Showdown should ever ask you for it."
       },
-      "notBound": "That is not one of your Showdown names. Showdown only lets an account list its own private replays, so this has to be a name you have bound here first.",
-      "truncated": "This account has more private replays than one sync can list, and the rest cannot be reached this way: the listing always starts at the newest, so running it again lists the same ones. Everything here now is the newest batch. For anything older, paste its link into the box at the top — a private replay link carries its own password.",
-      "noPassword": "Fill in your Showdown password as well. Nothing was sent without it."
+      "notBound": "That is not one of your bound Showdown names. To import private replays, bind this name in settings first.",
+      "truncated": "This account’s private replays reached the search limit. To import older ones, copy their links from Showdown and paste them into the box at the top.",
+      "noPassword": "Enter your password.",
+      "open": "Sync private replays",
+      "cancel": "Cancel",
+      "forName": "Syncing the private replays of {name}."
     }
   },
   "settings": {
