@@ -6,7 +6,7 @@
     "settings": "Settings",
     "import": "Import",
     "signIn": "Sign in",
-    "account": "Account"
+    "signedIn": "Signed in as"
   },
   "footer": {
     "about": "About",

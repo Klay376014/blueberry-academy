@@ -6,7 +6,7 @@
     "settings": "設定",
     "import": "匯入",
     "signIn": "登入",
-    "account": "帳號"
+    "signedIn": "目前登入"
   },
   "footer": {
     "about": "關於",
