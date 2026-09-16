@@ -262,10 +262,12 @@ describe('the rows one turn becomes', () => {
       '|-damage|p2a: Whimsicott|32/100',
       '|-boost|p1a: Scrafty|atk|1',
       '|-activate|p2a: Whimsicott|move: Protect',
+      '|-enditem|p2a: Whimsicott|Sitrus Berry',
     ]
 
     // The whole turn reads on one row: it moved, it was super effective, it
-    // took 68%. The stat stage is available and not in the way.
+    // took 68%, and its own attack went up. The berry is available and not in
+    // the way.
     expect(rows(lines).map((row) => row.mark)).toEqual(['move'])
     expect(sidelinedCount(turnsOf(lines)[1]!)).toBe(1)
     expect(rows(lines, true)).toHaveLength(2)
@@ -342,15 +344,6 @@ describe('the rows one turn becomes', () => {
       targets: [{ species: 'Whimsicott' }],
       message: { key: 'boostsCopied' },
     })
-  })
-
-  it('holds a rewritten stat change back until the rest of the turn is asked for', () => {
-    // The same standing as `-boost`: the move that did it is the main line, and
-    // the bar below already shows the chips going.
-    const lines = ['|move|p2a: Whimsicott|Haze|p2a: Whimsicott', '|-clearallboost']
-
-    expect(rows(lines).map((row) => row.mark)).toEqual(['move'])
-    expect(sidelinedCount(turnsOf(lines)[1]!)).toBe(1)
   })
 })
 
@@ -663,6 +656,161 @@ describe('the results an action gathers onto its own row', () => {
       'effectHeld',
     ])
     expect(rows(afterSwitch)[0]?.targets[0]?.notes).toEqual([])
+  })
+})
+
+/**
+ * The stat changes a move caused, on the row of the move that caused them
+ * (#206). The gate is the one T26 wrote for the damage: the log's own fields
+ * and nothing else, so a Weakness Policy that fired under a move stays off it.
+ */
+describe('the stat changes an action gathers onto its own row', () => {
+  it('folds a drop onto the target the move itself named', () => {
+    const lines = [
+      '|move|p1a: Scrafty|Parting Shot|p2a: Whimsicott',
+      '|-unboost|p2a: Whimsicott|atk|1',
+      '|-unboost|p2a: Whimsicott|spa|1',
+    ]
+
+    expect(rows(lines)).toMatchObject([
+      {
+        move: 'Parting Shot',
+        targets: [
+          {
+            species: 'Whimsicott',
+            notes: [
+              { key: 'statFell', params: { stat: 'atk', stages: '1' }, quiet: false },
+              { key: 'statFell', params: { stat: 'spa', stages: '1' }, quiet: false },
+            ],
+          },
+        ],
+      },
+    ])
+    // Folding is a way of drawing, not a second row: the turn is no longer.
+    expect(sidelinedCount(turnsOf(lines)[1]!)).toBe(0)
+  })
+
+  it('puts a stat change on the Pokémon that took the hit, in its own slot', () => {
+    // The drop arrives after the damage, so it is the target's rather than
+    // that hit's: a hit carries what the log said before it (#170).
+    const lines = [
+      '|move|p1a: Scrafty|Crunch|p2a: Whimsicott',
+      '|-damage|p2a: Whimsicott|62/100',
+      '|-unboost|p2a: Whimsicott|def|1',
+    ]
+
+    expect(rows(lines)[0]?.targets[0]).toMatchObject({
+      species: 'Whimsicott',
+      hits: [{ notes: [] }],
+      notes: [{ key: 'statFell', params: { stat: 'def', stages: '1' } }],
+    })
+  })
+
+  it('folds a stat change the move put on its own user onto the row itself', () => {
+    expect(
+      rows(['|move|p1a: Scrafty|Swords Dance|p1a: Scrafty', '|-boost|p1a: Scrafty|atk|2'])[0],
+    ).toMatchObject({
+      move: 'Swords Dance',
+      targets: [],
+      notes: [{ key: 'statRose', params: { stat: 'atk', stages: '2' }, quiet: false }],
+    })
+  })
+
+  it('folds a line whose named source is the move already on the row', () => {
+    // Belly Drum says `[from] move: Belly Drum`, which is the open move saying
+    // it did this — the opposite of the Life Orb case `from` exists to catch.
+    const lines = [
+      '|move|p1a: Scrafty|Belly Drum|p1a: Scrafty',
+      '|-setboost|p1a: Scrafty|atk|6|[from] move: Belly Drum',
+    ]
+
+    expect(rows(lines)[0]?.notes).toEqual([
+      { key: 'boostSet', params: { stat: 'atk', stages: '+6' }, quiet: false },
+    ])
+    expect(sidelinedCount(turnsOf(lines)[1]!)).toBe(0)
+  })
+
+  it('leaves a stat change the log blamed on something else on its own row', () => {
+    // A Weakness Policy fires on a Pokémon the move did hit, so the target
+    // test alone would put an item's work on the attacker's row.
+    const lines = [
+      '|move|p1a: Scrafty|Knock Off|p2a: Whimsicott',
+      '|-damage|p2a: Whimsicott|38/100',
+      '|-boost|p2a: Whimsicott|atk|2|[from] item: Weakness Policy',
+    ]
+
+    expect(rows(lines).map((row) => [row.move, row.message?.key])).toEqual([
+      ['Knock Off', undefined],
+      [null, 'statRose'],
+    ])
+    expect(rows(lines)[0]?.targets[0]?.notes).toEqual([])
+    // On the main line, so the switch offers nothing that is already drawn.
+    expect(sidelinedCount(turnsOf(lines)[1]!)).toBe(0)
+  })
+
+  it('reads the whole of a named source, namespace included', () => {
+    // `item: Metronome` and the move Metronome share a name, and the half that
+    // tells them apart is the one a bare-name comparison throws away.
+    const lines = [
+      '|move|p1a: Scrafty|Metronome|p1a: Scrafty',
+      '|-boost|p1a: Scrafty|atk|1|[from] item: Metronome',
+    ]
+
+    expect(rows(lines).map((row) => row.message?.key)).toEqual([undefined, 'statRose'])
+    expect(rows(lines)[0]?.notes).toEqual([])
+  })
+
+  it('leaves a stat change with no move open on its own row', () => {
+    // The residual phase, and anything after a switch closed the action: there
+    // is no move to fold onto, and the line is still what decided the turn.
+    const lines = [
+      '|move|p1a: Scrafty|Knock Off|p2a: Whimsicott',
+      '|switch|p2a: Gholdengo|Gholdengo, L50|100/100',
+      '|-boost|p1a: Scrafty|spe|1',
+    ]
+
+    expect(rows(lines).map((row) => row.message?.key)).toEqual([undefined, 'cameInFor', 'statRose'])
+  })
+
+  it('folds nothing onto a Pokémon the move was never aimed at', () => {
+    // A bystander is made for a result that named one; a stat change is not
+    // one of those, because nothing in the line ties it to this move.
+    const lines = ['|move|p1a: Scrafty|Knock Off|p2a: Whimsicott', '|-unboost|p2b: Garchomp|atk|1']
+
+    expect(rows(lines, false, FOUR_UP).map((row) => row.message?.key)).toEqual([
+      undefined,
+      'statFell',
+    ])
+    expect(rows(lines, false, FOUR_UP)[0]?.bystanders).toEqual([])
+  })
+
+  it('folds the lines that rewrite stat changes by the same rule', () => {
+    // Named the target → that target's slot; named the user → the row itself.
+    // The partner of a swap is already behind the row's own arrow, so nothing
+    // is lost by folding a line that carries two Pokémon.
+    const smog = [
+      '|move|p1a: Scrafty|Clear Smog|p2a: Whimsicott',
+      '|-damage|p2a: Whimsicott|62/100',
+      '|-clearboost|p2a: Whimsicott',
+    ]
+    const heartSwap = [
+      '|move|p1a: Scrafty|Heart Swap|p2a: Whimsicott',
+      '|-swapboost|p1a: Scrafty|p2a: Whimsicott|[from] move: Heart Swap',
+    ]
+
+    expect(rows(smog)[0]?.targets[0]?.notes).toEqual([{ key: 'boostsCleared', quiet: false }])
+    expect(rows(heartSwap)[0]).toMatchObject({
+      move: 'Heart Swap',
+      targets: [{ species: 'Whimsicott' }],
+      notes: [{ key: 'allBoostsSwapped', quiet: false }],
+    })
+  })
+
+  it('keeps a Haze on the main line, because it names nobody to fold onto', () => {
+    const lines = ['|move|p2a: Whimsicott|Haze|p2a: Whimsicott', '|-clearallboost']
+
+    expect(rows(lines).map((row) => row.message?.key)).toEqual([undefined, 'allBoostsCleared'])
+    expect(sidelinedCount(turnsOf(lines)[1]!)).toBe(0)
   })
 })
 
@@ -1054,5 +1202,42 @@ describe('the Skill Swap of gen9championsvgc2026regma-2592519449', () => {
       targets: [{ species: 'Incineroar' }],
       notes: [{ key: 'effectActivated', params: { effect: 'Skill Swap' }, quiet: true }],
     })
+  })
+})
+
+/**
+ * The turn #206 was written from, read as a whole rather than as written
+ * lines: a Parting Shot in a real game whose two drops were behind the details
+ * switch, so the reader saw "it happened" and never saw what it did.
+ */
+describe('the Parting Shot of gen9vgc2024regf-2082942604', () => {
+  const turn = parseTimeline(multiHit.log).turns.find((turn) => turn.number === 2)!
+
+  it('draws the drops on the move that caused them, without adding a row', () => {
+    // The two the turn used to hide, named here so that the count below is
+    // read against the log rather than against itself: both are `-unboost`
+    // lines on the Rillaboom the Parting Shot was aimed at.
+    expect(turn.events.filter((event) => event.kind === 'boost')).toHaveLength(2)
+
+    // Five main-line rows before this change and five after: what moved is
+    // where the two drops are drawn, not how much of the turn is on screen.
+    // Behind the switch there were two and now there are none.
+    expect(rowsOf(turn, { detailed: false }).length).toBe(5)
+    expect(sidelinedCount(turn)).toBe(0)
+    expect(
+      rowsOf(turn, { detailed: true }).filter((row) => row.message?.key === 'statFell'),
+    ).toEqual([])
+
+    expect(
+      rowsOf(turn, { detailed: false }).find((row) => row.move === 'Parting Shot')?.targets,
+    ).toMatchObject([
+      {
+        species: 'Rillaboom',
+        notes: [
+          { key: 'statFell', params: { stat: 'atk', stages: '1' } },
+          { key: 'statFell', params: { stat: 'spa', stages: '1' } },
+        ],
+      },
+    ])
   })
 })

@@ -84,8 +84,16 @@ export type TimelineEvent =
   | { kind: 'status'; pokemon: Combatant; status: string }
   /** A status cured or worn off — the inverse of `status`, for anything holding the current one. */
   | { kind: 'cureStatus'; pokemon: Combatant; status: string }
-  /** A stat change, in stages. Negative for a drop. */
-  | { kind: 'boost'; pokemon: Combatant; stat: string; stages: number }
+  /**
+   * A stat change, in stages. Negative for a drop.
+   *
+   * `from` is what the log itself said caused it and nothing else: `item:
+   * Weakness Policy`, `move: Belly Drum`, `ability: Anger Point`, and null on
+   * the bare lines, which is most of them. The whole family carries it for the
+   * same reason the HP lines do — it is the only field that tells the move
+   * that is open apart from an item that happened to fire under it (#206).
+   */
+  | { kind: 'boost'; pokemon: Combatant; stat: string; stages: number; from: string | null }
   /**
    * Every stat change on the field gone at once: Haze. Nobody's, so it carries
    * no Pokémon — the line itself carries none either (#123).
@@ -95,19 +103,25 @@ export type TimelineEvent =
    * One Pokémon's stat changes gone: Clear Smog, or — with `only: 'positive'`
    * — the raised ones only, which is Spectral Thief taking them.
    */
-  | { kind: 'clearBoosts'; pokemon: Combatant; only: 'positive' | null }
+  | { kind: 'clearBoosts'; pokemon: Combatant; only: 'positive' | null; from: string | null }
   /** A stat change written outright rather than added to: Belly Drum's +6. */
-  | { kind: 'setBoost'; pokemon: Combatant; stat: string; stages: number }
+  | { kind: 'setBoost'; pokemon: Combatant; stat: string; stages: number; from: string | null }
   /** Every stat change turned the other way round: Topsy-Turvy. */
-  | { kind: 'invertBoosts'; pokemon: Combatant }
+  | { kind: 'invertBoosts'; pokemon: Combatant; from: string | null }
   /**
    * Two Pokémon trading stat changes: Heart Swap, Guard Swap, Power Swap.
    * `stats` is the ones the line named, and empty for all of them — Heart Swap
    * leaves the column out (#123).
    */
-  | { kind: 'swapBoosts'; pokemon: Combatant; target: Combatant; stats: string[] }
+  | {
+      kind: 'swapBoosts'
+      pokemon: Combatant
+      target: Combatant
+      stats: string[]
+      from: string | null
+    }
   /** Psych Up: `pokemon` takes on the stat changes `target` is holding. */
-  | { kind: 'copyBoosts'; pokemon: Combatant; target: Combatant }
+  | { kind: 'copyBoosts'; pokemon: Combatant; target: Combatant; from: string | null }
   | { kind: 'weather'; weather: string; from: string | null }
   /** How a hit landed, as Showdown announced it. */
   | { kind: 'hitResult'; pokemon: Combatant; result: HitResult }
@@ -394,6 +408,7 @@ export function buildTimeline(lines: ProtocolLine[]): BattleTimeline {
           pokemon,
           stat: args[1] ?? '',
           stages: type === '-boost' ? stages : -stages,
+          from: sourceOf(args),
         })
         break
       }
@@ -426,6 +441,7 @@ export function buildTimeline(lines: ProtocolLine[]): BattleTimeline {
           kind: 'clearBoosts',
           pokemon,
           only: type === '-clearpositiveboost' ? 'positive' : null,
+          from: sourceOf(args),
         })
         break
       }
@@ -439,13 +455,19 @@ export function buildTimeline(lines: ProtocolLine[]): BattleTimeline {
         // client reads as "maximised" rather than as a number — and a stat
         // standing at +12 is a state no battle can be in, so what would reach
         // the bar and the row is a lie rather than a bigger truth.
-        push({ kind: 'setBoost', pokemon, stat: args[1] ?? '', stages: heldToStages(stages) })
+        push({
+          kind: 'setBoost',
+          pokemon,
+          stat: args[1] ?? '',
+          stages: heldToStages(stages),
+          from: sourceOf(args),
+        })
         break
       }
 
       case '-invertboost': {
         const pokemon = occupant(field, args[0] ?? '')
-        if (pokemon) push({ kind: 'invertBoosts', pokemon })
+        if (pokemon) push({ kind: 'invertBoosts', pokemon, from: sourceOf(args) })
         break
       }
 
@@ -458,8 +480,14 @@ export function buildTimeline(lines: ProtocolLine[]): BattleTimeline {
         if (!pokemon || !target) break
         push(
           type === '-copyboost'
-            ? { kind: 'copyBoosts', pokemon, target }
-            : { kind: 'swapBoosts', pokemon, target, stats: statsOf(args[2] ?? '') },
+            ? { kind: 'copyBoosts', pokemon, target, from: sourceOf(args) }
+            : {
+                kind: 'swapBoosts',
+                pokemon,
+                target,
+                stats: statsOf(args[2] ?? ''),
+                from: sourceOf(args),
+              },
         )
         break
       }

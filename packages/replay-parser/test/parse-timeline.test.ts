@@ -449,6 +449,38 @@ describe('parseTimeline', () => {
     ])
   })
 
+  it('keeps what a stat line said caused it, and null where it said nothing', () => {
+    // The field the drawer's folding turns on (#206): a stat change the log
+    // gave a source of is not the open move's work — a Weakness Policy fires
+    // on a Pokémon that move did hit — while a line naming the move itself is.
+    // Read for the whole family, because the reading is one rule.
+    const timeline = parseTimeline(
+      log({
+        lines: [
+          '|-boost|p2a: Whimsicott|atk|2|[from] item: Weakness Policy',
+          '|-boost|p1a: Scrafty|spe|2',
+          '|-setboost|p1a: Scrafty|atk|6|[from] move: Belly Drum',
+          '|-clearboost|p1a: Scrafty',
+          '|-invertboost|p2a: Whimsicott',
+          '|-swapboost|p1a: Scrafty|p2a: Whimsicott|[from] move: Heart Swap',
+          '|-copyboost|p1a: Scrafty|p2a: Whimsicott|[from] move: Psych Up',
+        ],
+      }),
+    )
+
+    expect(
+      timeline.turns[1]?.events.map((event) => ('from' in event ? event.from : 'no such field')),
+    ).toEqual([
+      'item: Weakness Policy',
+      null,
+      'move: Belly Drum',
+      null,
+      null,
+      'move: Heart Swap',
+      'move: Psych Up',
+    ])
+  })
+
   it('holds a stat a line pushed past the top of the scale down to it', () => {
     // Anger Point says 12, which is Showdown's word for "as far as it goes"
     // rather than a number of stages. +12 on the bar is a battle state that

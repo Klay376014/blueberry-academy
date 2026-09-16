@@ -394,14 +394,19 @@ describe('the drawer', () => {
     expect(icyWind?.textContent).toContain('Protect held')
   })
 
-  it('leaves only what it did not fold behind the switch', async () => {
+  it('leaves nothing behind the switch once the drops are on their moves', async () => {
     await openDrawer()
 
-    // Turn 3 held seven; the two left are the speed drop and the Nasty
-    // Plot's own drop, which belong to nobody's move in particular.
+    // Turn 3 held seven, then two, and now none: Icy Wind's speed drop is on
+    // the Toxapex it was aimed at, and Make It Rain's is on its own user, so
+    // there is nothing left to offer (#206).
     const turn = drawer().querySelectorAll('[data-testid="timeline-turn"]')[3]
+    const rows = [...(turn?.querySelectorAll('[data-testid="timeline-row"]') ?? [])]
+    const said = (move: string) => rows.find((row) => row.textContent?.includes(move))?.textContent
 
-    expect(turn?.querySelector('[data-testid="turn-details"]')?.textContent).toContain('2 more')
+    expect(turn?.querySelector('[data-testid="turn-details"]')).toBe(null)
+    expect(said('Icy Wind')).toContain('spe −1')
+    expect(said('Make It Rain')).toContain('spa −2')
   })
 
   it('shows what each Pokémon is carrying as the turn begins', async () => {

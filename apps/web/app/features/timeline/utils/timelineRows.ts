@@ -13,6 +13,12 @@ import type { Combatant, HealthChange, SideId, TimelineEvent, TimelineTurn } fro
 /** Which glyph a row wears. Semantic, so the icon set can change without this. */
 export type RowMark = 'move' | 'switch' | 'health' | 'faint' | 'tera' | 'forme' | 'status' | 'none'
 
+/** A key under `battle.event` in the locale files, with its parameters. */
+export interface RowMessage {
+  key: string
+  params?: Record<string, string>
+}
+
 /**
  * How an action turned out for one Pokémon, in a few words beside its icon: a
  * hit that was resisted, a Protect that held, a move that missed.
@@ -20,10 +26,7 @@ export type RowMark = 'move' | 'switch' | 'health' | 'faint' | 'tera' | 'forme' 
  * The words are the whole of it — a colour alone would leave a reader who
  * cannot see it with nothing (issue #96).
  */
-export interface RowNote {
-  /** A key under `battle.event`, as a row's `message` uses. */
-  key: string
-  params?: Record<string, string>
+export interface RowNote extends RowMessage {
   /**
    * Whether the note only repeats what the row already says, and so is for a
    * screen reader rather than for the screen: `-singleturn Protect` on the
@@ -91,8 +94,7 @@ export interface TimelineRow {
   bystanders: RowPokemon[]
   /** What the log said the action did to the row's own subject. */
   notes: RowNote[]
-  /** A key under `battle.event` in the locale files, with its parameters. */
-  message: { key: string; params?: Record<string, string> } | null
+  message: RowMessage | null
   /**
    * Whether the message only repeats what the icon already shows, and so is
    * for a screen reader rather than for the screen. A forme change is the
@@ -106,8 +108,30 @@ export interface TimelineRow {
 }
 
 /**
+ * The lines that move a stat where it stands, all of which fold onto an open
+ * move by the one rule in `foldsStatChange`.
+ *
+ * `clearAllBoosts` is deliberately not among them: Haze names no Pokémon, so
+ * there is nobody to fold it onto and the question never arises (#123).
+ */
+const STAT_CHANGES = [
+  'boost',
+  'clearBoosts',
+  'setBoost',
+  'invertBoosts',
+  'swapBoosts',
+  'copyBoosts',
+] as const
+
+type StatChange = Extract<TimelineEvent, { kind: (typeof STAT_CHANGES)[number] }>
+
+function isStatChange(event: TimelineEvent): event is StatChange {
+  return STAT_CHANGES.some((kind) => kind === event.kind)
+}
+
+/**
  * The events that carry the turn on their own. Everything else is real and
- * subordinate: a Protect that held, a stat stage, a hit that was resisted.
+ * subordinate: a Protect that held, a hit that was resisted.
  *
  * An ability is on this list because an ability decides turns — Intimidate on
  * the switch in, Snow Warning setting the weather, Protosynthesis on a Booster
@@ -134,6 +158,12 @@ const MAIN_LINE = new Set<TimelineEvent['kind']>([
   // Trick Room and the terrains decide every turn they are up, and the line
   // that lifts one has no move of its own to be read from.
   'fieldEffect',
+  // A stat change that folded onto a move is not a row at all, so what is left
+  // on this list is the ones nothing can account for: an item's, a Haze's, and
+  // the residual phase's. Those decide the turns after them and have no move
+  // above them to be read from (#206).
+  ...STAT_CHANGES,
+  'clearAllBoosts',
 ])
 
 /**
@@ -203,6 +233,54 @@ function signed(stages: number): string {
   return stages > 0 ? `+${stages}` : stages < 0 ? `−${-stages}` : '0'
 }
 
+/**
+ * What a stat change says, in one place, because it is said in two: as a row's
+ * own message when nothing can account for it, and as a note on the move that
+ * did when something can. Two copies would let the wording drift apart between
+ * the folded reading and the unfolded one.
+ */
+function statChangeSaid(event: StatChange): RowMessage {
+  switch (event.kind) {
+    case 'boost':
+      return {
+        key: event.stages > 0 ? 'statRose' : 'statFell',
+        params: { stat: event.stat, stages: String(Math.abs(event.stages)) },
+      }
+
+    case 'clearBoosts':
+      return { key: event.only === 'positive' ? 'positiveBoostsCleared' : 'boostsCleared' }
+
+    case 'setBoost':
+      return { key: 'boostSet', params: { stat: event.stat, stages: signed(event.stages) } }
+
+    case 'invertBoosts':
+      return { key: 'boostsInverted' }
+
+    case 'swapBoosts':
+      return event.stats.length === 0
+        ? { key: 'allBoostsSwapped' }
+        : { key: 'boostsSwapped', params: { stats: event.stats.join(',') } }
+
+    case 'copyBoosts':
+      return { key: 'boostsCopied' }
+  }
+}
+
+/** The row a stat change nothing can account for keeps for itself. */
+function statChangeRow(event: StatChange): TimelineRow {
+  const trade = event.kind === 'swapBoosts' || event.kind === 'copyBoosts'
+
+  return {
+    ...blank(),
+    side: event.pokemon.side,
+    species: event.pokemon.species,
+    // The other one behind the arrow: a trade is about two Pokémon, and the
+    // row would otherwise say a thing was swapped with nobody.
+    targets: trade ? [{ species: event.target.species, notes: [], hits: [] }] : [],
+    message: statChangeSaid(event),
+  }
+}
+
 function blank(): TimelineRow {
   return {
     mark: 'none',
@@ -227,6 +305,8 @@ function blank(): TimelineRow {
  * work, because it takes the events that follow to know what they were.
  */
 export function rowOf(event: TimelineEvent): TimelineRow | null {
+  if (isStatChange(event)) return statChangeRow(event)
+
   switch (event.kind) {
     case 'move':
       return actionOf(event).row
@@ -342,17 +422,6 @@ export function rowOf(event: TimelineEvent): TimelineRow | null {
         message: { key: 'statusCured', params: { status: event.status } },
       }
 
-    case 'boost':
-      return {
-        ...blank(),
-        side: event.pokemon.side,
-        species: event.pokemon.species,
-        message: {
-          key: event.stages > 0 ? 'statRose' : 'statFell',
-          params: { stat: event.stat, stages: String(Math.abs(event.stages)) },
-        },
-      }
-
     case 'clearAllBoosts':
       return {
         ...blank(),
@@ -360,53 +429,6 @@ export function rowOf(event: TimelineEvent): TimelineRow | null {
         // effect has none (#123).
         side: null,
         message: { key: 'allBoostsCleared' },
-      }
-
-    case 'clearBoosts':
-      return {
-        ...blank(),
-        side: event.pokemon.side,
-        species: event.pokemon.species,
-        message: { key: event.only === 'positive' ? 'positiveBoostsCleared' : 'boostsCleared' },
-      }
-
-    case 'setBoost':
-      return {
-        ...blank(),
-        side: event.pokemon.side,
-        species: event.pokemon.species,
-        message: { key: 'boostSet', params: { stat: event.stat, stages: signed(event.stages) } },
-      }
-
-    case 'invertBoosts':
-      return {
-        ...blank(),
-        side: event.pokemon.side,
-        species: event.pokemon.species,
-        message: { key: 'boostsInverted' },
-      }
-
-    case 'swapBoosts':
-      return {
-        ...blank(),
-        side: event.pokemon.side,
-        species: event.pokemon.species,
-        // The other one behind the arrow: a trade is about two Pokémon, and
-        // the row would otherwise say a thing was swapped with nobody.
-        targets: [{ species: event.target.species, notes: [], hits: [] }],
-        message:
-          event.stats.length === 0
-            ? { key: 'allBoostsSwapped' }
-            : { key: 'boostsSwapped', params: { stats: event.stats.join(',') } },
-      }
-
-    case 'copyBoosts':
-      return {
-        ...blank(),
-        side: event.pokemon.side,
-        species: event.pokemon.species,
-        targets: [{ species: event.target.species, notes: [], hits: [] }],
-        message: { key: 'boostsCopied' },
       }
 
     case 'effect':
@@ -649,6 +671,12 @@ function resultOf(
   event: TimelineEvent,
   move: string | null,
 ): { pokemon: Combatant; note: RowNote } | null {
+  // The same words the row would have said on its own, so the folded reading
+  // and the unfolded one cannot drift apart (#206).
+  if (isStatChange(event)) {
+    return { pokemon: event.pokemon, note: { ...statChangeSaid(event), quiet: false } }
+  }
+
   switch (event.kind) {
     case 'hitResult':
       return { pokemon: event.pokemon, note: { key: `hit.${event.result}`, quiet: false } }
@@ -720,9 +748,33 @@ function resultOf(
  * state.
  */
 function foldsHere(action: OpenAction, event: TimelineEvent): boolean {
+  if (isStatChange(event)) return foldsStatChange(action, event)
   if (event.kind !== 'volatile' || event.phase !== 'end') return true
 
   return targetSlot(action, event.pokemon) !== null
+}
+
+/**
+ * Whether a stat change is the open move's work, on the two fields the log
+ * itself filled in: decision T27, which is T26's gate for the damage asked of
+ * this family instead.
+ *
+ * The namespace stays in the comparison rather than being stripped off first.
+ * It is the half of a `[from]` that says which kind of thing spoke — `move:
+ * Belly Drum` is this move saying it did this, `item: Weakness Policy` is
+ * something else — so a bare name that collided with the open move's would
+ * otherwise fold an item's work onto it.
+ *
+ * A bystander is deliberately unreachable from here: one is made for a result
+ * that named the row's move, and a stat change names nothing of the sort.
+ */
+function foldsStatChange(action: OpenAction, event: StatChange): boolean {
+  const thisMove = event.from === null || toID(event.from) === toID(`move: ${action.row.move}`)
+
+  return (
+    thisMove &&
+    (targetSlot(action, event.pokemon) !== null || event.pokemon.position === action.actor)
+  )
 }
 
 /**
