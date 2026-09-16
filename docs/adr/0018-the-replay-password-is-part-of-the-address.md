@@ -62,16 +62,23 @@ Showdown 的 `private` 有 0/1/2/3 四個值，其中 **2 是「私人但沒有�
 它一定是對的：Showdown 只在 `<id>-<password>pw.json` 這個位址上供應私人 replay，
 密碼不對就是 404，所以 record 拿得回來就代表那個密碼可用。
 
-至於 replay JSON 自己的 `password` 欄位：**沒有量過**。量到的只有搜尋列——
-`search.json` 的每一列（fixture 裡是 `"password": null`）與 spike 實測的
-`searchprivate`（[spike 筆記](../specs/2026-09-11-private-replay-sync-spike.md)
-第 9 點：`private: 1`、`password`）。單一 replay 的 JSON 帶不帶它，這裡是假設而非
-事實。
+replay JSON 自己的 `password` 欄位**也有**，而且就是同一段 31 碼——#196 對真實的
+私人 replay 實測過（[spike 筆記](../specs/2026-09-11-private-replay-sync-spike.md)
+〈追加：單一 replay 的 JSON〉結果表第 2 項）。所以這裡的「優先」在私人 replay 上
+是兩個相同的值擇一，不是在兩個可能不同的答案之間仲裁。
 
-因此匯入時把密碼一併寫進存進 Storage 的那個 JSON 物件。這不是裝飾：`reparse` 手上
-**只有**那個物件，若 Showdown 的單場 JSON 其實不帶 `password`，一次重跑解析就會把
-全部私人場次的密碼清成 null，而症狀是連結靜默變回 404。Storage 存的本來就是整包
-replay JSON 而不只是 log（為了 format id 與 upload time），這一步是同一件事再多一欄。
+> 這一段原本寫的是「單一 replay 的 JSON 帶不帶 `password` 沒有量過」。#196 與本票
+> 平行進行，量測結果比這篇 ADR 晚到。留這一句在這裡，是因為下面那個決定的份量會
+> 隨著前提改變而改變，而讀者有權知道它變過。
+
+因此匯入仍然把密碼一併寫進存進 Storage 的那個 JSON 物件，但它的份量從「必要」降成
+**保險**：`reparse` 手上只有那個物件，而重跑解析若把密碼清成 null，症狀是連結靜默
+變回 404——一個沒有任何錯誤訊息、要等使用者點下去才發現的迴歸。保險的成本是一個
+欄位寫入同一個值，代價小到不值得為了「已經量過了」而拆掉。
+
+還有一個量不到的角落支持留著它：`private: 2`（私人但沒有密碼）沒有人手上有樣本
+（spike 結果表第 8 項）。以**實際發出請求時用的密碼**為準這條規則，在那種場次上
+仍然是對的。
 
 ### 四、密碼只出現在那一個 `href` 上
 
