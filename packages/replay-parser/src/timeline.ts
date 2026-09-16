@@ -157,7 +157,16 @@ export type TimelineEvent =
       source: Combatant | null
     }
   | { kind: 'endItem'; pokemon: Combatant; item: string }
-  | { kind: 'ability'; pokemon: Combatant; ability: string }
+  /**
+   * An ability announcing itself. `marker` is the line's third field, which is
+   * Showdown saying why the announcement is there: measured, `boost` on
+   * Intimidate and Speed Boost, and nothing at all on Pressure and Unnerve. It
+   * is the only thing that pairs the stat changes that follow with the ability
+   * that caused them, and it is kept as the log spelled it rather than read
+   * into a flag — a marker this parser does not know is then still on the
+   * event rather than lost (#205).
+   */
+  | { kind: 'ability'; pokemon: Combatant; ability: string; marker: string | null }
   /**
    * An ability taken off a Pokémon that is still out: Gastro Acid, Skill Swap,
    * Mummy. `ability` is what the line named, which is usually the ability and
@@ -569,7 +578,9 @@ export function buildTimeline(lines: ProtocolLine[]): BattleTimeline {
 
       case '-ability': {
         const pokemon = occupant(field, args[0] ?? '')
-        if (pokemon) push({ kind: 'ability', pokemon, ability: args[1] ?? '' })
+        if (pokemon) {
+          push({ kind: 'ability', pokemon, ability: args[1] ?? '', marker: markerOf(args[2]) })
+        }
         break
       }
 
@@ -756,6 +767,17 @@ function statsOf(field: string): string[] {
     .split(',')
     .map((stat) => stat.trim())
     .filter((stat) => stat !== '')
+}
+
+/**
+ * The bare third field of a line, and null for a kwarg standing in its place:
+ * a traced ability puts `[from] ability: Trace` exactly where Intimidate puts
+ * `boost`. The same shape `statsOf` guards against (#123).
+ */
+function markerOf(field: string | undefined): string | null {
+  if (field === undefined || field === '' || field.startsWith('[')) return null
+
+  return field
 }
 
 /** What the log said caused a change, e.g. `[from] item: Life Orb`. */

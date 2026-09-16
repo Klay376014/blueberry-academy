@@ -889,6 +889,53 @@ describe('parseTimeline', () => {
     ])
   })
 
+  it('keeps the marker Showdown puts on an ability that announces a stat change', () => {
+    // The third field is the log saying why the announcement is there:
+    // measured, `boost` on Intimidate and Speed Boost and nothing at all on
+    // Pressure. It is the only thing that pairs the `-unboost` lines that
+    // follow with the ability that caused them, and pairing them any other way
+    // would be the "nearest |move|" inference this parser does not make (#205).
+    const timeline = parseTimeline(
+      log({
+        lines: [
+          '|-ability|p2a: Whimsicott|Intimidate|boost',
+          '|-unboost|p1a: Scrafty|atk|1',
+          '|-ability|p1a: Scrafty|Pressure',
+        ],
+      }),
+    )
+
+    expect(eventsOfKind(timeline, 'ability')).toMatchObject([
+      { ability: 'Intimidate', marker: 'boost' },
+      { ability: 'Pressure', marker: null },
+    ])
+  })
+
+  it('does not read a kwarg as an ability announcement marker', () => {
+    // A traced ability puts `[from]` where Intimidate puts `boost`. Taking the
+    // field as it stands would make every one of those look like a marker this
+    // parser does not know, and #207 would have a scope open on a line that
+    // announced nothing.
+    const timeline = parseTimeline(
+      log({
+        lines: ['|-ability|p1a: Scrafty|Sturdy|[from] ability: Trace|[of] p2a: Whimsicott'],
+      }),
+    )
+
+    expect(eventsOfKind(timeline, 'ability')).toMatchObject([{ ability: 'Sturdy', marker: null }])
+  })
+
+  it('reads the marker off real logs, on Intimidate and not on Pressure', () => {
+    // Nine measured lines: three Intimidates on the switch in, and seven
+    // Pressures that announce themselves and nothing else.
+    expect(eventsOfKind(parseTimeline(ladderFixture.log), 'ability')).toMatchObject(
+      Array.from({ length: 3 }, () => ({ ability: 'Intimidate', marker: 'boost' })),
+    )
+    expect(
+      eventsOfKind(parseTimeline(tieFixture.log), 'ability').map((event) => event.marker),
+    ).toEqual(Array.from({ length: 7 }, () => null))
+  })
+
   it('keeps every hit of a real multi-hit move, with what each one took', () => {
     // Surging Strikes hits three times and the log reports each hit exactly
     // as it reports a single one — `-resisted`, `-crit`, `-damage` — with
