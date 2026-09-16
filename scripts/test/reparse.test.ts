@@ -2,7 +2,14 @@ import { gzipSync } from 'node:zlib'
 import { describe, expect, it, vi } from 'vite-plus/test'
 import { PARSER_VERSION } from 'replay-parser'
 import type { BattleRow } from 'battle-row'
-import { changedColumns, losesAccess, optionsOf, recordOf, rowFrom } from '../reparse.ts'
+import {
+  changedColumns,
+  gainsAccess,
+  losesAccess,
+  optionsOf,
+  recordOf,
+  rowFrom,
+} from '../reparse.ts'
 import ladder from '../../packages/replay-parser/test/fixtures/gen9championsvgc2026regmb-2667169457.json'
 
 // Real everywhere except for one sentinel log: what a parser regression looks
@@ -90,9 +97,11 @@ describe('rebuilding one row', () => {
   })
 
   it('keeps a private replay private when Showdown gave it no password', () => {
-    // `private: 2` is Showdown's "private but with no password" (spike note,
-    // 追加 §結果表第 8 項). Reading the absent password as "public" would file
-    // the battle as something a stranger could look up.
+    // `private: 2` is Showdown's "private but with no password" (CONTEXT.md,
+    // Access). Nobody has a sample of one — the spike note says so in as many
+    // words — so this is reasoning, not a measurement. Reading the absent
+    // password as "public" would file the battle as something a stranger
+    // could look up.
     const stored = { ...ladder, private: 2, password: null }
     const row = rowFrom(STORED, recordOf(gzipSync(JSON.stringify(stored))), ['DavoPro1214'])
 
@@ -228,27 +237,24 @@ describe('backfilling a battle imported before the address had columns', () => {
     // metadata, not a re-derivation. Nothing the statistics read may move.
     const stored = { ...ladder, private: 1, password: 'b1cd2ef' }
     const row = rowFrom(STORED, recordOf(gzipSync(JSON.stringify(stored))), ['DavoPro1214'])
-    const counted = [
+    const counted: string[] = [
       'team_signature',
       'bring_signature',
       'bring_complete',
       'result',
       'rating',
       'rating_delta',
-    ] as const
+    ]
 
-    expect(changedColumns(beforeTheColumns(row), row)).toEqual(
-      expect.not.arrayContaining([...counted]),
+    // Not `not.arrayContaining`: that passes unless the received array holds
+    // *every* listed column, so a lone `rating` moving would slip through it.
+    expect(changedColumns(beforeTheColumns(row), row).filter((c) => counted.includes(c))).toEqual(
+      [],
     )
   })
 })
 
 describe('a rebuild that would know less than the row it replaces', () => {
-  // The backfill's whole point is that the password is in the stored JSON. A
-  // row where it is not -- an object stored by a path that predates all this,
-  // or one Showdown has since changed -- must not be quietly rewritten as a
-  // public battle: the symptom is a link that 404s with nothing to say why,
-  // and the row that could have explained it is gone (#198).
   const PRIVATE = { replay_private: true, replay_password: 'b1cd2ef' } as Partial<BattleRow>
 
   it('refuses a rebuild that would null a password the row has', () => {
@@ -284,5 +290,51 @@ describe('a rebuild that would know less than the row it replaces', () => {
   it('allows a row the database has no address columns for yet', () => {
     // Mid-migration, the select comes back without them. That is not a loss.
     expect(losesAccess({}, PRIVATE as BattleRow)).toBe(false)
+  })
+})
+
+describe('the count that says whether any link was mended', () => {
+  it('sees a row given back an address it did not have', () => {
+    expect(
+      gainsAccess(
+        { replay_private: false, replay_password: null },
+        { replay_private: true, replay_password: 'b1cd2ef' },
+      ),
+    ).toBe(true)
+  })
+
+  it('does not count a row that already had one', () => {
+    const had = { replay_private: true, replay_password: 'b1cd2ef' }
+
+    expect(gainsAccess(had, had)).toBe(false)
+  })
+
+  it('does not count a public battle', () => {
+    const none = { replay_private: false, replay_password: null }
+
+    expect(gainsAccess(none, none)).toBe(false)
+  })
+
+  it('does not count an empty string as an address', () => {
+    // Neither direction may read '' as a password: one would count a mend
+    // that did not happen, the other would refuse the row for ever after.
+    expect(
+      gainsAccess(
+        { replay_private: false, replay_password: null },
+        {
+          replay_private: true,
+          replay_password: '',
+        },
+      ),
+    ).toBe(false)
+    expect(
+      losesAccess(
+        { replay_private: true, replay_password: '' },
+        {
+          replay_private: true,
+          replay_password: null,
+        },
+      ),
+    ).toBe(false)
   })
 })
