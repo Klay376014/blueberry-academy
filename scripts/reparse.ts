@@ -212,6 +212,31 @@ export function losesAccess(before: Partial<ReplayAccess>, after: ReplayAccess):
   return before.replay_private === true && after.replay_private === false
 }
 
+/**
+ * Why a private replay has no password to give back, or null when that is not
+ * the situation.
+ *
+ * The two answers read alike on the row and mean opposite things: one is
+ * Showdown's `private: 2`, a replay it never issued a password for, where a
+ * link that cannot be mended is the correct outcome. The other contradicts
+ * what #196 measured — Showdown says the replay is served at an address with
+ * a password, and the copy kept of it has none — and is worth chasing.
+ *
+ * Showdown's vocabulary: 0 public / 1 private with a password / 2 private
+ * without one / 3 deleted (`apps/web/app/shared/api/showdown.ts`).
+ */
+export type AccessGap = 'none-to-give' | 'unexplained'
+
+export function accessGapOf(replay: {
+  private?: number | null
+  password?: string | null
+}): AccessGap | null {
+  if (replay.password) return null
+  if ((replay.private ?? 0) <= 0) return null
+
+  return replay.private === 2 ? 'none-to-give' : 'unexplained'
+}
+
 /** The mirror, and the only count that says whether any link was mended. */
 export function gainsAccess(before: Partial<ReplayAccess>, after: ReplayAccess): boolean {
   return !before.replay_password && Boolean(after.replay_password)
@@ -278,7 +303,8 @@ type Tally = Record<
   | 'unchanged'
   | 'unparsed'
   | 'no-log'
-  | 'no-address'
+  | 'none-to-give'
+  | 'unexplained'
   | 'left-alone'
   | 'failed',
   number
@@ -304,7 +330,8 @@ async function main() {
     unchanged: 0,
     unparsed: 0,
     'no-log': 0,
-    'no-address': 0,
+    'none-to-give': 0,
+    unexplained: 0,
     'left-alone': 0,
     failed: 0,
   }
@@ -333,13 +360,16 @@ async function main() {
         return
       }
 
-      // Showdown's `private: 2`. Nothing is wrong with the row and nothing can
-      // be given back to it either, so it is said out loud rather than filed
-      // under `unchanged` beside the ladder battles.
-      if (row.replay_private && !row.replay_password) {
-        tally['no-address'] += 1
+      // Said out loud rather than filed under `unchanged` beside the ladder
+      // battles: a link that cannot be mended is worth a line either way, and
+      // which of the two it is decides whether anybody need do anything.
+      const gap = accessGapOf(record)
+      if (gap) {
+        tally[gap] += 1
         console.error(
-          `  no address  ${stored.replay_id}  private, and the stored log has no password`,
+          gap === 'none-to-give'
+            ? `  no address  ${stored.replay_id}  Showdown says private: 2 — it never had a password`
+            : `  no address  ${stored.replay_id}  Showdown says private: ${record.private}, and the stored log has no password`,
         )
       }
 
@@ -393,7 +423,9 @@ async function main() {
     `\nparser ${PARSER_VERSION}${options.dryRun ? ' (dry run, nothing written)' : ''}: ` +
       `${tally.rebuilt} rebuilt (${tally['address-restored']} given back an address), ` +
       `${tally.unchanged} unchanged, ${tally.unparsed} still unreadable, ` +
-      `${tally['no-log']} without a stored log, ${tally['no-address']} private with no password, ` +
+      `${tally['no-log']} without a stored log, ` +
+      `${tally['none-to-give']} private with no password to give, ` +
+      `${tally.unexplained} private with a password missing, ` +
       `${tally['left-alone']} left alone, ` +
       `${tally.failed} failed`,
   )
