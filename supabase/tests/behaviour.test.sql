@@ -7,7 +7,7 @@ begin;
 
 create extension if not exists pgtap;
 
-select plan(18);
+select plan(19);
 
 -- Two users who have never met.
 insert into auth.users (id, email) values
@@ -36,10 +36,10 @@ update public.profiles set showdown_usernames = array['NotLittleStar']
 update public.profiles set showdown_usernames = array['SomeoneElse']
   where id = '22222222-2222-2222-2222-222222222222';
 
-insert into public.battles (user_id, replay_id, played_at, format_id, bring_complete) values
-  ('11111111-1111-1111-1111-111111111111', 'gen9championsvgc2026regmbbo3-1', now(), 'gen9championsvgc2026regmbbo3', true),
-  ('11111111-1111-1111-1111-111111111111', 'gen9vgc2026regj-1', now(), 'gen9vgc2026regj', false),
-  ('22222222-2222-2222-2222-222222222222', 'gen9vgc2026regj-2', now(), 'gen9vgc2026regjbo2', false);
+insert into public.battles (user_id, replay_id, played_at, format_id, bring_complete, replay_private) values
+  ('11111111-1111-1111-1111-111111111111', 'gen9championsvgc2026regmbbo3-1', now(), 'gen9championsvgc2026regmbbo3', true, false),
+  ('11111111-1111-1111-1111-111111111111', 'gen9vgc2026regj-1', now(), 'gen9vgc2026regj', false, false),
+  ('22222222-2222-2222-2222-222222222222', 'gen9vgc2026regj-2', now(), 'gen9vgc2026regjbo2', false, false);
 
 -- regulation ---------------------------------------------------------------
 
@@ -59,18 +59,33 @@ select is(
   'a Bo1 format id is already its own regulation'
 );
 
+-- where the replay lives ---------------------------------------------------
+
+-- The column has no default on purpose (ADR-0018): a writer that leaves it
+-- out is a writer that would have filed a private battle as public, and the
+-- symptom of that is a link which 404s with nothing to say why. This is the
+-- test that the refusal is loud, and it is the one the pgTAP fixtures
+-- themselves tripped over first.
+select throws_ok(
+  $$insert into public.battles (user_id, replay_id, played_at, format_id, bring_complete)
+    values ('11111111-1111-1111-1111-111111111111', 'no-access-given', now(), 'gen9vgc2026regj', false)$$,
+  '23502',
+  null,
+  'a battle written without saying whether its replay is private is refused'
+);
+
 -- the unique key -----------------------------------------------------------
 
 select throws_ok(
-  $$insert into public.battles (user_id, replay_id, played_at, format_id, bring_complete)
-    values ('11111111-1111-1111-1111-111111111111', 'gen9vgc2026regj-1', now(), 'gen9vgc2026regj', false)$$,
+  $$insert into public.battles (user_id, replay_id, played_at, format_id, bring_complete, replay_private)
+    values ('11111111-1111-1111-1111-111111111111', 'gen9vgc2026regj-1', now(), 'gen9vgc2026regj', false, false)$$,
   '23505',
   null,
   'the same user cannot import the same replay twice'
 );
 select lives_ok(
-  $$insert into public.battles (user_id, replay_id, played_at, format_id, bring_complete)
-    values ('22222222-2222-2222-2222-222222222222', 'gen9vgc2026regj-1', now(), 'gen9vgc2026regj', false)$$,
+  $$insert into public.battles (user_id, replay_id, played_at, format_id, bring_complete, replay_private)
+    values ('22222222-2222-2222-2222-222222222222', 'gen9vgc2026regj-1', now(), 'gen9vgc2026regj', false, false)$$,
   'the other player of the same battle keeps their own row'
 );
 
@@ -90,8 +105,8 @@ select is(
   'a user sees their own profile and no others'
 );
 select throws_ok(
-  $$insert into public.battles (user_id, replay_id, played_at, format_id, bring_complete)
-    values ('22222222-2222-2222-2222-222222222222', 'planted', now(), 'gen9vgc2026regj', false)$$,
+  $$insert into public.battles (user_id, replay_id, played_at, format_id, bring_complete, replay_private)
+    values ('22222222-2222-2222-2222-222222222222', 'planted', now(), 'gen9vgc2026regj', false, false)$$,
   '42501',
   null,
   'a user cannot write a battle onto somebody else'
@@ -116,8 +131,8 @@ select is(
 set local role authenticated;
 
 select lives_ok(
-  $$insert into public.battles (user_id, replay_id, played_at, format_id, bring_complete)
-    values ('11111111-1111-1111-1111-111111111111', 'mine', now(), 'gen9vgc2026regj', false)$$,
+  $$insert into public.battles (user_id, replay_id, played_at, format_id, bring_complete, replay_private)
+    values ('11111111-1111-1111-1111-111111111111', 'mine', now(), 'gen9vgc2026regj', false, false)$$,
   'a user can write a battle onto themselves'
 );
 
