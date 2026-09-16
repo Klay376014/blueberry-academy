@@ -627,6 +627,69 @@ interface OpenAction {
   slots: Map<string, RowSlot>
 }
 
+type AbilityEvent = Extract<TimelineEvent, { kind: 'ability' }>
+
+/**
+ * An ability announcement that is open for the stat changes it announced.
+ *
+ * Opened only by the marker #205 kept — Showdown's own note that this
+ * announcement is there for a stat change — and closed by the first line that
+ * is not one. The marker says the announcement is about a stat change; it does
+ * not say how far down the log to keep reading, so something has to, and
+ * "until anything else happens" is the shortest claim that works (#207).
+ *
+ * `slots` gives a Pokémon one icon however many of its stats moved, and is by
+ * field position for the reason `OpenAction`'s is.
+ */
+interface OpenAnnouncement {
+  row: TimelineRow
+  holder: string
+  slots: Map<string, RowPokemon>
+}
+
+function announcementOf(event: AbilityEvent, row: TimelineRow): OpenAnnouncement | null {
+  return event.marker === 'boost' ? { row, holder: event.pokemon.position, slots: new Map() } : null
+}
+
+/**
+ * Whether a line is one of the stat changes the announcement announced.
+ *
+ * A `[from]` closes it: the announcement line carries no name for a source to
+ * match, so a line that named one named something this row cannot be. All 32
+ * of the fixtures' announced stat changes are bare, which is the shape this
+ * lets through.
+ */
+function foldsAnnouncement(event: TimelineEvent): event is StatChange {
+  return isStatChange(event) && event.from === null
+}
+
+/**
+ * Puts an announced stat change where it goes: beside the dot, or — where it
+ * landed on the Pokémon holding the ability, which is Speed Boost at the end
+ * of its own turn — on the row itself.
+ *
+ * Beside the dot rather than behind the arrow, because an `-ability` line says
+ * the ability fired and not who it was aimed at. The arrow would claim a
+ * direction the log never stated, which is the rule `effect` follows for `[of]`
+ * (#152); a move's targets go behind the arrow because the log lists them.
+ */
+function pinAnnounced(announcement: OpenAnnouncement, event: StatChange): void {
+  announcedSlot(announcement, event.pokemon).notes.push({ ...statChangeSaid(event), quiet: false })
+}
+
+function announcedSlot(announcement: OpenAnnouncement, pokemon: Combatant): { notes: RowNote[] } {
+  if (pokemon.position === announcement.holder) return announcement.row
+
+  const known = announcement.slots.get(pokemon.position)
+  if (known) return known
+
+  const bystander: RowPokemon = { species: pokemon.species, notes: [], hits: [] }
+  announcement.row.bystanders.push(bystander)
+  announcement.slots.set(pokemon.position, bystander)
+
+  return bystander
+}
+
 /**
  * A place on the row and whether the log called it a target of the move.
  *
@@ -879,9 +942,24 @@ const CLOSES_ACTION = new Set<TimelineEvent['kind']>(['move', 'switch'])
 export function rowsOf(turn: TimelineTurn, { detailed }: RowOptions): TimelineRow[] {
   const rows: TimelineRow[] = []
   let action: OpenAction | null = null
+  let announcement: OpenAnnouncement | null = null
 
   turn.events.forEach((event, index) => {
     if (isPlumbingFor(turn.events, index)) return
+
+    // Asked before the open move, because both can claim the same line: an
+    // Intimidate lowers a Pokémon the move that is open named as a target,
+    // with no source on it, which is everything #206's gate asks for. The
+    // announcement is the nearer claim and the log's own (#207).
+    if (announcement) {
+      if (foldsAnnouncement(event)) {
+        pinAnnounced(announcement, event)
+        return
+      }
+
+      announcement = null
+    }
+
     if (action && pin(action, event)) return
 
     const hurt = action && foldedHealth(action, event)
@@ -909,6 +987,11 @@ export function rowsOf(turn: TimelineTurn, { detailed }: RowOptions): TimelineRo
     // the damage of a spread move lands between its two targets' results.
     const row = rowOf(event)
     if (row) rows.push(row)
+
+    // An ability is on the main line unconditionally, so this row exists at
+    // both levels and the folding above cannot differ between them — which is
+    // what `sidelinedCount` being a difference of the two rests on.
+    if (event.kind === 'ability' && row) announcement = announcementOf(event, row)
   })
 
   return rows
