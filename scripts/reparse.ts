@@ -29,7 +29,7 @@
 import { gunzipSync } from 'node:zlib'
 import { createClient } from '@supabase/supabase-js'
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { battleRowOf, replayAccessOf, unparsedRowOf } from 'battle-row'
+import { accessGapOf, battleRowOf, replayAccessOf, unparsedRowOf } from 'battle-row'
 import type { BattleRow, ReplayAccess } from 'battle-row'
 import { PARSER_VERSION, parseReplay } from 'replay-parser'
 
@@ -212,31 +212,6 @@ export function losesAccess(before: Partial<ReplayAccess>, after: ReplayAccess):
   return before.replay_private === true && after.replay_private === false
 }
 
-/**
- * Why a private replay has no password to give back, or null when that is not
- * the situation.
- *
- * The two answers read alike on the row and mean opposite things: one is
- * Showdown's `private: 2`, a replay it never issued a password for, where a
- * link that cannot be mended is the correct outcome. The other contradicts
- * what #196 measured — Showdown says the replay is served at an address with
- * a password, and the copy kept of it has none — and is worth chasing.
- *
- * Showdown's vocabulary: 0 public / 1 private with a password / 2 private
- * without one / 3 deleted (`apps/web/app/shared/api/showdown.ts`).
- */
-export type AccessGap = 'none-to-give' | 'unexplained'
-
-export function accessGapOf(replay: {
-  private?: number | null
-  password?: string | null
-}): AccessGap | null {
-  if (replay.password) return null
-  if ((replay.private ?? 0) <= 0) return null
-
-  return replay.private === 2 ? 'none-to-give' : 'unexplained'
-}
-
 /** The mirror, and the only count that says whether any link was mended. */
 export function gainsAccess(before: Partial<ReplayAccess>, after: ReplayAccess): boolean {
   return !before.replay_password && Boolean(after.replay_password)
@@ -297,6 +272,16 @@ async function* storedRows(supabase: SupabaseClient, options: Options) {
   }
 }
 
+/** What to say about a replay that is private with no password to give. */
+const GAP_REASON: Record<
+  NonNullable<ReturnType<typeof accessGapOf>>,
+  (kind?: number | null) => string
+> = {
+  'none-to-give': () => 'private: 2 — Showdown never issued a password for it',
+  deleted: () => 'private: 3 — deleted',
+  missing: (kind) => `private: ${kind} — its password is not in the stored log`,
+}
+
 type Tally = Record<
   | 'rebuilt'
   | 'address-restored'
@@ -304,7 +289,8 @@ type Tally = Record<
   | 'unparsed'
   | 'no-log'
   | 'none-to-give'
-  | 'unexplained'
+  | 'deleted'
+  | 'missing'
   | 'left-alone'
   | 'failed',
   number
@@ -331,7 +317,8 @@ async function main() {
     unparsed: 0,
     'no-log': 0,
     'none-to-give': 0,
-    unexplained: 0,
+    deleted: 0,
+    missing: 0,
     'left-alone': 0,
     failed: 0,
   }
@@ -361,16 +348,12 @@ async function main() {
       }
 
       // Said out loud rather than filed under `unchanged` beside the ladder
-      // battles: a link that cannot be mended is worth a line either way, and
-      // which of the two it is decides whether anybody need do anything.
+      // battles: which of the three it is decides whether anybody need do
+      // anything, and only the last is worth chasing (#202).
       const gap = accessGapOf(record)
       if (gap) {
         tally[gap] += 1
-        console.error(
-          gap === 'none-to-give'
-            ? `  no address  ${stored.replay_id}  Showdown says private: 2 — it never had a password`
-            : `  no address  ${stored.replay_id}  Showdown says private: ${record.private}, and the stored log has no password`,
-        )
+        console.error(`  no address  ${stored.replay_id}  ${GAP_REASON[gap](record.private)}`)
       }
 
       const moved = changedColumns(stored, row)
@@ -424,8 +407,9 @@ async function main() {
       `${tally.rebuilt} rebuilt (${tally['address-restored']} given back an address), ` +
       `${tally.unchanged} unchanged, ${tally.unparsed} still unreadable, ` +
       `${tally['no-log']} without a stored log, ` +
-      `${tally['none-to-give']} private with no password to give, ` +
-      `${tally.unexplained} private with a password missing, ` +
+      `${tally['none-to-give']} never had a password (private: 2), ` +
+      `${tally.deleted} deleted (private: 3), ` +
+      `${tally.missing} with a password missing, ` +
       `${tally['left-alone']} left alone, ` +
       `${tally.failed} failed`,
   )

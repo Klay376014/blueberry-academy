@@ -58,6 +58,19 @@ export interface ReplayAccess {
   replay_password: string | null
 }
 
+/** What Showdown's replay JSON says about itself, as much of it as is read here. */
+type ReplayJson = { private?: number | null; password?: string | null }
+
+/**
+ * The password a replay is addressed by, or null. Empty is null: Showdown's
+ * passwords are 31 characters and `parseReplayLink` will not read a shorter
+ * one, so '' is not an address anybody can be served by — and taking it for
+ * one would file a public battle as private.
+ */
+function addressOf(replay: ReplayJson, fetchedWith: string | null): string | null {
+  return fetchedWith || replay.password || null
+}
+
 /**
  * What a replay's own JSON says about where it lives.
  *
@@ -68,15 +81,39 @@ export interface ReplayAccess {
  * the record — arrive at the same answer as the import. ADR-0018 §三.
  */
 export function replayAccessOf(
-  replay: { private?: number | null; password?: string | null },
+  replay: ReplayJson,
   fetchedWith: string | null = null,
 ): ReplayAccess {
-  const password = fetchedWith ?? replay.password ?? null
+  const password = addressOf(replay, fetchedWith)
 
   return {
     replay_private: password !== null || (replay.private ?? 0) > 0,
     replay_password: password,
   }
+}
+
+/**
+ * Why a private replay has no password to give, or null where there is no gap.
+ *
+ * Showdown's own 0/1/2/3 tells the three apart, and only one of them is worth
+ * chasing. Here rather than beside its caller so that one module answers
+ * "where does this replay live" (ADR-0018 §二). #202.
+ */
+export type AccessGap =
+  /** `private: 2` — Showdown never issued a password for it. */
+  | 'none-to-give'
+  /** `private: 3` — deleted, which explains the absence by itself. */
+  | 'deleted'
+  /** Private with a password, and the copy kept of it has none. */
+  | 'missing'
+
+export function accessGapOf(replay: ReplayJson): AccessGap | null {
+  if (addressOf(replay, null)) return null
+
+  const kind = replay.private ?? 0
+  if (kind <= 0) return null
+
+  return kind === 2 ? 'none-to-give' : kind === 3 ? 'deleted' : 'missing'
 }
 
 /** Whose row this is, and where the log it came from is kept. */

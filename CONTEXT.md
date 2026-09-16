@@ -131,6 +131,19 @@ replay 的端點。因此「私人場次要怎麼進來」在這個系統裡始�
 一欄會讓它與公開場次同形。同理，判斷一場是不是私人的要看**值**不看有無 —— 公開
 replay 的 JSON 一樣帶著 `private` 與 `password` 這兩個 key，值是 `0` 與 `null`。
 
+**Access gap（拿不到位址）**
+一場私人 replay 沒有密碼可存的原因。Showdown 的 `private` 值分辨三種，而三種在列上
+讀起來一模一樣、後續完全不同：
+
+- `private: 2` —— Showdown 從未發過密碼。連結補不回來是**正確結果**。
+- `private: 3` —— 該 replay 已被刪除。沒有密碼由此解釋。
+- 其餘（`private: 1`）—— 位址上有密碼，而我們留下的那份拷貝沒有。**只有這一種值得追**，
+  因為它與 [#196 的量測](docs/specs/2026-09-11-private-replay-sync-spike.md)矛盾。
+
+判斷「什麼算一個位址」只有一個地方 —— `battle-row` 的 `addressOf`，`replayAccessOf`
+與 `accessGapOf` 都走它（ADR-0018 §二）。空字串不是位址：Showdown 的密碼是 31 字元，
+把 `''` 當成密碼會讓一場公開對戰被記成私人。
+
 **Raw log**
 Showdown replay 的原始內容，來自 `<replay-id>.json` 的 `log` 欄位。原封不動 gzip 後存進
 Supabase Storage。它是**唯一的真實來源**，解析結果一律視為可重建的衍生資料。

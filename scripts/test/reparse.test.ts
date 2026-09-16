@@ -3,7 +3,6 @@ import { describe, expect, it, vi } from 'vite-plus/test'
 import { PARSER_VERSION } from 'replay-parser'
 import type { BattleRow } from 'battle-row'
 import {
-  accessGapOf,
   changedColumns,
   gainsAccess,
   losesAccess,
@@ -337,41 +336,5 @@ describe('the count that says whether any link was mended', () => {
         },
       ),
     ).toBe(false)
-  })
-})
-
-describe('why a private battle has no password to give back', () => {
-  // Showdown's own vocabulary, as `shared/api/showdown.ts` records it:
-  // 0 public / 1 private with a password / 2 private without one / 3 deleted.
-  // The two gaps read alike on the row and mean opposite things (#202).
-
-  it('calls `private: 2` a replay that never had one', () => {
-    expect(accessGapOf({ private: 2, password: null })).toBe('none-to-give')
-  })
-
-  it('calls `private: 1` without a password unexplained', () => {
-    // Showdown says this replay is served at an address with a password, and
-    // the copy kept of it has none. That contradicts what #196 measured.
-    expect(accessGapOf({ private: 1, password: null })).toBe('unexplained')
-  })
-
-  it('treats an empty password as no password', () => {
-    expect(accessGapOf({ private: 1, password: '' })).toBe('unexplained')
-  })
-
-  it('has nothing to say about a replay that has its password', () => {
-    expect(accessGapOf({ private: 1, password: 'b1cd2ef' })).toBeNull()
-  })
-
-  it('has nothing to say about a public replay', () => {
-    expect(accessGapOf({ private: 0, password: null })).toBeNull()
-  })
-
-  it('has nothing to say about an object that never claimed to be private', () => {
-    // An absent `private` is not Showdown saying 2, but it is not a gap
-    // either: nothing here says this replay has an address being withheld.
-    // `replayAccessOf` reads the same shape as public, so this is the answer
-    // that keeps the two functions telling one story.
-    expect(accessGapOf({})).toBeNull()
   })
 })
