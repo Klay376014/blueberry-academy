@@ -1,4 +1,4 @@
-import { battleRowOf, unparsedRowOf } from 'battle-row'
+import { battleRowOf, replayAccessOf, unparsedRowOf } from 'battle-row'
 import type { BattleRow } from 'battle-row'
 import { parseReplay } from 'replay-parser'
 import { ShowdownError } from './useShowdown'
@@ -181,9 +181,18 @@ export function useIngest() {
       return { status: 'failed', reason, message: messageOf(error) }
     }
 
+    // Both roads in meet here — a pasted link and the private sync — so this
+    // is the one place that has both the replay Showdown answered with and the
+    // password the request was made with (#197).
+    const access = replayAccessOf(record, ref.password ?? null)
+
     let logPath: string
     try {
-      logPath = await storeLog(userId, record)
+      // The password goes into the stored JSON as well as into the row: a
+      // re-parse rebuilds every derived column from this object alone, and a
+      // rebuild that nulled the password would leave the drawer linking at a
+      // 404 nobody could explain.
+      logPath = await storeLog(userId, { ...record, password: access.replay_password })
     } catch (error) {
       // Deliberately no row: one whose log_path points at nothing would be
       // skipped as already imported and could never be re-parsed.
@@ -199,10 +208,10 @@ export function useIngest() {
     let row: BattleRow
     let parseError: string | null = null
     try {
-      row = battleRowOf(parseReplay(record.log, meta), { userId, aliases, logPath })
+      row = battleRowOf(parseReplay(record.log, meta), { userId, aliases, logPath }, access)
     } catch (error) {
       parseError = messageOf(error)
-      row = unparsedRowOf(meta, { userId, logPath, message: parseError })
+      row = unparsedRowOf(meta, { userId, logPath, message: parseError }, access)
     }
 
     let written: BattleRow
@@ -311,7 +320,9 @@ export function useIngest() {
    *
    * The password is a plain string on this side and there is no way around
    * that: it is what the reader typed. It is not stored, not put in a URL,
-   * and not held after this call returns.
+   * and not held after this call returns. That is this account's Showdown
+   * password; a replay's own password is a different thing and is stored
+   * (ADR-0018).
    */
   async function syncPrivate(
     username: string,

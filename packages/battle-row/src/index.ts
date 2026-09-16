@@ -27,7 +27,7 @@ export type { Attribution } from './attribution.ts'
  * `battleRowOf` then covers them by construction, and a column added to the
  * attribution is a column added here.
  */
-export interface BattleRow extends Attribution {
+export interface BattleRow extends Attribution, ReplayAccess {
   user_id: string
   replay_id: string
   played_at: string
@@ -43,6 +43,41 @@ export interface BattleRow extends Attribution {
   parse_error: string | null
 }
 
+/**
+ * Where the replay is, as `battles` keeps it: whether Showdown lists it, and
+ * the password its address carries (CONTEXT.md, 公開 replay / 私人 replay).
+ *
+ * In the database's column names, as `Attribution` is, so both spread into a
+ * row rather than being restated. Two fields and not one nullable password
+ * because Showdown has a third state: private with no password at all.
+ *
+ * ADR-0018 is why a password is stored at all.
+ */
+export interface ReplayAccess {
+  replay_private: boolean
+  replay_password: string | null
+}
+
+/**
+ * What a replay's own JSON says about where it lives.
+ *
+ * `fetchedWith` wins when it is given: Showdown serves a private replay only
+ * at `<id>-<password>pw.json`, so a password a record came back for is a
+ * password that works, whereas the `password` field has only ever been
+ * measured on a search row (the spike note, §9 對 #178 的結論).
+ */
+export function replayAccessOf(
+  replay: { private?: number | null; password?: string | null },
+  fetchedWith: string | null = null,
+): ReplayAccess {
+  const password = fetchedWith ?? replay.password ?? null
+
+  return {
+    replay_private: password !== null || (replay.private ?? 0) > 0,
+    replay_password: password,
+  }
+}
+
 /** Whose row this is, and where the log it came from is kept. */
 export interface RowOwner {
   userId: string
@@ -52,7 +87,11 @@ export interface RowOwner {
   logPath: string
 }
 
-export function battleRowOf(battle: ParsedBattle, owner: RowOwner): BattleRow {
+export function battleRowOf(
+  battle: ParsedBattle,
+  owner: RowOwner,
+  access: ReplayAccess,
+): BattleRow {
   // Everything the perspectives that are not designed yet will want — and
   // everything re-attribution reads, which is why it is built first.
   const details = { winner: battle.winner, sides: { p1: battle.p1, p2: battle.p2 } }
@@ -64,6 +103,7 @@ export function battleRowOf(battle: ParsedBattle, owner: RowOwner): BattleRow {
   return {
     user_id: owner.userId,
     replay_id: battle.replayId,
+    ...access,
     played_at: battle.playedAt,
     format_id: battle.formatId,
     // A game carrying no rating on either side is one nobody laddered:
@@ -88,10 +128,15 @@ export function battleRowOf(battle: ParsedBattle, owner: RowOwner): BattleRow {
 export function unparsedRowOf(
   meta: ReplayMeta,
   owner: Omit<RowOwner, 'aliases'> & { message: string },
+  access: ReplayAccess,
 ): BattleRow {
   return {
     user_id: owner.userId,
     replay_id: meta.replayId,
+    // Where the replay is does not come out of the log, so a parse that
+    // failed takes nothing away from it — and a row with no timeline to show
+    // is the one whose reader goes to Showdown instead.
+    ...access,
     played_at: new Date(meta.uploadTime * 1000).toISOString(),
     format_id: meta.formatId,
     rated: null,

@@ -23,7 +23,7 @@
 import { gunzipSync } from 'node:zlib'
 import { createClient } from '@supabase/supabase-js'
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { battleRowOf, unparsedRowOf } from 'battle-row'
+import { battleRowOf, replayAccessOf, unparsedRowOf } from 'battle-row'
 import type { BattleRow } from 'battle-row'
 import { PARSER_VERSION, parseReplay } from 'replay-parser'
 
@@ -41,6 +41,8 @@ const CONCURRENCY = 10
 
 /** Every column this script writes, which is every column it may compare. */
 const COLUMNS = [
+  'replay_private',
+  'replay_password',
   'played_at',
   'format_id',
   'rated',
@@ -75,6 +77,9 @@ export interface StoredReplay {
   formatid: string
   uploadtime: number
   log: string
+  /** Showdown's own 0/1/2/3, absent from an object stored before #197. */
+  private?: number
+  password?: string | null
 }
 
 /** The part of a stored row this script needs to rebuild it. */
@@ -137,11 +142,15 @@ export function rowFrom(stored: StoredRow, record: StoredReplay, aliases: string
     uploadTime: record.uploadtime,
   }
   const owner = { userId: stored.user_id, logPath: stored.log_path }
+  // The stored JSON is all there is here, which is why the import writes the
+  // password it used into it: rebuilding a private battle without one would
+  // point the drawer's link at a 404 (#197).
+  const access = replayAccessOf(record)
 
   try {
-    return battleRowOf(parseReplay(record.log, meta), { ...owner, aliases })
+    return battleRowOf(parseReplay(record.log, meta), { ...owner, aliases }, access)
   } catch (error) {
-    return unparsedRowOf(meta, { ...owner, message: messageOf(error) })
+    return unparsedRowOf(meta, { ...owner, message: messageOf(error) }, access)
   }
 }
 

@@ -250,6 +250,31 @@ describe('importing one replay', () => {
     )
   })
 
+  it('keeps the password of a private replay on the row it writes', async () => {
+    // The address of a private replay is the id and the password together
+    // (CONTEXT.md, 公開 replay / 私人 replay), so a row with only the id names
+    // a page Showdown answers 404 for. ADR-0018.
+    await useIngest().importReplay({ id: ladder.id, password: 'b1cd2ef' })
+
+    expect(writtenRow()).toMatchObject({ replay_private: true, replay_password: 'b1cd2ef' })
+  })
+
+  it('writes no password for a replay that needs none', async () => {
+    await useIngest().importReplay({ id: ladder.id })
+
+    expect(writtenRow()).toMatchObject({ replay_private: false, replay_password: null })
+  })
+
+  it('stores the password with the log, so a re-parse can rebuild the row', async () => {
+    // The stored JSON is all `scripts/reparse.ts` has. Showdown's own
+    // `password` field is measured on a search row and nowhere else, so the
+    // password that fetched the replay is written into the object we keep.
+    await useIngest().importReplay({ id: ladder.id, password: 'b1cd2ef' })
+
+    const stored = JSON.parse(await uncompress(storage.uploads[0]!.body)) as { password: string }
+    expect(stored.password).toBe('b1cd2ef')
+  })
+
   it('keeps the stored log and records why the parse failed', async () => {
     parseReplayMock.mockImplementation(() => {
       throw new Error('the log said something nobody has taught it yet')

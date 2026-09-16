@@ -49,7 +49,7 @@ const STATS_COLUMNS: string =
 
 /** Everything the drawer's header and timeline are drawn from. */
 const RECORD_COLUMNS: string =
-  'replay_id, played_at, format_id, series_id, result, rating, rating_delta, end_reason, my_side, my_username, opponent_username, turn_count, bring_signature, details, parse_error'
+  'replay_id, replay_password, played_at, format_id, series_id, result, rating, rating_delta, end_reason, my_side, my_username, opponent_username, turn_count, bring_signature, details, parse_error'
 
 /**
  * What re-attribution works from: `details`, which is all the derivation
@@ -85,6 +85,12 @@ export interface DateRange {
 
 export interface BattleRecord {
   replayId: string
+  /**
+   * The password a private replay is addressed by, or null. Read for one
+   * thing only — the drawer's link out — because that address is where the
+   * replay actually is (ADR-0018).
+   */
+  replayPassword: string | null
   playedAt: string
   formatId: string
   seriesId: string | null
@@ -484,6 +490,7 @@ export interface StoredDetailRow {
 
 /** A stored row as `battleById` and `gamesOfSeries` read it. */
 export interface StoredRecordRow extends StoredDetailRow {
+  replay_password: string | null
   played_at: string
   format_id: string
   series_id: string | null
@@ -553,6 +560,7 @@ export function battleRecordOf(row: StoredRecordRow): BattleRecord {
 
   return {
     replayId: row.replay_id,
+    replayPassword: row.replay_password,
     playedAt: row.played_at,
     formatId: row.format_id,
     seriesId: row.series_id,

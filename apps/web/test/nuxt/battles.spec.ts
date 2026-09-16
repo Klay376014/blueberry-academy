@@ -117,6 +117,7 @@ function onlyRequest(): Call[] {
 function stored(overrides: Record<string, unknown> = {}): Record<string, unknown> {
   return {
     replay_id: 'ladder-1',
+    replay_password: null,
     played_at: '2026-08-01T10:00:00Z',
     format_id: 'gen9championsvgc2026regmb',
     series_id: null,
@@ -268,6 +269,17 @@ describe('one battle, and its series', () => {
     const record = await battles().battleById('ladder-1')
 
     expect(record?.sides.p2.team).toBe('u|v|w|x|y|z')
+  })
+
+  it('reads the password a private replay is addressed by', async () => {
+    // Asked for in the column list or the drawer's link cannot be built: the
+    // address of a private replay is the id and the password together (#197).
+    db.rows = [stored({ replay_password: 'b1cd2ef' })]
+
+    const record = await battles().battleById('ladder-1')
+
+    expect(onlyRequest().find(([name]) => name === 'select')?.[1]).toContain('replay_password')
+    expect(record?.replayPassword).toBe('b1cd2ef')
   })
 
   it('has no opponent for a battle with no side of mine', async () => {

@@ -62,7 +62,8 @@ export default defineConfig({
       },
       {
         // The one outbound link in the app. Its href is built by `replayUrl()`,
-        // which puts a stored replay id after a literal https origin, so there
+        // which puts a stored replay id -- and, for a private replay, its
+        // password suffix (ADR-0018) -- after a literal https origin, so there
         // is no room in it for a scheme of its own. The rule reports every
         // dynamic `:href` and has no way to see that.
         files: ['apps/web/app/features/timeline/components/DrawerHeader.vue'],

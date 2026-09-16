@@ -24,6 +24,8 @@ import type {
 /** A stored row, of which the stats columns are the only required ones. */
 export interface StoredBattle extends StatsRow {
   my_side?: SideId | null
+  /** The password of a private replay. Absent means a public one. */
+  replay_password?: string | null
   opponent_username?: string | null
   turn_count?: number | null
   end_reason?: string | null
@@ -182,6 +184,7 @@ function filled(row: StoredBattle): StatsRow & StoredRecordRow {
   return {
     ...row,
     my_side: row.my_side === undefined ? 'p1' : row.my_side,
+    replay_password: row.replay_password ?? null,
     opponent_username: row.opponent_username ?? null,
     turn_count: row.turn_count ?? null,
     end_reason: row.end_reason ?? null,

@@ -59,6 +59,8 @@ function battle(overrides: Partial<BattleRow> = {}): BattleRow {
   return {
     user_id: 'test-user',
     replay_id: REPLAY,
+    replay_private: false,
+    replay_password: null,
     played_at: '2026-08-19T09:19:18.000Z',
     format_id: 'gen9championsvgc2026regmb',
     rated: true,

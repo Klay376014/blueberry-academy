@@ -9,6 +9,7 @@ import type { BattleRecord } from '~/shared/api/battles'
 function battle(replayId: string, p1: string | null, p2: string | null): BattleRecord {
   return {
     replayId,
+    replayPassword: null,
     playedAt: '2026-08-01T10:00:00Z',
     formatId: 'gen9championsvgc2026regmb',
     seriesId: null,

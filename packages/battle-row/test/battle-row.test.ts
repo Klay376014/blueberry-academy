@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vite-plus/test'
 import { PARSER_VERSION, parseReplay } from 'replay-parser'
 import type { ParsedBattle } from 'replay-parser'
-import { attributionOf, battleRowOf, unparsedRowOf } from '../src/index.ts'
+import { attributionOf, battleRowOf, replayAccessOf, unparsedRowOf } from '../src/index.ts'
 import ladder from '../../replay-parser/test/fixtures/gen9championsvgc2026regmb-2667169457.json'
 import tie from '../../replay-parser/test/fixtures/gen9ou-2667293085.json'
 
@@ -21,9 +21,12 @@ function parsed(replay: {
 
 const OWNER = { userId: 'user-1', aliases: ['DavoPro1214'], logPath: 'user-1/x.json.gz' }
 
+/** A replay anybody can open, which is what a ladder fixture is. */
+const PUBLIC = { replay_private: false, replay_password: null }
+
 describe('the row one parsed battle becomes', () => {
   it('resolves which side is mine from the alias list', () => {
-    const row = battleRowOf(parsed(ladder), OWNER)
+    const row = battleRowOf(parsed(ladder), OWNER, PUBLIC)
 
     expect(row.my_side).toBe('p1')
     expect(row.my_username).toBe('DavoPro1214')
@@ -34,13 +37,13 @@ describe('the row one parsed battle becomes', () => {
   it('compares names normalised, because that is what "the same me" means', () => {
     // CONTEXT.md, 身分: NotLittleStar and notlittlestar are one person, so a
     // spelling difference must not file the user's battle as somebody else's.
-    const row = battleRowOf(parsed(ladder), { ...OWNER, aliases: ['davo pro 1214'] })
+    const row = battleRowOf(parsed(ladder), { ...OWNER, aliases: ['davo pro 1214'] }, PUBLIC)
 
     expect(row.my_side).toBe('p1')
   })
 
   it('leaves a battle nobody on the list played as spectated', () => {
-    const row = battleRowOf(parsed(ladder), { ...OWNER, aliases: ['SomebodyElse'] })
+    const row = battleRowOf(parsed(ladder), { ...OWNER, aliases: ['SomebodyElse'] }, PUBLIC)
 
     // Stored, and counting towards none of this user's statistics: the
     // signatures are mine, and there is no mine.
@@ -52,7 +55,7 @@ describe('the row one parsed battle becomes', () => {
   })
 
   it('keeps both sides in details whoever was playing', () => {
-    const row = battleRowOf(parsed(ladder), { ...OWNER, aliases: [] })
+    const row = battleRowOf(parsed(ladder), { ...OWNER, aliases: [] }, PUBLIC)
 
     expect(row.details).toMatchObject({ sides: { p1: { userId: 'davopro1214' } } })
   })
@@ -60,7 +63,7 @@ describe('the row one parsed battle becomes', () => {
   it('takes my rating from my own side, never from the replay metadata', () => {
     // The metadata `rating` is the loser's value whichever side that is.
     const battle = parsed(ladder)
-    const row = battleRowOf(battle, OWNER)
+    const row = battleRowOf(battle, OWNER, PUBLIC)
 
     expect(row.rating).toBe(battle.p1.ratingAfter)
     expect(row.rating_delta).toBe(battle.p1.ratingDelta)
@@ -70,7 +73,7 @@ describe('the row one parsed battle becomes', () => {
     const battle = parsed(tie)
 
     for (const side of ['p1', 'p2'] as const) {
-      const row = battleRowOf(battle, { ...OWNER, aliases: [battle[side].username] })
+      const row = battleRowOf(battle, { ...OWNER, aliases: [battle[side].username] }, PUBLIC)
       expect(row.result).toBe('tie')
     }
   })
@@ -80,7 +83,7 @@ describe('the row one parsed battle becomes', () => {
     // and the same row re-attributed later (#67) must never disagree, or a
     // backfill would rewrite rows nobody changed.
     for (const aliases of [['DavoPro1214'], ['Bibas Rozkurwiator'], ['SomebodyElse']]) {
-      const row = battleRowOf(parsed(ladder), { ...OWNER, aliases })
+      const row = battleRowOf(parsed(ladder), { ...OWNER, aliases }, PUBLIC)
 
       expect(attributionOf(row.details, aliases)).toEqual({
         my_side: row.my_side,
@@ -97,7 +100,66 @@ describe('the row one parsed battle becomes', () => {
   })
 
   it('stamps the version that produced it, so a re-parse can tell', () => {
-    expect(battleRowOf(parsed(ladder), OWNER).parser_version).toBe(PARSER_VERSION)
+    expect(battleRowOf(parsed(ladder), OWNER, PUBLIC).parser_version).toBe(PARSER_VERSION)
+  })
+
+  it('keeps the password a private replay is addressed by', () => {
+    const row = battleRowOf(parsed(ladder), OWNER, {
+      replay_private: true,
+      replay_password: 'b1cd2ef',
+    })
+
+    expect(row.replay_private).toBe(true)
+    expect(row.replay_password).toBe('b1cd2ef')
+  })
+
+  it('leaves a public battle with no password to leak', () => {
+    const row = battleRowOf(parsed(ladder), OWNER, PUBLIC)
+
+    expect(row.replay_private).toBe(false)
+    expect(row.replay_password).toBeNull()
+  })
+})
+
+describe('what a replay JSON says about its own address', () => {
+  it('reads the private flag and password Showdown answered with', () => {
+    expect(replayAccessOf({ private: 1, password: 'b1cd2ef' })).toEqual({
+      replay_private: true,
+      replay_password: 'b1cd2ef',
+    })
+  })
+
+  it('leaves a public replay public', () => {
+    expect(replayAccessOf({ private: 0, password: null })).toEqual({
+      replay_private: false,
+      replay_password: null,
+    })
+  })
+
+  it('prefers the password the replay was actually fetched with', () => {
+    // Showdown serves a private replay only at `<id>-<password>pw.json`, so a
+    // password that came back with a record is a password that worked. The
+    // `password` field of a single replay's JSON is not measured anywhere.
+    expect(replayAccessOf({ private: 1, password: null }, 'b1cd2ef')).toEqual({
+      replay_private: true,
+      replay_password: 'b1cd2ef',
+    })
+  })
+
+  it('calls a replay private when nothing but the password says so', () => {
+    expect(replayAccessOf({}, 'b1cd2ef')).toEqual({
+      replay_private: true,
+      replay_password: 'b1cd2ef',
+    })
+  })
+
+  it('keeps a private replay that has no password at all', () => {
+    // Showdown's `private: 2`. There is then no address that opens it, which
+    // is a different thing from a public one and is worth being able to say.
+    expect(replayAccessOf({ private: 2, password: null })).toEqual({
+      replay_private: true,
+      replay_password: null,
+    })
   })
 })
 
@@ -105,11 +167,15 @@ describe('the row a replay that could not be parsed becomes', () => {
   const META = { replayId: 'gen9ou-1', formatId: 'gen9ou', uploadTime: 1787131158 }
 
   it('carries only what the replay metadata said, and why it failed', () => {
-    const row = unparsedRowOf(META, {
-      userId: 'user-1',
-      logPath: 'user-1/gen9ou-1.json.gz',
-      message: 'nobody has taught it that line yet',
-    })
+    const row = unparsedRowOf(
+      META,
+      {
+        userId: 'user-1',
+        logPath: 'user-1/gen9ou-1.json.gz',
+        message: 'nobody has taught it that line yet',
+      },
+      PUBLIC,
+    )
 
     expect(row).toMatchObject({
       replay_id: 'gen9ou-1',
@@ -122,5 +188,18 @@ describe('the row a replay that could not be parsed becomes', () => {
       parse_error: 'nobody has taught it that line yet',
       parser_version: PARSER_VERSION,
     })
+  })
+
+  it('still knows where the replay is, which is when that matters most', () => {
+    // A row with no timeline to show is exactly the row whose reader goes to
+    // Showdown instead.
+    const row = unparsedRowOf(
+      META,
+      { userId: 'user-1', logPath: 'user-1/gen9ou-1.json.gz', message: 'unreadable' },
+      { replay_private: true, replay_password: 'b1cd2ef' },
+    )
+
+    expect(row.replay_private).toBe(true)
+    expect(row.replay_password).toBe('b1cd2ef')
   })
 })

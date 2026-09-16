@@ -8,7 +8,7 @@ begin;
 
 create extension if not exists pgtap;
 
-select plan(37);
+select plan(41);
 
 -- profiles ------------------------------------------------------------------
 
@@ -33,6 +33,8 @@ select columns_are(
     'id',
     'user_id',
     'replay_id',
+    'replay_private',
+    'replay_password',
     'played_at',
     'format_id',
     'regulation',
@@ -70,6 +72,25 @@ select col_not_null(
 select col_hasnt_default(
   'public', 'battles', 'bring_complete',
   'bring_complete has no default, so a writer cannot skip it and still look answered'
+);
+
+-- Where the replay is: private replays are addressed by id and password both.
+
+select col_type_is(
+  'public', 'battles', 'replay_private', 'boolean',
+  'replay_private is a boolean'
+);
+select col_not_null(
+  'public', 'battles', 'replay_private',
+  'replay_private always answers the question, never leaves it open'
+);
+select col_hasnt_default(
+  'public', 'battles', 'replay_private',
+  'replay_private has no default, so a private battle cannot be filed as public by omission'
+);
+select col_is_null(
+  'public', 'battles', 'replay_password',
+  'replay_password is null for a public replay, which is most of them'
 );
 
 -- The signature columns stay open: a spectated battle has no team of mine.

@@ -79,6 +79,23 @@ describe('rebuilding one row', () => {
     })
   })
 
+  it('rebuilds the address of a private replay from the stored JSON alone', () => {
+    // The one thing a re-parse must not do to a private battle: null the
+    // password and leave the drawer linking at a 404 (#197, ADR-0018).
+    const stored = { ...ladder, private: 1, password: 'b1cd2ef' }
+    const row = rowFrom(STORED, recordOf(gzipSync(JSON.stringify(stored))), ['DavoPro1214'])
+
+    expect(row.replay_private).toBe(true)
+    expect(row.replay_password).toBe('b1cd2ef')
+  })
+
+  it('leaves a public replay without one', () => {
+    const row = rowFrom(STORED, recordOf(gzipSync(JSON.stringify(ladder))), ['DavoPro1214'])
+
+    expect(row.replay_private).toBe(false)
+    expect(row.replay_password).toBeNull()
+  })
+
   it('keeps the log and records why, when the parser cannot read it', () => {
     const record = recordOf(gzipSync(JSON.stringify({ ...ladder, log: '|unteachable' })))
     const row = rowFrom(STORED, record, ['DavoPro1214'])
@@ -148,6 +165,15 @@ describe('what changed', () => {
     const before = { ...rebuilt, details: { ...details, winner: 'p1' } }
 
     expect(changedColumns(before, rebuilt)).toEqual(['details'])
+  })
+
+  it('watches the replay address as closely as the rest of the row', () => {
+    // A column missing from the comparison is a column the script would never
+    // write, which for the password is the same as losing it.
+    const before = { ...rebuilt, replay_private: false, replay_password: null }
+    const after = { ...rebuilt, replay_private: true, replay_password: 'b1cd2ef' }
+
+    expect(changedColumns(before, after).sort()).toEqual(['replay_password', 'replay_private'])
   })
 
   it('sees a column the database has not got yet', () => {
