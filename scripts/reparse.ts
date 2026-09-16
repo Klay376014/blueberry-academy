@@ -14,6 +14,12 @@
  * a second copy here would drift, and the symptom would be statistics that
  * changed with nobody able to say why.
  *
+ * A plain run is also the backfill for battles imported before `battles` had
+ * anywhere to keep a private replay's address: the password is in the stored
+ * JSON already (#196), so nobody is asked to type one and Showdown is not
+ * asked anything at all. A row this run would know *less* about than the table
+ * does is left alone and reported -- see `losesAccess`.
+ *
  *   SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=... pnpm reparse [flags]
  *
  *   --stale        only rows whose parser_version is not the current one
@@ -77,7 +83,10 @@ export interface StoredReplay {
   formatid: string
   uploadtime: number
   log: string
-  /** Showdown's own 0/1/2/3, absent from an object stored before #197. */
+  // Showdown's own two, measured present on every replay it serves (#196) and
+  // optional here only because a stored object is read back as data, not as a
+  // promise. They are what makes the backfill possible without asking anybody
+  // for a password again.
   private?: number
   password?: string | null
 }
@@ -142,9 +151,9 @@ export function rowFrom(stored: StoredRow, record: StoredReplay, aliases: string
     uploadTime: record.uploadtime,
   }
   const owner = { userId: stored.user_id, logPath: stored.log_path }
-  // The stored JSON is all there is here, which is why the import writes the
-  // password it used into it: rebuilding a private battle without one would
-  // point the drawer's link at a 404 (#197).
+  // The stored JSON is all there is here, and Showdown's own `password` field
+  // is in it (#196) -- which is what lets a rebuild reach the same address the
+  // import did without asking Showdown again. ADR-0018 §三.
   const access = replayAccessOf(record)
 
   try {
@@ -190,6 +199,26 @@ export function changedColumns(before: Partial<BattleRow>, after: BattleRow): st
 
     return JSON.stringify(canonical(was)) !== JSON.stringify(canonical(is))
   })
+}
+
+/**
+ * Whether the rebuilt row knows less about where the replay lives than the row
+ * already in the table.
+ *
+ * The backfill rests on the stored JSON carrying Showdown's own `password`
+ * (#196). Where it does not — an object kept by some older path, or a replay
+ * Showdown has since changed its answer for — rebuilding would file a private
+ * battle as public and drop the one string that opens it. The row is left
+ * alone and reported instead: a link that 404s is bad, and a link that 404s
+ * with the password already overwritten is unfixable.
+ *
+ * A row with no address columns at all is not a loss: that is what a select
+ * against a database mid-migration comes back with.
+ */
+export function losesAccess(before: Partial<BattleRow>, after: BattleRow): boolean {
+  if (before.replay_password != null && after.replay_password === null) return true
+
+  return before.replay_private === true && after.replay_private === false
 }
 
 function messageOf(error: unknown): string {
@@ -247,7 +276,10 @@ async function* storedRows(supabase: SupabaseClient, options: Options) {
   }
 }
 
-type Tally = Record<'rebuilt' | 'unchanged' | 'unparsed' | 'no-log' | 'failed', number>
+type Tally = Record<
+  'rebuilt' | 'restored' | 'unchanged' | 'unparsed' | 'no-log' | 'left-alone' | 'failed',
+  number
+>
 
 async function main() {
   const options = optionsOf(process.argv.slice(2))
@@ -263,7 +295,15 @@ async function main() {
   )
 
   const aliases = await aliasesByUser(supabase)
-  const tally: Tally = { rebuilt: 0, unchanged: 0, unparsed: 0, 'no-log': 0, failed: 0 }
+  const tally: Tally = {
+    rebuilt: 0,
+    restored: 0,
+    unchanged: 0,
+    unparsed: 0,
+    'no-log': 0,
+    'left-alone': 0,
+    failed: 0,
+  }
 
   async function rebuild(stored: StoredRow & Partial<BattleRow> & { log_path: string | null }) {
     if (!stored.log_path) {
@@ -280,6 +320,17 @@ async function main() {
 
       const record = recordOf(new Uint8Array(await data.arrayBuffer()))
       const row = rowFrom({ ...stored, log_path: path }, record, aliases.get(stored.user_id) ?? [])
+
+      // Before anything is compared: a row this rebuild knows less about than
+      // the table does is left exactly as it is, whatever else moved.
+      if (losesAccess(stored, row)) {
+        tally['left-alone'] += 1
+        console.error(
+          `  left alone  ${stored.replay_id}  the stored log has no address for a private replay`,
+        )
+        return
+      }
+
       const moved = changedColumns(stored, row)
 
       if (row.parse_error !== null) tally.unparsed += 1
@@ -300,6 +351,10 @@ async function main() {
       }
 
       tally.rebuilt += 1
+      // Counted apart from the rest because it is the thing #198 was for, and
+      // because "47 rebuilt" says nothing about whether any link was fixed.
+      if (stored.replay_password == null && row.replay_password !== null) tally.restored += 1
+
       console.log(
         `  ${options.dryRun ? 'would rebuild' : 'rebuilt'}  ${row.replay_id}  ${moved.join(', ')}`,
       )
@@ -326,8 +381,10 @@ async function main() {
 
   console.log(
     `\nparser ${PARSER_VERSION}${options.dryRun ? ' (dry run, nothing written)' : ''}: ` +
-      `${tally.rebuilt} rebuilt, ${tally.unchanged} unchanged, ${tally.unparsed} still unreadable, ` +
-      `${tally['no-log']} without a stored log, ${tally.failed} failed`,
+      `${tally.rebuilt} rebuilt (${tally.restored} with an address they did not have), ` +
+      `${tally.unchanged} unchanged, ${tally.unparsed} still unreadable, ` +
+      `${tally['no-log']} without a stored log, ${tally['left-alone']} left alone, ` +
+      `${tally.failed} failed`,
   )
 
   if (tally.failed) process.exitCode = 1
