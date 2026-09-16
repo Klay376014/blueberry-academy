@@ -2,7 +2,14 @@ import { gzipSync } from 'node:zlib'
 import { describe, expect, it, vi } from 'vite-plus/test'
 import { PARSER_VERSION } from 'replay-parser'
 import type { BattleRow } from 'battle-row'
-import { changedColumns, optionsOf, recordOf, rowFrom } from '../reparse.ts'
+import {
+  changedColumns,
+  gainsAccess,
+  losesAccess,
+  optionsOf,
+  recordOf,
+  rowFrom,
+} from '../reparse.ts'
 import ladder from '../../packages/replay-parser/test/fixtures/gen9championsvgc2026regmb-2667169457.json'
 
 // Real everywhere except for one sentinel log: what a parser regression looks
@@ -87,6 +94,19 @@ describe('rebuilding one row', () => {
 
     expect(row.replay_private).toBe(true)
     expect(row.replay_password).toBe('b1cd2ef')
+  })
+
+  it('keeps a private replay private when Showdown gave it no password', () => {
+    // `private: 2` is Showdown's "private but with no password" (CONTEXT.md,
+    // Access). Nobody has a sample of one — the spike note says so in as many
+    // words — so this is reasoning, not a measurement. Reading the absent
+    // password as "public" would file the battle as something a stranger
+    // could look up.
+    const stored = { ...ladder, private: 2, password: null }
+    const row = rowFrom(STORED, recordOf(gzipSync(JSON.stringify(stored))), ['DavoPro1214'])
+
+    expect(row.replay_private).toBe(true)
+    expect(row.replay_password).toBeNull()
   })
 
   it('leaves a public replay without one', () => {
@@ -181,5 +201,140 @@ describe('what changed', () => {
     const after = { ...rebuilt, series_id: 'gen9ou-1' }
 
     expect(changedColumns(before, after)).toEqual(['series_id'])
+  })
+})
+
+describe('backfilling a battle imported before the address had columns', () => {
+  // The row as the migration left it: the two address columns at their
+  // defaults, everything else exactly as the import wrote it.
+  const beforeTheColumns = (row: BattleRow) => ({
+    ...row,
+    replay_private: false,
+    replay_password: null,
+  })
+
+  it('gives a private battle back the address that opens it', () => {
+    const stored = { ...ladder, private: 1, password: 'b1cd2ef' }
+    const row = rowFrom(STORED, recordOf(gzipSync(JSON.stringify(stored))), ['DavoPro1214'])
+
+    expect(changedColumns(beforeTheColumns(row), row).sort()).toEqual([
+      'replay_password',
+      'replay_private',
+    ])
+  })
+
+  it('moves nothing at all for a public battle', () => {
+    // Every row in the table goes through this run, so "the backfill touched
+    // no ladder battle" is the difference between a quiet run and a table
+    // rewritten for nothing.
+    const row = rowFrom(STORED, recordOf(gzipSync(JSON.stringify(ladder))), ['DavoPro1214'])
+
+    expect(changedColumns(beforeTheColumns(row), row)).toEqual([])
+  })
+
+  it('leaves every counted column where it was', () => {
+    // What the ticket asks in as many words: this backfill is replay
+    // metadata, not a re-derivation. Nothing the statistics read may move.
+    const stored = { ...ladder, private: 1, password: 'b1cd2ef' }
+    const row = rowFrom(STORED, recordOf(gzipSync(JSON.stringify(stored))), ['DavoPro1214'])
+    const counted: string[] = [
+      'team_signature',
+      'bring_signature',
+      'bring_complete',
+      'result',
+      'rating',
+      'rating_delta',
+    ]
+
+    // Not `not.arrayContaining`: that passes unless the received array holds
+    // *every* listed column, so a lone `rating` moving would slip through it.
+    expect(changedColumns(beforeTheColumns(row), row).filter((c) => counted.includes(c))).toEqual(
+      [],
+    )
+  })
+})
+
+describe('a rebuild that would know less than the row it replaces', () => {
+  const PRIVATE = { replay_private: true, replay_password: 'b1cd2ef' } as Partial<BattleRow>
+
+  it('refuses a rebuild that would null a password the row has', () => {
+    expect(losesAccess(PRIVATE, { ...PRIVATE, replay_password: null } as BattleRow)).toBe(true)
+  })
+
+  it('refuses a rebuild that would call a private battle public', () => {
+    expect(
+      losesAccess({ replay_private: true, replay_password: null }, {
+        replay_private: false,
+        replay_password: null,
+      } as BattleRow),
+    ).toBe(true)
+  })
+
+  it('allows the backfill itself', () => {
+    // A public-looking row gaining an address is the thing this script is for.
+    expect(
+      losesAccess({ replay_private: false, replay_password: null }, PRIVATE as BattleRow),
+    ).toBe(false)
+  })
+
+  it('allows a row whose address has not moved', () => {
+    expect(losesAccess(PRIVATE, PRIVATE as BattleRow)).toBe(false)
+  })
+
+  it('allows a public battle rebuilt as public', () => {
+    const publicRow = { replay_private: false, replay_password: null }
+
+    expect(losesAccess(publicRow, publicRow as BattleRow)).toBe(false)
+  })
+
+  it('allows a row the database has no address columns for yet', () => {
+    // Mid-migration, the select comes back without them. That is not a loss.
+    expect(losesAccess({}, PRIVATE as BattleRow)).toBe(false)
+  })
+})
+
+describe('the count that says whether any link was mended', () => {
+  it('sees a row given back an address it did not have', () => {
+    expect(
+      gainsAccess(
+        { replay_private: false, replay_password: null },
+        { replay_private: true, replay_password: 'b1cd2ef' },
+      ),
+    ).toBe(true)
+  })
+
+  it('does not count a row that already had one', () => {
+    const had = { replay_private: true, replay_password: 'b1cd2ef' }
+
+    expect(gainsAccess(had, had)).toBe(false)
+  })
+
+  it('does not count a public battle', () => {
+    const none = { replay_private: false, replay_password: null }
+
+    expect(gainsAccess(none, none)).toBe(false)
+  })
+
+  it('does not count an empty string as an address', () => {
+    // Neither direction may read '' as a password: one would count a mend
+    // that did not happen, the other would refuse the row for ever after.
+    expect(
+      gainsAccess(
+        { replay_private: false, replay_password: null },
+        {
+          replay_private: true,
+          replay_password: '',
+        },
+      ),
+    ).toBe(false)
+    expect(
+      losesAccess(
+        { replay_private: true, replay_password: '' },
+        {
+          replay_private: true,
+          replay_password: null,
+        },
+      ),
+    ).toBe(false)
   })
 })

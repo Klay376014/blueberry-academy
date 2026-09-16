@@ -14,6 +14,12 @@
  * a second copy here would drift, and the symptom would be statistics that
  * changed with nobody able to say why.
  *
+ * A plain run is also the backfill for battles imported before `battles` had
+ * anywhere to keep a private replay's address: the password is in the stored
+ * JSON already (#196), so nobody is asked to type one and Showdown is not
+ * asked anything at all. A row this run would know *less* about than the table
+ * does is left alone and reported -- see `losesAccess`.
+ *
  *   SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=... pnpm reparse [flags]
  *
  *   --stale        only rows whose parser_version is not the current one
@@ -24,7 +30,7 @@ import { gunzipSync } from 'node:zlib'
 import { createClient } from '@supabase/supabase-js'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { battleRowOf, replayAccessOf, unparsedRowOf } from 'battle-row'
-import type { BattleRow } from 'battle-row'
+import type { BattleRow, ReplayAccess } from 'battle-row'
 import { PARSER_VERSION, parseReplay } from 'replay-parser'
 
 const BUCKET = 'replay-logs'
@@ -77,7 +83,7 @@ export interface StoredReplay {
   formatid: string
   uploadtime: number
   log: string
-  /** Showdown's own 0/1/2/3, absent from an object stored before #197. */
+  /** Showdown's own 0/1/2/3, and the password it serves a private replay at. */
   private?: number
   password?: string | null
 }
@@ -142,9 +148,9 @@ export function rowFrom(stored: StoredRow, record: StoredReplay, aliases: string
     uploadTime: record.uploadtime,
   }
   const owner = { userId: stored.user_id, logPath: stored.log_path }
-  // The stored JSON is all there is here, which is why the import writes the
-  // password it used into it: rebuilding a private battle without one would
-  // point the drawer's link at a 404 (#197).
+  // The stored JSON is all there is here, and Showdown's own `password` field
+  // is in it (#196) -- which is what lets a rebuild reach the same address the
+  // import did without asking Showdown again. ADR-0018 §三.
   const access = replayAccessOf(record)
 
   try {
@@ -190,6 +196,25 @@ export function changedColumns(before: Partial<BattleRow>, after: BattleRow): st
 
     return JSON.stringify(canonical(was)) !== JSON.stringify(canonical(is))
   })
+}
+
+/**
+ * Whether the rebuild knows less about where the replay lives than the table
+ * already does: a password it would null, or a private battle it would call
+ * public. Such a row is left alone — overwriting it loses the one string that
+ * opens the replay, and nothing left on the row could explain the 404. A row
+ * with no address columns at all is a database mid-migration, not a loss.
+ * ADR-0018, #198.
+ */
+export function losesAccess(before: Partial<ReplayAccess>, after: ReplayAccess): boolean {
+  if (before.replay_password && !after.replay_password) return true
+
+  return before.replay_private === true && after.replay_private === false
+}
+
+/** The mirror, and the only count that says whether any link was mended. */
+export function gainsAccess(before: Partial<ReplayAccess>, after: ReplayAccess): boolean {
+  return !before.replay_password && Boolean(after.replay_password)
 }
 
 function messageOf(error: unknown): string {
@@ -247,7 +272,17 @@ async function* storedRows(supabase: SupabaseClient, options: Options) {
   }
 }
 
-type Tally = Record<'rebuilt' | 'unchanged' | 'unparsed' | 'no-log' | 'failed', number>
+type Tally = Record<
+  | 'rebuilt'
+  | 'address-restored'
+  | 'unchanged'
+  | 'unparsed'
+  | 'no-log'
+  | 'no-address'
+  | 'left-alone'
+  | 'failed',
+  number
+>
 
 async function main() {
   const options = optionsOf(process.argv.slice(2))
@@ -263,7 +298,16 @@ async function main() {
   )
 
   const aliases = await aliasesByUser(supabase)
-  const tally: Tally = { rebuilt: 0, unchanged: 0, unparsed: 0, 'no-log': 0, failed: 0 }
+  const tally: Tally = {
+    rebuilt: 0,
+    'address-restored': 0,
+    unchanged: 0,
+    unparsed: 0,
+    'no-log': 0,
+    'no-address': 0,
+    'left-alone': 0,
+    failed: 0,
+  }
 
   async function rebuild(stored: StoredRow & Partial<BattleRow> & { log_path: string | null }) {
     if (!stored.log_path) {
@@ -280,6 +324,25 @@ async function main() {
 
       const record = recordOf(new Uint8Array(await data.arrayBuffer()))
       const row = rowFrom({ ...stored, log_path: path }, record, aliases.get(stored.user_id) ?? [])
+
+      if (losesAccess(stored, row)) {
+        tally['left-alone'] += 1
+        console.error(
+          `  left alone  ${stored.replay_id}  the rebuild knows less about this address than the row does`,
+        )
+        return
+      }
+
+      // Showdown's `private: 2`. Nothing is wrong with the row and nothing can
+      // be given back to it either, so it is said out loud rather than filed
+      // under `unchanged` beside the ladder battles.
+      if (row.replay_private && !row.replay_password) {
+        tally['no-address'] += 1
+        console.error(
+          `  no address  ${stored.replay_id}  private, and the stored log has no password`,
+        )
+      }
+
       const moved = changedColumns(stored, row)
 
       if (row.parse_error !== null) tally.unparsed += 1
@@ -300,6 +363,8 @@ async function main() {
       }
 
       tally.rebuilt += 1
+      if (gainsAccess(stored, row)) tally['address-restored'] += 1
+
       console.log(
         `  ${options.dryRun ? 'would rebuild' : 'rebuilt'}  ${row.replay_id}  ${moved.join(', ')}`,
       )
@@ -326,8 +391,11 @@ async function main() {
 
   console.log(
     `\nparser ${PARSER_VERSION}${options.dryRun ? ' (dry run, nothing written)' : ''}: ` +
-      `${tally.rebuilt} rebuilt, ${tally.unchanged} unchanged, ${tally.unparsed} still unreadable, ` +
-      `${tally['no-log']} without a stored log, ${tally.failed} failed`,
+      `${tally.rebuilt} rebuilt (${tally['address-restored']} given back an address), ` +
+      `${tally.unchanged} unchanged, ${tally.unparsed} still unreadable, ` +
+      `${tally['no-log']} without a stored log, ${tally['no-address']} private with no password, ` +
+      `${tally['left-alone']} left alone, ` +
+      `${tally.failed} failed`,
   )
 
   if (tally.failed) process.exitCode = 1
