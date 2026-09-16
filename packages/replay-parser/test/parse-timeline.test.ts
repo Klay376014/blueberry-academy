@@ -3,6 +3,7 @@ import { parseTimeline } from '../src/index'
 import type { BattleTimeline, TimelineEvent } from '../src/index'
 import ladderFixture from './fixtures/gen9championsvgc2026regmb-2667169457.json'
 import fieldFixture from './fixtures/gen9championsvgc2026regmb-2674299387.json'
+import speedBoostFixture from './fixtures/gen9championsvgc2026regmb-2667301751.json'
 import seriesFixture from './fixtures/gen9championsvgc2026regmbbo3-2667582547.json'
 import tieFixture from './fixtures/gen9ou-2667293085.json'
 import longFixture from './fixtures/gen9ou-2667299955.json'
@@ -890,11 +891,7 @@ describe('parseTimeline', () => {
   })
 
   it('keeps the marker Showdown puts on an ability that announces a stat change', () => {
-    // The third field is the log saying why the announcement is there:
-    // measured, `boost` on Intimidate and Speed Boost and nothing at all on
-    // Pressure. It is the only thing that pairs the `-unboost` lines that
-    // follow with the ability that caused them, and pairing them any other way
-    // would be the "nearest |move|" inference this parser does not make (#205).
+    // What the field is and why it is kept: see the event's own JSDoc (#205).
     const timeline = parseTimeline(
       log({
         lines: [
@@ -925,12 +922,18 @@ describe('parseTimeline', () => {
     expect(eventsOfKind(timeline, 'ability')).toMatchObject([{ ability: 'Sturdy', marker: null }])
   })
 
-  it('reads the marker off real logs, on Intimidate and not on Pressure', () => {
-    // Nine measured lines: three Intimidates on the switch in, and seven
-    // Pressures that announce themselves and nothing else.
+  it('reads the marker off real logs, on the two abilities that carry it', () => {
+    // Thirteen measured lines across three fixtures. Speed Boost is here
+    // beside Intimidate because the two are not the same shape downstream: it
+    // fires at the end of a turn on the Pokémon holding it, where Intimidate
+    // fires on the switch in and lands on the other side (#207).
     expect(eventsOfKind(parseTimeline(ladderFixture.log), 'ability')).toMatchObject(
       Array.from({ length: 3 }, () => ({ ability: 'Intimidate', marker: 'boost' })),
     )
+    expect(eventsOfKind(parseTimeline(speedBoostFixture.log), 'ability')).toMatchObject(
+      Array.from({ length: 3 }, () => ({ ability: 'Speed Boost', marker: 'boost' })),
+    )
+    // Seven Pressures, which announce themselves and nothing else.
     expect(
       eventsOfKind(parseTimeline(tieFixture.log), 'ability').map((event) => event.marker),
     ).toEqual(Array.from({ length: 7 }, () => null))
