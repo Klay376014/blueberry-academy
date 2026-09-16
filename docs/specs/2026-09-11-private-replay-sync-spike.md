@@ -1,10 +1,11 @@
 # 私人 replay 的同步 — spike 實測筆記
 
-- 日期：2026-09-12
+- 日期：2026-09-12（清單端點，#175）、2026-09-16（單一 replay 端點，#196）
 - 狀態：實測完成，#175 的交付物。設計文件 §2.2 依此**部分**升級為實測 —— 哪幾條、
-  哪幾條沒有，見下面的涵蓋範圍表
+  哪幾條沒有，見下面的涵蓋範圍表。2026-09-16 追加量了單一 replay 的
+  `<id>.json`，見〈追加：單一 replay 的 JSON〉
 - 相關：[私人 replay 的同步 設計文件](2026-09-11-private-replay-sync-design.md) §2.2 §6、
-  GitHub issue #175
+  GitHub issue #175、#196（單一 replay 的欄位）、#198（回填）
 - 放這裡的理由：這是**外部行為的實測結果** —— AGENTS.md 實作守則第一條的第二類，與
   [zh-Hant 名稱來源調查](2026-09-02-zh-hant-name-sources-research.md) 同一種文件。
 
@@ -203,3 +204,96 @@ logout 回 `sid=; Max-Age=0`（刪除），而**之後每個被拒絕的請求�
 9. **列的形狀就是 `ReplayListing`**：`uploadtime`、`id`、`format`（顯示名，不是
    format id）、`players`、`rating`、`private: 1`、`password`。沒有 `views`，也沒有
    `formatid` —— 與 `search.json` 一致，所以 `shared/api/showdown.ts` 不必加型別。
+
+---
+
+## 追加：單一 replay 的 JSON（2026-09-16，#196）
+
+上面量的是 `replays/searchprivate` 的**列表**。單一 replay 的 `<id>.json` 從來沒量過 ——
+`ReplayRecord extends ReplayListing` 一直只是 `apps/web/app/shared/api/showdown.ts` 裡
+我們自己寫的宣告，不是對 Showdown 的實測。#198 要決定「既有的私人場次能不能從 Storage
+回填密碼」，而這件事只取決於這支端點到底回不回 `password`，所以單獨量一次。
+
+### 怎麼量的
+
+三發 `curl`，**不需要登入** —— 這支端點對任何人開放，沒碰 `act=login`、`searchprivate`
+或任何帳號憑證。私人 replay 的密碼走環境變數，不寫進檔案；下面的位址與 body 一律
+`[redacted]`。公開的兩發是對照組，用來分辨「`private` 是 0 還是根本不存在」「`password`
+是 null 還是根本不存在」。
+
+```sh
+read -rs PW && export PW
+ID=gen9championsvgc2026regmbbo3-2666628031
+
+curl -s "https://replay.pokemonshowdown.com/${ID}-${PW}pw.json"   # A 私人，帶密碼
+curl -s "https://replay.pokemonshowdown.com/${ID}.json"           # B 同一個，不帶密碼
+curl -s "https://replay.pokemonshowdown.com/gen9ou-2667293085.json"  # C 公開
+curl -s "https://replay.pokemonshowdown.com/gen9championsvgc2026regmb-2667169457.json"  # D 公開
+```
+
+### 結果
+
+| #   | 主張                                                     | 實測                                                                     |
+| --- | -------------------------------------------------------- | ------------------------------------------------------------------------ |
+| 1   | 私人 replay 的 `<id>-<password>pw.json` 不必登入就拿得到 | ✅ 200 `application/json`，4228 bytes，無 cookie、無 sid                 |
+| 2   | 回應**帶** `password`，值就是位址上那段 31 碼            | ✅ `password` 是 31 字元字串，與位址後綴逐字相同                         |
+| 3   | 回應帶 `private: 1`                                      | ✅ `private` 是數字 `1`                                                  |
+| 4   | 公開 replay 的同一支端點：`private` 是 **0，不是缺席**   | ✅ C、D 都有 `private` 這個 key，值是 `0`                                |
+| 5   | 公開 replay 的 `password` 是 **null，不是缺席**          | ✅ C、D 都有 `password` 這個 key，值是 `null`                            |
+| 6   | 私人 replay **不帶密碼**打 `<id>.json` 會拿不到          | ✅ **404**，`text/plain`，body 長度 0 —— 不是 JSON，也不是 `actionerror` |
+| 7   | 回應本體**沒有**前導 `]`                                 | ✅ 直接是 `{`，與 `api/` 底下那些 action 不同                            |
+| 8   | `private: 2`（私人但沒有密碼）長什麼樣                   | ⚪ **未實測** —— 手上沒有這種 replay                                     |
+
+三發 200 的 key 集合與順序**完全相同**：
+
+```
+id, format, players, log, uploadtime, views, formatid, rating, private, password
+```
+
+逐欄位（A 私人 / C 公開）：
+
+| 欄位         | A（私人）                                  | C（公開）           |
+| ------------ | ------------------------------------------ | ------------------- |
+| `id`         | `gen9championsvgc2026regmbbo3-2666628031`  | `gen9ou-2667293085` |
+| `format`     | `[Gen 9 Champions] VGC 2026 Reg M-B (Bo3)` | `[Gen 9] OU`        |
+| `players`    | 兩個字串                                   | 兩個字串            |
+| `log`        | string，3814 字元                          | string，20020 字元  |
+| `uploadtime` | `1787041241`                               | `1787152082`        |
+| `views`      | `"33"`（**字串**）                         | `"8"`（**字串**）   |
+| `formatid`   | `gen9championsvgc2026regmbbo3`             | `gen9ou`            |
+| `rating`     | `null`                                     | `1881`              |
+| `private`    | **`1`**                                    | **`0`**             |
+| `password`   | **`"[redacted]"`（31 字元）**              | **`null`**          |
+
+第 6 項就是目前 bug 的實際症狀：少了密碼，Showdown 不是回一個「沒有權限」的 JSON，
+而是**空 body 的 404**。型別守衛（`asRecord`）在這裡連 JSON 都剖不出來，所以錯誤會
+長成「回應不是 replay」而不是「你少了密碼」。值得記一筆，因為之前只有推論。
+
+### 跟 `ReplayRecord` 宣告對不對得上
+
+對得上，**一處記在這裡但不動它**：`ReplayRecord` 把 `views` 宣告成 `views?: string`
+（optional），而實測三發**都有** `views`，型別（字串而非數字）也對。也就是說 optional
+這件事沒有被任何一次觀測支持，但它只是比實際更寬鬆，不會讓任何程式碼出錯。其餘欄位
+（`formatid: string`、`log: string`、`rating: number | null`、`private: number`、
+`password: string | null`）全部與實測一致。
+
+**這次不改 `apps/web/app/shared/api/showdown.ts`** —— 那個檔案是 #197 的地盤，它正在
+另一條分支上動。這裡只負責如實記下來。
+
+### 對 #198 的結論
+
+**既有的私人場次可以從 Storage 回填密碼，不必問使用者，也不必再對 Showdown 發一次請求。**
+
+理由是一條直線：私人 replay 的 JSON 帶著 `password`（結果表第 2 項）；`useShowdown.fetchReplay`
+把回應原封不動當成 `ReplayRecord` 傳出去（`asRecord` 只做型別守衛，不挑欄位）；
+`useIngest.storeLog` 再 `JSON.stringify(record)` 整包 gzip 進 Storage。所以密碼一直都在
+`{user_id}/{replay_id}.json.gz` 裡面，回填只要把那一包解開讀 `password` 就好。
+
+三點邊界：
+
+1. 只對 **Storage 裡真的有那一包 JSON** 的場次成立。沒有 log 檔的場次回填不了，那是另一件事。
+2. 分辨公開與私人**看值不看有無**：兩者都有 `private` 與 `password` 這兩個 key，公開是
+   `0` 與 `null`（結果表第 4、5 項）。回填的判斷式因此是 `private === 1 && password`，
+   不是 `'password' in record`。
+3. `private: 2`（私人但沒有密碼）沒量到（結果表第 8 項）。那種場次本來就沒有密碼可回填，
+   回填邏輯遇到 `private !== 1` 應該跳過而不是當成錯誤。
