@@ -394,6 +394,27 @@ describe('the drawer', () => {
     expect(icyWind?.textContent).toContain('Protect held')
   })
 
+  it('says beside an Intimidate which two it lowered, and by how much', async () => {
+    // Turn 0 of the fixture: the lead Scrafty's Intimidate, and the two drops
+    // the log spent two lines on. On screen they are the dot and two icons.
+    await openDrawer()
+
+    const turn = drawer().querySelectorAll('[data-testid="timeline-turn"]')[0]
+    const rows = [...(turn?.querySelectorAll('[data-testid="timeline-row"]') ?? [])]
+    const intimidate = rows.find((row) => row.textContent?.includes('Intimidate'))
+    // The icons are the names here, so what they are labelled is the sentence.
+    const named = [...(intimidate?.querySelectorAll('[role="img"]') ?? [])].map((icon) =>
+      icon.getAttribute('aria-label'),
+    )
+
+    // The announcer first, then the two it lowered, which is the row read left
+    // to right: Scrafty · Glimmora atk −1  Whimsicott atk −1.
+    expect(named).toEqual(['Scrafty', 'Glimmora', 'Whimsicott'])
+    expect(intimidate?.textContent?.match(/atk −1/g)).toHaveLength(2)
+    // And no row of its own for either of them.
+    expect(rows.filter((row) => row.textContent?.trim() === 'atk −1')).toEqual([])
+  })
+
   it('leaves nothing behind the switch once the drops are on their moves', async () => {
     await openDrawer()
 

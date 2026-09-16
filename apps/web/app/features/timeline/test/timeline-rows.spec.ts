@@ -814,6 +814,164 @@ describe('the stat changes an action gathers onto its own row', () => {
   })
 })
 
+/**
+ * The stat changes an ability announced, on the row that announced it (#207).
+ *
+ * The pairing is the marker #205 kept — Showdown's own note that this
+ * announcement is there for a stat change — and not "the line after this one".
+ */
+describe('the stat changes an announcement gathers onto its own row', () => {
+  it('draws the drops an Intimidate announced beside the dot, one icon each', () => {
+    const lines = [
+      '|-ability|p1a: Scrafty|Intimidate|boost',
+      '|-unboost|p2a: Whimsicott|atk|1',
+      '|-unboost|p2b: Garchomp|atk|1',
+    ]
+
+    expect(rows(lines, false, FOUR_UP)).toMatchObject([
+      {
+        species: 'Scrafty',
+        message: { key: 'ability', params: { ability: 'Intimidate' } },
+        // Behind no arrow: the line says the ability fired, not who it aimed
+        // at, and an arrow would claim a direction the log never stated.
+        targets: [],
+        bystanders: [
+          { species: 'Whimsicott', notes: [{ key: 'statFell', params: { stat: 'atk' } }] },
+          { species: 'Garchomp', notes: [{ key: 'statFell', params: { stat: 'atk' } }] },
+        ],
+        notes: [],
+      },
+    ])
+    expect(sidelinedCount(turnsOf(lines, FOUR_UP)[1]!)).toBe(0)
+  })
+
+  it('draws a drop on the ability’s own holder on the row itself', () => {
+    // Speed Boost, which fires at the end of the turn on the Pokémon holding
+    // it: an icon of the Pokémon already at the head of the row says nothing
+    // twice, the same rule an `-activate` naming its own subject follows.
+    const lines = ['|-ability|p1a: Scrafty|Speed Boost|boost', '|-boost|p1a: Scrafty|spe|1']
+
+    expect(rows(lines)[0]).toMatchObject({
+      species: 'Scrafty',
+      message: { key: 'ability', params: { ability: 'Speed Boost' } },
+      bystanders: [],
+      notes: [{ key: 'statRose', params: { stat: 'spe', stages: '1' }, quiet: false }],
+    })
+  })
+
+  it('gives one icon to a Pokémon the announcement moved twice', () => {
+    const lines = [
+      '|-ability|p1a: Scrafty|Intimidate|boost',
+      '|-unboost|p2a: Whimsicott|atk|1',
+      '|-unboost|p2a: Whimsicott|spa|1',
+    ]
+
+    expect(rows(lines)[0]?.bystanders).toMatchObject([
+      { species: 'Whimsicott', notes: [{ key: 'statFell' }, { key: 'statFell' }] },
+    ])
+  })
+
+  it('collects nothing for an announcement the log put no marker on', () => {
+    // Pressure and Unnerve announce themselves and mean nothing of the sort.
+    // Their neighbour keeps the row #206 gave it.
+    const lines = ['|-ability|p1a: Scrafty|Pressure', '|-unboost|p2a: Whimsicott|atk|1']
+
+    expect(rows(lines).map((row) => row.message?.key)).toEqual(['ability', 'statFell'])
+    expect(rows(lines)[0]?.bystanders).toEqual([])
+  })
+
+  it('stops collecting at the first line that is not a stat change', () => {
+    // The marker says this announcement is about a stat change; it does not
+    // say how far down the log to keep reading. Anything else closes it.
+    const lines = [
+      '|-ability|p1a: Scrafty|Intimidate|boost',
+      '|-unboost|p2a: Whimsicott|atk|1',
+      '|-damage|p2a: Whimsicott|90/100',
+      '|-unboost|p2b: Garchomp|atk|1',
+    ]
+
+    expect(rows(lines, false, FOUR_UP).map((row) => row.message?.key)).toEqual([
+      'ability',
+      undefined,
+      'statFell',
+    ])
+    expect(rows(lines, false, FOUR_UP)[0]?.bystanders).toMatchObject([{ species: 'Whimsicott' }])
+  })
+
+  it('keeps an announcement that collected nothing as the bare row it is', () => {
+    // Measured in `gen9ou-2667299955` turn 18: a marked Intimidate whose drop
+    // never came. The marker is a claim about the announcement, not a promise
+    // about what follows.
+    const lines = ['|-ability|p1a: Scrafty|Intimidate|boost', '|-resisted|p2a: Whimsicott']
+
+    expect(rows(lines, true).map((row) => row.message?.key)).toEqual(['ability', 'hit.resisted'])
+    expect(rows(lines, true)[0]?.bystanders).toEqual([])
+  })
+
+  it('keeps an open move from eating what an ability announced', () => {
+    // The drop is on a Pokémon Knock Off named as its target and carries no
+    // source, so #206's gate alone would fold it onto Knock Off. The
+    // announcement is the nearer claim, and it is the log's own.
+    const lines = [
+      '|move|p1a: Scrafty|Knock Off|p2a: Whimsicott',
+      '|-damage|p2a: Whimsicott|38/100',
+      '|-ability|p1b: Torkoal|Intimidate|boost',
+      '|-unboost|p2a: Whimsicott|atk|1',
+    ]
+    const drawn = rows(lines, false, FOUR_UP)
+
+    expect(drawn[0]).toMatchObject({ move: 'Knock Off', targets: [{ notes: [] }] })
+    expect(drawn[1]).toMatchObject({
+      species: 'Torkoal',
+      bystanders: [{ species: 'Whimsicott', notes: [{ key: 'statFell' }] }],
+    })
+  })
+
+  it('does not hand an interrupted announcement’s drop back to the open move', () => {
+    // The announcement is closed by the line that came between, and what
+    // follows is still the ability's — so the `-ability` closes the move's
+    // scope too. Without that, #206's gate reclaims the drop, because the
+    // Pokémon is a target of the move and the line names no source.
+    const lines = [
+      '|move|p1a: Scrafty|Knock Off|p2a: Whimsicott',
+      '|-damage|p2a: Whimsicott|38/100',
+      '|-ability|p1b: Torkoal|Intimidate|boost',
+      '|-fail|p2a: Whimsicott|unboost',
+      '|-unboost|p2a: Whimsicott|atk|1',
+    ]
+    const drawn = rows(lines, true, FOUR_UP)
+
+    expect(drawn.map((row) => row.message?.key)).toEqual([
+      undefined,
+      'ability',
+      'failed',
+      'statFell',
+    ])
+    expect(drawn[0]?.targets[0]?.notes).toEqual([])
+    expect(drawn[1]?.bystanders).toEqual([])
+  })
+
+  it('keeps an announcement from eating what a move caused', () => {
+    // And the other way: the move line closes the announcement, so the drop
+    // that follows it is the move's by #206's gate.
+    const lines = [
+      '|-ability|p1b: Torkoal|Intimidate|boost',
+      '|-unboost|p2a: Whimsicott|atk|1',
+      '|move|p1a: Scrafty|Parting Shot|p2a: Whimsicott',
+      '|-unboost|p2a: Whimsicott|spa|1',
+    ]
+    const drawn = rows(lines, false, FOUR_UP)
+
+    expect(drawn[0]?.bystanders).toMatchObject([
+      { species: 'Whimsicott', notes: [{ key: 'statFell', params: { stat: 'atk' } }] },
+    ])
+    expect(drawn[1]).toMatchObject({
+      move: 'Parting Shot',
+      targets: [{ species: 'Whimsicott', notes: [{ key: 'statFell', params: { stat: 'spa' } }] }],
+    })
+  })
+})
+
 describe('the damage an action gathers onto its own row', () => {
   it('folds a hit onto the target it hit, when the log named no other source', () => {
     const lines = [
@@ -1236,6 +1394,45 @@ describe('the Parting Shot of gen9vgc2024regf-2082942604', () => {
         notes: [
           { key: 'statFell', params: { stat: 'atk', stages: '1' } },
           { key: 'statFell', params: { stat: 'spa', stages: '1' } },
+        ],
+      },
+    ])
+  })
+})
+
+/**
+ * The opening of the same game, which is the picture #207 was written from:
+ * two Intimidates on the switch in, four drops between them.
+ */
+describe('the leads of gen9vgc2024regf-2082942604', () => {
+  const turn = parseTimeline(multiHit.log).turns.find((turn) => turn.number === 0)!
+
+  it('draws each Intimidate with the two it lowered beside it', () => {
+    // Ten rows before this change — four switches and six lines the log spent
+    // on two abilities — and six after. Nothing was behind the details switch
+    // either way: #206 put the four drops on the main line, and this one puts
+    // them where they belong.
+    const drawn = rowsOf(turn, { detailed: false })
+
+    expect(drawn).toHaveLength(6)
+    expect(sidelinedCount(turn)).toBe(0)
+    expect(drawn.filter((row) => row.message?.key === 'statFell')).toEqual([])
+
+    expect(drawn.filter((row) => row.message?.key === 'ability')).toMatchObject([
+      {
+        species: 'Incineroar',
+        side: 'p1',
+        bystanders: [
+          { species: 'Incineroar', notes: [{ key: 'statFell', params: { stat: 'atk' } }] },
+          { species: 'Amoonguss', notes: [{ key: 'statFell', params: { stat: 'atk' } }] },
+        ],
+      },
+      {
+        species: 'Incineroar',
+        side: 'p2',
+        bystanders: [
+          { species: 'Urshifu-Rapid-Strike', notes: [{ key: 'statFell' }] },
+          { species: 'Incineroar', notes: [{ key: 'statFell' }] },
         ],
       },
     ])

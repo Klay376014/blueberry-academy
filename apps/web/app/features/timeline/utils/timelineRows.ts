@@ -266,6 +266,15 @@ function statChangeSaid(event: StatChange): RowMessage {
   }
 }
 
+/**
+ * A stat change as a note on whatever row accounts for it. The same words the
+ * row would have said on its own, so the folded reading and the unfolded one
+ * cannot drift apart (#206).
+ */
+function statChangeNote(event: StatChange): RowNote {
+  return { ...statChangeSaid(event), quiet: false }
+}
+
 /** The row a stat change nothing can account for keeps for itself. */
 function statChangeRow(event: StatChange): TimelineRow {
   const trade = event.kind === 'swapBoosts' || event.kind === 'copyBoosts'
@@ -615,16 +624,37 @@ function isPlumbingFor(events: TimelineEvent[], index: number): boolean {
 type MoveEvent = Extract<TimelineEvent, { kind: 'move' }>
 
 /**
- * A move's row, open for the results that follow it.
+ * A row that is still open for what the log says next about it: a move's row
+ * for its results, an ability announcement's for the stat changes it announced.
  *
  * `slots` is by field position rather than by species, because a position is
  * the only thing on the field that is unique — nicknames repeat and an Illusion
  * lies about the species.
  */
-interface OpenAction {
+interface OpenScope {
   row: TimelineRow
-  actor: string
+  /** Where the row's own subject stands: a move's user, an ability's holder. */
+  subject: string
   slots: Map<string, RowSlot>
+}
+
+type AbilityEvent = Extract<TimelineEvent, { kind: 'ability' }>
+
+/** The announcement a marked `-ability` opens, and null for one without (T28). */
+function announcementOf(event: AbilityEvent, row: TimelineRow): OpenScope | null {
+  return event.marker === 'boost'
+    ? { row, subject: event.pokemon.position, slots: new Map() }
+    : null
+}
+
+/**
+ * Whether a line is one of the stat changes an announcement announced (T28).
+ *
+ * Measured, all 32 of the fixtures' announced stat changes are bare, which is
+ * the shape the `from` test lets through.
+ */
+function wasAnnounced(event: TimelineEvent): event is StatChange {
+  return isStatChange(event) && event.from === null
 }
 
 /**
@@ -639,7 +669,7 @@ interface RowSlot {
   target: boolean
 }
 
-function actionOf(event: MoveEvent): OpenAction {
+function actionOf(event: MoveEvent): OpenScope {
   // A move aimed at its own user says nothing an icon would add.
   const aimedAt = event.targets.filter((target) => target.position !== event.actor.position)
   const row: TimelineRow = {
@@ -653,7 +683,7 @@ function actionOf(event: MoveEvent): OpenAction {
 
   return {
     row,
-    actor: event.actor.position,
+    subject: event.actor.position,
     slots: new Map(
       aimedAt.map((target, index) => [
         target.position,
@@ -671,11 +701,7 @@ function resultOf(
   event: TimelineEvent,
   move: string | null,
 ): { pokemon: Combatant; note: RowNote } | null {
-  // The same words the row would have said on its own, so the folded reading
-  // and the unfolded one cannot drift apart (#206).
-  if (isStatChange(event)) {
-    return { pokemon: event.pokemon, note: { ...statChangeSaid(event), quiet: false } }
-  }
+  if (isStatChange(event)) return { pokemon: event.pokemon, note: statChangeNote(event) }
 
   switch (event.kind) {
     case 'hitResult':
@@ -747,7 +773,7 @@ function resultOf(
  * subject says wrongly, and this file claims no causality the log did not
  * state.
  */
-function foldsHere(action: OpenAction, event: TimelineEvent): boolean {
+function foldsHere(action: OpenScope, event: TimelineEvent): boolean {
   if (isStatChange(event)) return foldsStatChange(action, event)
   if (event.kind !== 'volatile' || event.phase !== 'end') return true
 
@@ -768,12 +794,12 @@ function foldsHere(action: OpenAction, event: TimelineEvent): boolean {
  * A bystander is deliberately unreachable from here: one is made for a result
  * that named the row's move, and a stat change names nothing of the sort.
  */
-function foldsStatChange(action: OpenAction, event: StatChange): boolean {
+function foldsStatChange(action: OpenScope, event: StatChange): boolean {
   const thisMove = event.from === null || toID(event.from) === toID(`move: ${action.row.move}`)
 
   return (
     thisMove &&
-    (targetSlot(action, event.pokemon) !== null || event.pokemon.position === action.actor)
+    (targetSlot(action, event.pokemon) !== null || event.pokemon.position === action.subject)
   )
 }
 
@@ -781,7 +807,7 @@ function foldsStatChange(action: OpenAction, event: StatChange): boolean {
  * The place on the open action's row for a Pokémon the move was aimed at, or
  * null for one it was not — the gate three of the folding decisions share.
  */
-function targetSlot(action: OpenAction, pokemon: Combatant): RowPokemon | null {
+function targetSlot(action: OpenScope, pokemon: Combatant): RowPokemon | null {
   const slot = action.slots.get(pokemon.position)
 
   return slot?.target ? slot.pokemon : null
@@ -792,7 +818,7 @@ function targetSlot(action: OpenAction, pokemon: Combatant): RowPokemon | null {
  * went. The notes are pushed into objects the row already holds, so the row
  * that was pushed earlier gains them.
  */
-function pin(action: OpenAction, event: TimelineEvent): boolean {
+function pin(action: OpenScope, event: TimelineEvent): boolean {
   const result = resultOf(event, action.row.move)
   if (!result) return false
   if (!foldsHere(action, event)) return false
@@ -802,8 +828,8 @@ function pin(action: OpenAction, event: TimelineEvent): boolean {
 }
 
 /** Where on the row a result about this Pokémon goes, made room for if new. */
-function slotFor(action: OpenAction, pokemon: Combatant): { notes: RowNote[] } {
-  if (pokemon.position === action.actor) return action.row
+function slotFor(action: OpenScope, pokemon: Combatant): { notes: RowNote[] } {
+  if (pokemon.position === action.subject) return action.row
 
   const known = action.slots.get(pokemon.position)
   if (known) return known.pokemon
@@ -834,7 +860,7 @@ function slotFor(action: OpenAction, pokemon: Combatant): { notes: RowNote[] } {
  * change is drawn rather than whether, so the flag is asked here too — without
  * it, what Showdown hid would reappear on the move's row.
  */
-function foldedHealth(action: OpenAction, event: TimelineEvent): RowPokemon | null {
+function foldedHealth(action: OpenScope, event: TimelineEvent): RowPokemon | null {
   if (event.kind !== 'damage' && event.kind !== 'heal') return null
   if (event.silent || event.from !== null) return null
 
@@ -855,7 +881,7 @@ function foldedHealth(action: OpenAction, event: TimelineEvent): RowPokemon | nu
  * Measured in the ten fixtures: 61 faints, 58 of them said by the row this
  * way, and the 3 that are not are self-KOs from Life Orb and Recoil (#149).
  */
-function saidByTheRow(action: OpenAction, event: TimelineEvent): boolean {
+function saidByTheRow(action: OpenScope, event: TimelineEvent): boolean {
   if (event.kind !== 'faint') return false
 
   return (
@@ -865,8 +891,17 @@ function saidByTheRow(action: OpenAction, event: TimelineEvent): boolean {
   )
 }
 
-/** What closes an action, so that its results cannot reach past it. */
-const CLOSES_ACTION = new Set<TimelineEvent['kind']>(['move', 'switch'])
+/**
+ * What closes an action, so that its results cannot reach past it.
+ *
+ * An ability announcing itself is on the list because what follows it is the
+ * ability's, not the move's: T28 hands the announced stat changes to the
+ * announcement, and one it could not take — a line came between them — must
+ * not fall back to the move either. Measured over the fixtures, five lines
+ * arrive inside an open move after an `-ability`, and all five are stat
+ * changes of exactly that kind; no damage or hit result is behind this (#207).
+ */
+const CLOSES_ACTION = new Set<TimelineEvent['kind']>(['move', 'switch', 'ability'])
 
 /**
  * The rows a turn becomes, with each action's results gathered onto its own row.
@@ -878,10 +913,29 @@ const CLOSES_ACTION = new Set<TimelineEvent['kind']>(['move', 'switch'])
  */
 export function rowsOf(turn: TimelineTurn, { detailed }: RowOptions): TimelineRow[] {
   const rows: TimelineRow[] = []
-  let action: OpenAction | null = null
+  let action: OpenScope | null = null
+  let announcement: OpenScope | null = null
 
   turn.events.forEach((event, index) => {
     if (isPlumbingFor(turn.events, index)) return
+
+    // Asked before the open move, because both can claim the same line: an
+    // Intimidate lowers a Pokémon the open move named as a target, with no
+    // source on it, which is everything T27 asks for. T28 says the
+    // announcement takes it.
+    //
+    // Beside the dot rather than behind the arrow, which is what `slotFor`
+    // does for a scope whose `slots` started empty: an `-ability` line names
+    // no targets, so every Pokémon it reaches is a bystander (#152).
+    if (announcement) {
+      if (wasAnnounced(event)) {
+        slotFor(announcement, event.pokemon).notes.push(statChangeNote(event))
+        return
+      }
+
+      announcement = null
+    }
+
     if (action && pin(action, event)) return
 
     const hurt = action && foldedHealth(action, event)
@@ -909,6 +963,11 @@ export function rowsOf(turn: TimelineTurn, { detailed }: RowOptions): TimelineRo
     // the damage of a spread move lands between its two targets' results.
     const row = rowOf(event)
     if (row) rows.push(row)
+
+    // An ability is on the main line unconditionally, so this row exists at
+    // both levels and the folding above cannot differ between them — which is
+    // what `sidelinedCount` being a difference of the two rests on.
+    if (event.kind === 'ability' && row) announcement = announcementOf(event, row)
   })
 
   return rows
