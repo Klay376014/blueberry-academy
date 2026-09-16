@@ -11,10 +11,6 @@ export { toID } from './species.ts'
 // Team Preview's hidden formes, exported because the app draws a registered
 // six against a bring and has to know the two ids are one Pokémon.
 export { isTeamPreviewHiddenForme } from './species.ts'
-// The `move:` / `ability:` / `item:` prefix a `[from]` sometimes carries,
-// exported because the drawer compares a stat change's stated source against
-// the move already on the row, and only one of the two is ever prefixed (#206).
-export { effectNameOf } from './timeline.ts'
 export type { ProtocolLine } from './protocol.ts'
 export type { SideId } from './replay.ts'
 export type { EndReason, ParsedBattle, ParsedSide, ReplayMeta } from './summarize.ts'

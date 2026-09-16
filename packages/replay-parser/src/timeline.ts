@@ -774,7 +774,7 @@ function statusOf(field: string): string | null {
  * sends `Reflect` in one line and `move: Light Screen` in the next, and the
  * prefix says nothing a reader needs.
  */
-export function effectNameOf(effect: string): string {
+function effectNameOf(effect: string): string {
   return effect.replace(/^(move|ability|item):\s*/, '')
 }
 

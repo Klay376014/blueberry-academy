@@ -748,6 +748,18 @@ describe('the stat changes an action gathers onto its own row', () => {
     expect(sidelinedCount(turnsOf(lines)[1]!)).toBe(0)
   })
 
+  it('reads the whole of a named source, namespace included', () => {
+    // `item: Metronome` and the move Metronome share a name, and the half that
+    // tells them apart is the one a bare-name comparison throws away.
+    const lines = [
+      '|move|p1a: Scrafty|Metronome|p1a: Scrafty',
+      '|-boost|p1a: Scrafty|atk|1|[from] item: Metronome',
+    ]
+
+    expect(rows(lines).map((row) => row.message?.key)).toEqual([undefined, 'statRose'])
+    expect(rows(lines)[0]?.notes).toEqual([])
+  })
+
   it('leaves a stat change with no move open on its own row', () => {
     // The residual phase, and anything after a switch closed the action: there
     // is no move to fold onto, and the line is still what decided the turn.
@@ -1202,10 +1214,19 @@ describe('the Parting Shot of gen9vgc2024regf-2082942604', () => {
   const turn = parseTimeline(multiHit.log).turns.find((turn) => turn.number === 2)!
 
   it('draws the drops on the move that caused them, without adding a row', () => {
+    // The two the turn used to hide, named here so that the count below is
+    // read against the log rather than against itself: both are `-unboost`
+    // lines on the Rillaboom the Parting Shot was aimed at.
+    expect(turn.events.filter((event) => event.kind === 'boost')).toHaveLength(2)
+
     // Five main-line rows before this change and five after: what moved is
     // where the two drops are drawn, not how much of the turn is on screen.
+    // Behind the switch there were two and now there are none.
     expect(rowsOf(turn, { detailed: false }).length).toBe(5)
     expect(sidelinedCount(turn)).toBe(0)
+    expect(
+      rowsOf(turn, { detailed: true }).filter((row) => row.message?.key === 'statFell'),
+    ).toEqual([])
 
     expect(
       rowsOf(turn, { detailed: false }).find((row) => row.move === 'Parting Shot')?.targets,
