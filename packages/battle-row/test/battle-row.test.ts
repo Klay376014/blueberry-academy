@@ -1,7 +1,13 @@
 import { describe, expect, it } from 'vite-plus/test'
 import { PARSER_VERSION, parseReplay } from 'replay-parser'
 import type { ParsedBattle } from 'replay-parser'
-import { attributionOf, battleRowOf, replayAccessOf, unparsedRowOf } from '../src/index.ts'
+import {
+  accessGapOf,
+  attributionOf,
+  battleRowOf,
+  replayAccessOf,
+  unparsedRowOf,
+} from '../src/index.ts'
 import ladder from '../../replay-parser/test/fixtures/gen9championsvgc2026regmb-2667169457.json'
 import tie from '../../replay-parser/test/fixtures/gen9ou-2667293085.json'
 
@@ -201,5 +207,52 @@ describe('the row a replay that could not be parsed becomes', () => {
 
     expect(row.replay_private).toBe(true)
     expect(row.replay_password).toBe('b1cd2ef')
+  })
+})
+
+describe('an empty string is not an address', () => {
+  // Showdown serves a private replay at `<id>-<password>pw` and its passwords
+  // are 31 characters; `parseReplayLink` will not read a shorter one. So ''
+  // is not a password anybody can be served by, and reading it as one files a
+  // public battle as private.
+  it('does not make a public replay private', () => {
+    expect(replayAccessOf({ private: 0, password: '' })).toEqual({
+      replay_private: false,
+      replay_password: null,
+    })
+  })
+
+  it('does not survive as a password on the row', () => {
+    expect(replayAccessOf({ private: 1, password: '' }).replay_password).toBeNull()
+  })
+
+  it('does not win over the record when it is what the fetch used', () => {
+    expect(replayAccessOf({ private: 1, password: 'b1cd2ef' }, '').replay_password).toBe('b1cd2ef')
+  })
+})
+
+describe('why a private replay has no password to give', () => {
+  // Showdown's own 0/1/2/3, as `ReplayListing` records it. The three gaps read
+  // alike on the row and mean different things. #202.
+  it('tells a replay that never had one from a password gone missing', () => {
+    expect(accessGapOf({ private: 2, password: null })).toBe('none-to-give')
+    expect(accessGapOf({ private: 1, password: null })).toBe('missing')
+  })
+
+  it('does not call a deleted replay a missing password', () => {
+    // `private: 3` is deleted. Having no password is explained by that, and
+    // counting it beside the genuinely unaccountable would dilute the one
+    // number that is supposed to be zero.
+    expect(accessGapOf({ private: 3, password: null })).toBe('deleted')
+  })
+
+  it('reads an empty password as no password, like everything else here', () => {
+    expect(accessGapOf({ private: 1, password: '' })).toBe('missing')
+  })
+
+  it('has nothing to say where there is no gap', () => {
+    expect(accessGapOf({ private: 1, password: 'b1cd2ef' })).toBeNull()
+    expect(accessGapOf({ private: 0, password: null })).toBeNull()
+    expect(accessGapOf({})).toBeNull()
   })
 })

@@ -29,7 +29,7 @@
 import { gunzipSync } from 'node:zlib'
 import { createClient } from '@supabase/supabase-js'
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { battleRowOf, replayAccessOf, unparsedRowOf } from 'battle-row'
+import { accessGapOf, battleRowOf, replayAccessOf, unparsedRowOf } from 'battle-row'
 import type { BattleRow, ReplayAccess } from 'battle-row'
 import { PARSER_VERSION, parseReplay } from 'replay-parser'
 
@@ -272,13 +272,25 @@ async function* storedRows(supabase: SupabaseClient, options: Options) {
   }
 }
 
+/** What to say about a replay that is private with no password to give. */
+const GAP_REASON: Record<
+  NonNullable<ReturnType<typeof accessGapOf>>,
+  (kind?: number | null) => string
+> = {
+  'none-to-give': () => 'private: 2 — Showdown never issued a password for it',
+  deleted: () => 'private: 3 — deleted',
+  missing: (kind) => `private: ${kind} — its password is not in the stored log`,
+}
+
 type Tally = Record<
   | 'rebuilt'
   | 'address-restored'
   | 'unchanged'
   | 'unparsed'
   | 'no-log'
-  | 'no-address'
+  | 'none-to-give'
+  | 'deleted'
+  | 'missing'
   | 'left-alone'
   | 'failed',
   number
@@ -304,7 +316,9 @@ async function main() {
     unchanged: 0,
     unparsed: 0,
     'no-log': 0,
-    'no-address': 0,
+    'none-to-give': 0,
+    deleted: 0,
+    missing: 0,
     'left-alone': 0,
     failed: 0,
   }
@@ -333,14 +347,13 @@ async function main() {
         return
       }
 
-      // Showdown's `private: 2`. Nothing is wrong with the row and nothing can
-      // be given back to it either, so it is said out loud rather than filed
-      // under `unchanged` beside the ladder battles.
-      if (row.replay_private && !row.replay_password) {
-        tally['no-address'] += 1
-        console.error(
-          `  no address  ${stored.replay_id}  private, and the stored log has no password`,
-        )
+      // Said out loud rather than filed under `unchanged` beside the ladder
+      // battles: which of the three it is decides whether anybody need do
+      // anything, and only the last is worth chasing (#202).
+      const gap = accessGapOf(record)
+      if (gap) {
+        tally[gap] += 1
+        console.error(`  no address  ${stored.replay_id}  ${GAP_REASON[gap](record.private)}`)
       }
 
       const moved = changedColumns(stored, row)
@@ -393,7 +406,10 @@ async function main() {
     `\nparser ${PARSER_VERSION}${options.dryRun ? ' (dry run, nothing written)' : ''}: ` +
       `${tally.rebuilt} rebuilt (${tally['address-restored']} given back an address), ` +
       `${tally.unchanged} unchanged, ${tally.unparsed} still unreadable, ` +
-      `${tally['no-log']} without a stored log, ${tally['no-address']} private with no password, ` +
+      `${tally['no-log']} without a stored log, ` +
+      `${tally['none-to-give']} never had a password (private: 2), ` +
+      `${tally.deleted} deleted (private: 3), ` +
+      `${tally.missing} with a password missing, ` +
       `${tally['left-alone']} left alone, ` +
       `${tally.failed} failed`,
   )
