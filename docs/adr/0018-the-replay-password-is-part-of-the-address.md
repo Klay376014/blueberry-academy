@@ -56,35 +56,36 @@ Showdown 的 `private` 有 0/1/2/3 四個值，其中 **2 是「私人但沒有�
 `scripts/reparse.ts` 走同一支函式，所以三個入口不可能給出不同答案（同 ADR-0012 的
 理由）。
 
-### 三、匯入把用到的密碼寫進存下來的 JSON
+### 三、存進 Storage 的 replay JSON 一個位元都不動
 
 `replayAccessOf(record, fetchedWith)` 以**實際發出請求時用的那個密碼**優先。理由是
 它一定是對的：Showdown 只在 `<id>-<password>pw.json` 這個位址上供應私人 replay，
 密碼不對就是 404，所以 record 拿得回來就代表那個密碼可用。
 
-replay JSON 自己的 `password` 欄位**也有**，而且就是同一段 31 碼——#196 對真實的
-私人 replay 實測過（[spike 筆記](../specs/2026-09-11-private-replay-sync-spike.md)
-〈追加：單一 replay 的 JSON〉結果表第 2 項）。所以這裡的「優先」在私人 replay 上
-是兩個相同的值擇一，不是在兩個可能不同的答案之間仲裁。
+這一版曾經走過另一條路：匯入時把用到的密碼寫進存進 Storage 的那包 JSON，理由是
+`reparse` 手上只有那個物件，萬一 Showdown 的單場 JSON 不帶 `password`，一次重跑就會
+把全部私人場次的密碼清成 null。**#196 把那個「萬一」量掉了** —— 單場 replay 的 JSON
+帶著 `password`，而且就是位址上那段 31 碼。
 
-> 這一段原本寫的是「單一 replay 的 JSON 帶不帶 `password` 沒有量過」。#196 與本票
-> 平行進行，量測結果比這篇 ADR 晚到。留這一句在這裡，是因為下面那個決定的份量會
-> 隨著前提改變而改變，而讀者有權知道它變過。
+於是那層保險的理由消失，而它的代價沒有消失：CONTEXT.md〈Raw log〉寫的是「原封不動
+gzip 後存進 Supabase Storage。它是**唯一的真實來源**」。把衍生資料注射進唯一的真實
+來源，換來的是一個已經被量測排除的風險。**所以不做**，`storeLog` 存的還是 Showdown
+回什麼就是什麼。
 
-因此匯入仍然把密碼一併寫進存進 Storage 的那個 JSON 物件，但它的份量從「必要」降成
-**保險**：`reparse` 手上只有那個物件，而重跑解析若把密碼清成 null，症狀是連結靜默
-變回 404——一個沒有任何錯誤訊息、要等使用者點下去才發現的迴歸。保險的成本是一個
-欄位寫入同一個值，代價小到不值得為了「已經量過了」而拆掉。
-
-還有一個量不到的角落支持留著它：`private: 2`（私人但沒有密碼）沒有人手上有樣本
-（spike 結果表第 8 項）。以**實際發出請求時用的密碼**為準這條規則，在那種場次上
-仍然是對的。
+代價講清楚：匯入與重跑解析從此都依賴 record 自己的 `password` 欄位。兩者因此永遠
+給出同一個答案（ADR-0012 的同一條理由），但如果哪天 Showdown 不再回傳它，症狀是
+重跑解析後連結靜默變回 404。`ingest.spec.ts` 有一條測試專門釘住「光從存下來的 JSON
+就重建得出同一個密碼」，那是這個依賴的哨兵。
 
 ### 四、密碼只出現在那一個 `href` 上
 
 `replayUrl(ref)` 是唯一的用處，`DrawerHeader.vue` 是唯一的呼叫端，`rel` 維持
-`noopener noreferrer`。沒有複製鈕、沒有分享、沒有匯出讀這一欄，`RECORD_COLUMNS`
-以外的任何欄位清單也都沒有它。
+`noopener noreferrer`。沒有複製鈕、沒有分享、沒有匯出讀這一欄。
+
+讀取面只有 `RECORD_COLUMNS` 選它——`STATS_COLUMNS` 與重新歸戶的欄位清單都沒有。
+`scripts/reparse.ts` 的 `COLUMNS` 也列了它，但那是**寫入面**：那份清單是「這支腳本
+會重建、因此也必須比對的每一欄」，漏掉它反而會讓重跑解析把密碼清成 null。兩者不是
+同一種清單，這裡分開講，免得日後有人照著「只有 RECORD_COLUMNS」去砍。
 
 ## 後果
 

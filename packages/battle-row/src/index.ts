@@ -63,8 +63,9 @@ export interface ReplayAccess {
  *
  * `fetchedWith` wins when it is given: Showdown serves a private replay only
  * at `<id>-<password>pw.json`, so a password a record came back for is a
- * password that works, whereas the `password` field has only ever been
- * measured on a search row (the spike note, §9 對 #178 的結論).
+ * password that works. It is the same string the record itself carries in
+ * every case measured (#196), which is what lets a re-parse — which has only
+ * the record — arrive at the same answer as the import. ADR-0018 §三.
  */
 export function replayAccessOf(
   replay: { private?: number | null; password?: string | null },

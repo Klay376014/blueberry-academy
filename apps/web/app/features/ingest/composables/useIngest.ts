@@ -188,11 +188,7 @@ export function useIngest() {
 
     let logPath: string
     try {
-      // The password goes into the stored JSON as well as into the row: a
-      // re-parse rebuilds every derived column from this object alone, and a
-      // rebuild that nulled the password would leave the drawer linking at a
-      // 404 nobody could explain.
-      logPath = await storeLog(userId, { ...record, password: access.replay_password })
+      logPath = await storeLog(userId, record)
     } catch (error) {
       // Deliberately no row: one whose log_path points at nothing would be
       // skipped as already imported and could never be re-parsed.

@@ -11,11 +11,16 @@ alter table public.battles
   add column replay_private boolean not null default false,
   add column replay_password text;
 
--- The default exists only to fill the rows already here, every one of which
--- came in through a search and is therefore public. Dropped again for the
--- reason bring_complete never had one: a writer that forgets this column
--- would file private battles as public, and the symptom is a link that 404s
--- with nothing to say why.
+-- The default exists only to fill the rows already here, and it fills some of
+-- them wrongly: the private sync shipped before this column did, so a reader
+-- who has already used it has private battles that this migration files as
+-- public. They are not guessable from the row -- the password is in the
+-- stored replay JSON and nowhere else -- so putting them right is a backfill
+-- of its own (#198), not something an ALTER can do.
+--
+-- Dropped again for the reason bring_complete never had one: a writer that
+-- forgets this column would file private battles as public, and the symptom
+-- is a link that 404s with nothing to say why.
 alter table public.battles alter column replay_private drop default;
 
 comment on column public.battles.replay_private is
