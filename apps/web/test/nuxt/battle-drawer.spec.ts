@@ -396,8 +396,7 @@ describe('the drawer', () => {
 
   it('says beside an Intimidate which two it lowered, and by how much', async () => {
     // Turn 0 of the fixture: the lead Scrafty's Intimidate, and the two drops
-    // the log spent two lines on. On screen they are the dot and two icons —
-    // "it happened" was never the hard part; "to whom" was (#207).
+    // the log spent two lines on. On screen they are the dot and two icons.
     await openDrawer()
 
     const turn = drawer().querySelectorAll('[data-testid="timeline-turn"]')[0]

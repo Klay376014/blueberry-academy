@@ -927,6 +927,30 @@ describe('the stat changes an announcement gathers onto its own row', () => {
     })
   })
 
+  it('does not hand an interrupted announcement’s drop back to the open move', () => {
+    // The announcement is closed by the line that came between, and what
+    // follows is still the ability's — so the `-ability` closes the move's
+    // scope too. Without that, #206's gate reclaims the drop, because the
+    // Pokémon is a target of the move and the line names no source.
+    const lines = [
+      '|move|p1a: Scrafty|Knock Off|p2a: Whimsicott',
+      '|-damage|p2a: Whimsicott|38/100',
+      '|-ability|p1b: Torkoal|Intimidate|boost',
+      '|-fail|p2a: Whimsicott|unboost',
+      '|-unboost|p2a: Whimsicott|atk|1',
+    ]
+    const drawn = rows(lines, true, FOUR_UP)
+
+    expect(drawn.map((row) => row.message?.key)).toEqual([
+      undefined,
+      'ability',
+      'failed',
+      'statFell',
+    ])
+    expect(drawn[0]?.targets[0]?.notes).toEqual([])
+    expect(drawn[1]?.bystanders).toEqual([])
+  })
+
   it('keeps an announcement from eating what a move caused', () => {
     // And the other way: the move line closes the announcement, so the drop
     // that follows it is the move's by #206's gate.
