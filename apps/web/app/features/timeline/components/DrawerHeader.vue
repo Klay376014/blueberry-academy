@@ -125,7 +125,7 @@ const RESULT_TONE = {
         </span>
         <a
           v-if="battle"
-          :href="replayUrl(battle.replayId)"
+          :href="replayUrl({ id: battle.replayId, password: battle.replayPassword })"
           target="_blank"
           rel="noopener noreferrer"
           class="text-primary flex items-center gap-1 text-xs underline"

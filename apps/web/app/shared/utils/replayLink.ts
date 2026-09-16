@@ -3,13 +3,16 @@ import type { ReplayRef } from '../api/showdown'
 const ORIGIN = 'https://replay.pokemonshowdown.com'
 
 /**
- * Where a replay lives on Showdown. The address of the replay itself, without
- * a password: a link out of this app is for a battle the reader already has,
- * and putting the password of a private replay into a shareable page would
- * hand it out with it.
+ * Where a replay lives on Showdown, password and all.
+ *
+ * A private replay is addressed as `<id>-<password>pw` and only there, so an
+ * address without the suffix is not a safer link — it is a link to a 404. The
+ * password is part of the address rather than a credential of the reader's
+ * Showdown account; docs/adr/0018-the-replay-password-is-part-of-the-address.md
+ * is where that line is drawn.
  */
-export function replayUrl(replayId: string): string {
-  return `${ORIGIN}/${replayId}`
+export function replayUrl({ id, password }: ReplayRef): string {
+  return `${ORIGIN}/${password ? `${id}-${password}pw` : id}`
 }
 
 /**

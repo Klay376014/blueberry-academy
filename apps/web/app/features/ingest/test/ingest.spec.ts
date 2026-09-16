@@ -2,6 +2,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import supabasePlugin from '../../../plugins/supabase.client'
 import { signIn } from '../../../../test/helpers'
 import ladder from '../../../../../../packages/replay-parser/test/fixtures/gen9championsvgc2026regmb-2667169457.json'
+import { replayAccessOf } from 'battle-row'
+
+/**
+ * The same replay as Showdown serves it when it is private: `private: 1` and
+ * the password in the body, which is the shape #196 measured. The fixture on
+ * disk is a public replay, so the two fields are the whole difference.
+ */
+const private_ = { ...ladder, private: 1, password: 'b1cd2ef' }
 
 // The two things outside the app are faked and nothing else is: Showdown
 // answers through the global fetch that useShowdown really calls, Supabase
@@ -248,6 +256,46 @@ describe('importing one replay', () => {
     expect(String(fetchMock.mock.calls[0]![0])).toBe(
       `https://replay.pokemonshowdown.com/${ladder.id}-b1cd2efpw.json`,
     )
+  })
+
+  it('keeps the password of a private replay on the row it writes', async () => {
+    // The address of a private replay is the id and the password together
+    // (CONTEXT.md, 公開 replay / 私人 replay), so a row with only the id names
+    // a page Showdown answers 404 for. ADR-0018.
+    await useIngest().importReplay({ id: ladder.id, password: 'b1cd2ef' })
+
+    expect(writtenRow()).toMatchObject({ replay_private: true, replay_password: 'b1cd2ef' })
+  })
+
+  it('writes no password for a replay that needs none', async () => {
+    await useIngest().importReplay({ id: ladder.id })
+
+    expect(writtenRow()).toMatchObject({ replay_private: false, replay_password: null })
+  })
+
+  it('stores the replay JSON exactly as Showdown served it', async () => {
+    // CONTEXT.md, Raw log: the stored copy is the only source of truth, so
+    // nothing derived may be written into it — not even the password that
+    // fetched it, which Showdown's own JSON already carries (#196).
+    fetchMock.mockResolvedValue(json(private_))
+    await useIngest().importReplay({ id: private_.id, password: 'b1cd2ef' })
+
+    const stored = JSON.parse(await uncompress(storage.uploads[0]!.body)) as unknown
+    expect(stored).toEqual(private_)
+  })
+
+  it('rebuilds the same password from the stored JSON alone', async () => {
+    // What keeps the importer and `scripts/reparse.ts` from disagreeing: the
+    // re-parse has only the stored object, so the password has to be legible
+    // from it without the request that fetched it (ADR-0018 §三).
+    fetchMock.mockResolvedValue(json(private_))
+    await useIngest().importReplay({ id: private_.id, password: 'b1cd2ef' })
+
+    const stored = JSON.parse(await uncompress(storage.uploads[0]!.body)) as {
+      private: number
+      password: string
+    }
+    expect(replayAccessOf(stored)).toEqual({ replay_private: true, replay_password: 'b1cd2ef' })
   })
 
   it('keeps the stored log and records why the parse failed', async () => {

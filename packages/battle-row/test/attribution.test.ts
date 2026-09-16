@@ -24,7 +24,11 @@ function parsed(replay: {
  * than keeping a second copy of it.
  */
 function detailsOf(battle: ParsedBattle): unknown {
-  const row = battleRowOf(battle, { userId: 'u', aliases: [], logPath: 'u/x.json.gz' })
+  const row = battleRowOf(
+    battle,
+    { userId: 'u', aliases: [], logPath: 'u/x.json.gz' },
+    { replay_private: false, replay_password: null },
+  )
 
   return JSON.parse(JSON.stringify(row.details))
 }

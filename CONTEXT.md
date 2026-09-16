@@ -122,6 +122,15 @@ Showdown 的顯示名稱可含大小寫與符號；`userid` 是它的正規化�
 replay 的端點。因此「私人場次要怎麼進來」在這個系統裡始終是一個獨立的問題，
 見 [私人 replay 的同步](docs/specs/2026-09-11-private-replay-sync-design.md)。
 
+**Access（replay 的取用條件）**
+一個 replay 的位址需要什麼才打得開：`replay_private` 與 `replay_password` 這兩欄，
+在程式碼中合稱 `ReplayAccess`。它描述的是 **replay 這個外部物件**，不是 game 的內容
+—— 跟 `format_id` 或兩條 signature 不同，它不參與任何統計、也不參與隊伍識別。
+
+**兩欄而不是一個可空的密碼**：Showdown 的 `private: 2` 是「私人但沒有密碼」，壓成
+一欄會讓它與公開場次同形。同理，判斷一場是不是私人的要看**值**不看有無 —— 公開
+replay 的 JSON 一樣帶著 `private` 與 `password` 這兩個 key，值是 `0` 與 `null`。
+
 **Raw log**
 Showdown replay 的原始內容，來自 `<replay-id>.json` 的 `log` 欄位。原封不動 gzip 後存進
 Supabase Storage。它是**唯一的真實來源**，解析結果一律視為可重建的衍生資料。

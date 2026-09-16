@@ -85,6 +85,7 @@ export async function fieldLabels(mySide: SideId | null) {
 export function battle(overrides: Partial<DrawerBattle> = {}): DrawerBattle {
   return {
     replayId: 'ladder-1',
+    replayPassword: null,
     playedAt: '2026-08-01T10:00:00Z',
     formatId: 'gen9championsvgc2026regmb',
     seriesId: null,

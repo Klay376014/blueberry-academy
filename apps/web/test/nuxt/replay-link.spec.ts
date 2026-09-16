@@ -124,11 +124,23 @@ describe('scanning pasted text for replay links', () => {
 })
 
 describe('linking back to Showdown', () => {
-  it('addresses the replay itself, without the password of a private one', () => {
-    // The drawer's one outbound link. A password in a shareable page would be
-    // handed out with it, and the reader already has the battle.
-    expect(replayUrl('gen9championsvgc2026regmb-2667169457')).toBe(
+  it('addresses a public replay by its id alone', () => {
+    expect(replayUrl({ id: 'gen9championsvgc2026regmb-2667169457', password: null })).toBe(
       'https://replay.pokemonshowdown.com/gen9championsvgc2026regmb-2667169457',
     )
+  })
+
+  it('carries the password of a private replay, because that is where it lives', () => {
+    // ADR-0018. Without the suffix the address is a well-formed 404, which is
+    // what the drawer's one outbound link used to be for a private battle.
+    expect(replayUrl({ id: 'gen9championsvgc2026regmb-2667169457', password: 'b1cd2ef' })).toBe(
+      'https://replay.pokemonshowdown.com/gen9championsvgc2026regmb-2667169457-b1cd2efpw',
+    )
+  })
+
+  it('writes the address its own reader reads back', () => {
+    const ref = { id: 'smogtours-gen9ou-799535', password: 'c0ffee' }
+
+    expect(parseReplayLink(replayUrl(ref))).toEqual(ref)
   })
 })

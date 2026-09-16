@@ -197,6 +197,11 @@ in."}`（前導 `]` 是 PS 的防 JSON 劫持前綴，客戶端要切掉）。
 
 五層，由內而外。
 
+> **這一節講的是 Showdown 帳號的密碼與 sid。** replay 自己的密碼不是憑證而是位址的
+> 一部分，2026-09-16 起存進 `battles.replay_password`（#197、ADR-0018）—— 那同時
+> 推翻了 §1「不改動 ingest 管線」裡「`useIngest`、`battle-row`、`reparse.ts` 一行
+> 不動」的那句話，理由見 ADR。本節其餘的每一條都不受影響。
+
 ### 5.1 架構上就沒有東西可洩漏
 
 那條 route 無狀態。sid 只活在一次請求的閉包裡，用完立刻 `act=logout`

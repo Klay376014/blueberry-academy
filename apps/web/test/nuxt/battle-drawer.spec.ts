@@ -475,6 +475,18 @@ describe('the drawer', () => {
     expect(link?.getAttribute('target')).toBe('_blank')
   })
 
+  it('links a private battle at the address that actually opens it', async () => {
+    // Without the password the link is a well-formed 404 (#197). The password
+    // appears here and in no other part of the app: there is nothing to copy,
+    // share or export it with.
+    amend('ladder-6', { replay_password: 'b1cd2ef' })
+    await openDrawer()
+
+    const link = drawer().querySelector('[data-testid="replay-link"]')
+    expect(link?.getAttribute('href')).toBe('https://replay.pokemonshowdown.com/ladder-6-b1cd2efpw')
+    expect(link?.getAttribute('rel')).toBe('noopener noreferrer')
+  })
+
   it('offers the other games of a series, and no switcher without one', async () => {
     await openDrawer('series-1-g2')
     expect(drawer().querySelectorAll('[data-testid="series-game"]')).toHaveLength(3)

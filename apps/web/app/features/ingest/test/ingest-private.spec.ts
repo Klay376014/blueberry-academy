@@ -162,6 +162,15 @@ describe('what comes back goes through the existing pipeline', () => {
     expect(table.rows).toHaveLength(1)
   })
 
+  it('writes the listed password onto the row, as a pasted link does', async () => {
+    // One write path for both roads in (#197): the password the listing gave
+    // is the password the drawer's link is built from, whichever way the
+    // replay arrived.
+    await useIngest().syncPrivate(NAME, PASSWORD)
+
+    expect(table.rows[0]).toMatchObject({ replay_private: true, replay_password: 'abc' })
+  })
+
   it('reports progress the way an account sync does', async () => {
     const totals: number[] = []
     const results: unknown[] = []
