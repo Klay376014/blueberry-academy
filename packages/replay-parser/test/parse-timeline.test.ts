@@ -3,6 +3,7 @@ import { parseTimeline } from '../src/index'
 import type { BattleTimeline, TimelineEvent } from '../src/index'
 import ladderFixture from './fixtures/gen9championsvgc2026regmb-2667169457.json'
 import fieldFixture from './fixtures/gen9championsvgc2026regmb-2674299387.json'
+import speedBoostFixture from './fixtures/gen9championsvgc2026regmb-2667301751.json'
 import seriesFixture from './fixtures/gen9championsvgc2026regmbbo3-2667582547.json'
 import tieFixture from './fixtures/gen9ou-2667293085.json'
 import longFixture from './fixtures/gen9ou-2667299955.json'
@@ -887,6 +888,55 @@ describe('parseTimeline', () => {
       { kind: 'ability', ability: 'Stamina', pokemon: { species: 'Whimsicott' } },
       { kind: 'mustRecharge', pokemon: { species: 'Scrafty' } },
     ])
+  })
+
+  it('keeps the marker Showdown puts on an ability that announces a stat change', () => {
+    // What the field is and why it is kept: see the event's own JSDoc (#205).
+    const timeline = parseTimeline(
+      log({
+        lines: [
+          '|-ability|p2a: Whimsicott|Intimidate|boost',
+          '|-unboost|p1a: Scrafty|atk|1',
+          '|-ability|p1a: Scrafty|Pressure',
+        ],
+      }),
+    )
+
+    expect(eventsOfKind(timeline, 'ability')).toMatchObject([
+      { ability: 'Intimidate', marker: 'boost' },
+      { ability: 'Pressure', marker: null },
+    ])
+  })
+
+  it('does not read a kwarg as an ability announcement marker', () => {
+    // A traced ability puts `[from]` where Intimidate puts `boost`. Taking the
+    // field as it stands would make every one of those look like a marker this
+    // parser does not know, and #207 would have a scope open on a line that
+    // announced nothing.
+    const timeline = parseTimeline(
+      log({
+        lines: ['|-ability|p1a: Scrafty|Sturdy|[from] ability: Trace|[of] p2a: Whimsicott'],
+      }),
+    )
+
+    expect(eventsOfKind(timeline, 'ability')).toMatchObject([{ ability: 'Sturdy', marker: null }])
+  })
+
+  it('reads the marker off real logs, on the two abilities that carry it', () => {
+    // Thirteen measured lines across three fixtures. Speed Boost is here
+    // beside Intimidate because the two are not the same shape downstream: it
+    // fires at the end of a turn on the Pokémon holding it, where Intimidate
+    // fires on the switch in and lands on the other side (#207).
+    expect(eventsOfKind(parseTimeline(ladderFixture.log), 'ability')).toMatchObject(
+      Array.from({ length: 3 }, () => ({ ability: 'Intimidate', marker: 'boost' })),
+    )
+    expect(eventsOfKind(parseTimeline(speedBoostFixture.log), 'ability')).toMatchObject(
+      Array.from({ length: 3 }, () => ({ ability: 'Speed Boost', marker: 'boost' })),
+    )
+    // Seven Pressures, which announce themselves and nothing else.
+    expect(
+      eventsOfKind(parseTimeline(tieFixture.log), 'ability').map((event) => event.marker),
+    ).toEqual(Array.from({ length: 7 }, () => null))
   })
 
   it('keeps every hit of a real multi-hit move, with what each one took', () => {

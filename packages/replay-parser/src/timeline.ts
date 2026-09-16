@@ -157,7 +157,18 @@ export type TimelineEvent =
       source: Combatant | null
     }
   | { kind: 'endItem'; pokemon: Combatant; item: string }
-  | { kind: 'ability'; pokemon: Combatant; ability: string }
+  /**
+   * An ability announcing itself. `marker` is the line's third field, which is
+   * Showdown's own note on why the announcement is there: measured, `boost` on
+   * Intimidate and Speed Boost, and nothing at all on Pressure and Unnerve.
+   *
+   * The field says the announcement concerns a stat change. It does not say
+   * which of the lines that follow are that change — the reading that pairs
+   * them is the UI's, and it is #207's to state (see the design doc's decision
+   * record). Kept as the log spelled it rather than read into a flag, so a
+   * marker this parser does not know is still on the event rather than lost.
+   */
+  | { kind: 'ability'; pokemon: Combatant; ability: string; marker: string | null }
   /**
    * An ability taken off a Pokémon that is still out: Gastro Acid, Skill Swap,
    * Mummy. `ability` is what the line named, which is usually the ability and
@@ -569,7 +580,9 @@ export function buildTimeline(lines: ProtocolLine[]): BattleTimeline {
 
       case '-ability': {
         const pokemon = occupant(field, args[0] ?? '')
-        if (pokemon) push({ kind: 'ability', pokemon, ability: args[1] ?? '' })
+        if (pokemon) {
+          push({ kind: 'ability', pokemon, ability: args[1] ?? '', marker: markerOf(args[2]) })
+        }
         break
       }
 
@@ -748,14 +761,33 @@ function heldToStages(stages: number): number {
  * The stats a `-swapboost` named, and an empty list for every stat: Heart Swap
  * trades the lot and leaves the column out, so what stands in its place is the
  * next kwarg rather than a list (#123).
+ *
+ * @see isKwarg
  */
 function statsOf(field: string): string[] {
-  if (field.startsWith('[')) return []
+  if (isKwarg(field)) return []
 
   return field
     .split(',')
     .map((stat) => stat.trim())
     .filter((stat) => stat !== '')
+}
+
+/**
+ * Whether what stands in a positional field is a kwarg rather than the field
+ * itself: a Heart Swap leaves its stat list out and a traced ability puts
+ * `[from] ability: Trace` exactly where Intimidate puts `boost`. Reading one
+ * as the other is how a line that filled nothing in comes to say something.
+ */
+function isKwarg(field: string): boolean {
+  return field.startsWith('[')
+}
+
+/** The bare third field of a line, and null where nothing bare stands there. */
+function markerOf(field: string | undefined): string | null {
+  if (field === undefined || field === '' || isKwarg(field)) return null
+
+  return field
 }
 
 /** What the log said caused a change, e.g. `[from] item: Life Orb`. */

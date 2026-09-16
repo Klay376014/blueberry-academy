@@ -90,7 +90,7 @@ const SAMPLES: Record<TimelineEvent['kind'], TimelineEvent> = {
     source: null,
   },
   endItem: { kind: 'endItem', pokemon: scrafty, item: 'Sitrus Berry' },
-  ability: { kind: 'ability', pokemon: scrafty, ability: 'Intimidate' },
+  ability: { kind: 'ability', pokemon: scrafty, ability: 'Intimidate', marker: 'boost' },
   endAbility: { kind: 'endAbility', pokemon: scrafty, ability: 'Intimidate' },
   mustRecharge: { kind: 'mustRecharge', pokemon: scrafty },
   unknown: { kind: 'unknown', raw: '|upkeep' },
