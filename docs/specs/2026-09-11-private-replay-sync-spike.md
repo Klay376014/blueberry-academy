@@ -242,7 +242,7 @@ curl -s "https://replay.pokemonshowdown.com/gen9championsvgc2026regmb-2667169457
 | 5   | 公開 replay 的 `password` 是 **null，不是缺席**          | ✅ C、D 都有 `password` 這個 key，值是 `null`                            |
 | 6   | 私人 replay **不帶密碼**打 `<id>.json` 會拿不到          | ✅ **404**，`text/plain`，body 長度 0 —— 不是 JSON，也不是 `actionerror` |
 | 7   | 回應本體**沒有**前導 `]`                                 | ✅ 直接是 `{`，與 `api/` 底下那些 action 不同                            |
-| 8   | `private: 2`（私人但沒有密碼）長什麼樣                   | ⚪ **未實測** —— 手上沒有這種 replay                                     |
+| 8   | `private: 2`（私人但沒有密碼）長什麼樣                   | ✅ **存在且不罕見** —— 見下節（2026-09-16，#202）                        |
 
 三發 200 的 key 集合與順序**完全相同**：
 
@@ -295,5 +295,44 @@ id, format, players, log, uploadtime, views, formatid, rating, private, password
 2. 分辨公開與私人**看值不看有無**：兩者都有 `private` 與 `password` 這兩個 key，公開是
    `0` 與 `null`（結果表第 4、5 項）。回填的判斷式因此是 `private === 1 && password`，
    不是 `'password' in record`。
-3. `private: 2`（私人但沒有密碼）沒量到（結果表第 8 項）。那種場次本來就沒有密碼可回填，
-   回填邏輯遇到 `private !== 1` 應該跳過而不是當成錯誤。
+3. `private: 2`（私人但沒有密碼）那種場次本來就沒有密碼可回填，回填邏輯遇到
+   `private !== 1` 應該跳過而不是當成錯誤。寫下這一段時它還沒量到；現在量到了，
+   見下節。
+
+---
+
+## 追加：`private: 2` 確實存在（2026-09-16，#202）
+
+上節第 8 項當時填的是「⚪ 未實測 —— 手上沒有這種 replay」。#198 的回填在真實資料上
+跑過之後，這一格填得上了。
+
+### 怎麼量的
+
+不是對 Showdown 發請求 —— 是**讀 Storage 裡已經存著的 2558 包 replay JSON**。
+`scripts/reparse.ts` 的 `accessGapOf()` 拿每一包自己的 `private` 值分類，跑一次
+`pnpm reparse --dry-run` 就得出結果。沒有任何外網請求。
+
+### 結果
+
+2558 列，其中 266 列是私人：
+
+| `private` | 幾列 | 意思                                   |
+| --------- | ---- | -------------------------------------- |
+| `1`       | 213  | 私人且帶密碼 —— 密碼在存下來的 JSON 裡 |
+| `2`       | 53   | **私人但沒有密碼**                     |
+| `3`       | 0    | 已刪除                                 |
+
+**`private: 2` 佔私人場次的五分之一（53/266），不是邊緣案例。** 一個只打天梯與賽事
+的普通帳號就會累積出這個比例。
+
+### 兩個結論
+
+1. **`private: 2` 的場次連結補不回來，而那是正確結果。** Showdown 從來沒為它們發過
+   密碼，站內的 Showdown 連結對這 53 場注定是 404。這不是 bug，是這種 replay 的性質。
+   要看它們只能本人在 Showdown 登入後從自己的清單進去。
+
+2. **#196 量到的「私人 replay 的單場 JSON 帶著 `password`」沒有例外。** 「Showdown
+   說位址上有密碼、而我們留下的拷貝沒有」這種列是 **0**。這件事支撐著
+   [ADR-0018](../adr/0018-the-replay-password-is-part-of-the-address.md) §三 的決定
+   —— 不把密碼另外寫進存下來的 JSON、讓 Storage 那份保持原封不動 —— 那個決定的唯一
+   風險正是這個例外，而它在 2558 列上一次都沒有發生。
