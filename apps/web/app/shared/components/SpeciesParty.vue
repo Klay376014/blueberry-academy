@@ -20,6 +20,12 @@ import { partyOf } from '../utils/party'
  * left at home is the thing a six-into-four format is played on, and it can only
  * be seen against the six. Fading is never the only signal: the group's label
  * and every icon's tooltip say it in words.
+ *
+ * `size` is the caller's intent, not a floor: the row wraps when it is handed
+ * less width than six of them need — the content-driven half of
+ * docs/specs/2026-09-18-responsive-baseline.md §4. It wraps rather than shrinks
+ * because a sheet cell is a fixed 40x30, so narrowing an icon crops the sprite
+ * instead of scaling it (`SpeciesIcon`).
  */
 const props = withDefaults(
   defineProps<{ signature: string | null; size?: number; bring?: string | null }>(),
@@ -44,7 +50,7 @@ const label = computed(() => members.value.map(nameOf).join(', '))
 </script>
 
 <template>
-  <span class="flex items-center gap-px" role="img" :aria-label="label">
+  <span class="flex flex-wrap items-center gap-px" role="img" :aria-label="label">
     <SpeciesIcon
       v-for="member of members"
       :key="member.id"
