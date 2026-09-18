@@ -42,17 +42,18 @@ function toggleIncomplete(event: Event) {
 
 <template>
   <section
-    class="flex flex-wrap items-end gap-x-4 gap-y-3 rounded-lg border border-border bg-card p-3"
+    class="grid grid-cols-1 items-end gap-x-4 gap-y-3 rounded-lg border border-border bg-card p-3 sm:grid-cols-2 lg:grid-cols-4"
     :aria-label="t('filters.title')"
+    data-testid="filter-bar"
   >
     <div class="flex flex-col gap-1">
-      <label :for="`${fieldId}-identity`" class="text-xs text-muted-foreground">
+      <label :for="`${fieldId}-identity`" class="text-sm text-muted-foreground">
         {{ t('filters.identity') }}
       </label>
       <select
         :id="`${fieldId}-identity`"
         :value="filters.identity ?? ''"
-        class="h-9 rounded-md border border-input bg-background px-2 text-sm"
+        class="min-h-11 w-full rounded-md border border-input bg-background px-2 text-sm"
         data-testid="filter-identity"
         @change="pickIdentity"
       >
@@ -61,13 +62,16 @@ function toggleIncomplete(event: Event) {
     </div>
 
     <div class="flex flex-col gap-1">
-      <label :for="`${fieldId}-format`" class="text-xs text-muted-foreground">
+      <label :for="`${fieldId}-format`" class="text-sm text-muted-foreground">
         {{ t('filters.format') }}
       </label>
+      <!-- `min-w-0` because this is the one control whose value is longer than
+           the column: without it the grid track widens to the longest
+           `format_id` and takes the whole bar sideways with it. -->
       <select
         :id="`${fieldId}-format`"
         :value="filters.formatId ?? ''"
-        class="h-9 rounded-md border border-input bg-background px-2 font-mono text-xs"
+        class="min-h-11 w-full min-w-0 rounded-md border border-input bg-background px-2 font-mono text-xs"
         data-testid="filter-format"
         @change="pickFormat"
       >
@@ -76,38 +80,43 @@ function toggleIncomplete(event: Event) {
     </div>
 
     <div class="flex flex-col gap-1">
-      <label :for="`${fieldId}-from`" class="text-xs text-muted-foreground">
+      <label :for="`${fieldId}-from`" class="text-sm text-muted-foreground">
         {{ t('filters.from') }}
       </label>
       <input
         :id="`${fieldId}-from`"
         type="date"
         :value="filters.from ?? ''"
-        class="h-9 rounded-md border border-input bg-background px-2 text-sm"
+        class="min-h-11 w-full rounded-md border border-input bg-background px-2 text-sm"
         data-testid="filter-from"
         @change="pickFrom"
       />
     </div>
 
     <div class="flex flex-col gap-1">
-      <label :for="`${fieldId}-to`" class="text-xs text-muted-foreground">
+      <label :for="`${fieldId}-to`" class="text-sm text-muted-foreground">
         {{ t('filters.to') }}
       </label>
       <input
         :id="`${fieldId}-to`"
         type="date"
         :value="filters.to ?? ''"
-        class="h-9 rounded-md border border-input bg-background px-2 text-sm"
+        class="min-h-11 w-full rounded-md border border-input bg-background px-2 text-sm"
         data-testid="filter-to"
         @change="pickTo"
       />
     </div>
 
-    <label class="flex h-9 cursor-pointer items-center gap-2 text-xs text-muted-foreground">
+    <!-- The box stays 16px and the label around it is the target. It takes the
+         whole row of its own, because its wording is a sentence and the four
+         above it are not. -->
+    <label
+      class="flex min-h-11 cursor-pointer items-center gap-2 text-sm text-muted-foreground sm:col-span-2 lg:col-span-4"
+    >
       <input
         type="checkbox"
         :checked="filters.includeIncompleteBrings"
-        class="size-4 cursor-pointer accent-primary"
+        class="size-4 shrink-0 cursor-pointer accent-primary"
         data-testid="filter-incomplete"
         @change="toggleIncomplete"
       />
