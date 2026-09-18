@@ -20,7 +20,7 @@ const localePath = useLocalePath()
     data-testid="site-footer"
   >
     <nav
-      class="flex flex-wrap items-center gap-x-2 gap-y-1"
+      class="flex flex-wrap items-center gap-2"
       :aria-label="t('a11y.footerNav')"
       data-testid="site-footer-nav"
     >

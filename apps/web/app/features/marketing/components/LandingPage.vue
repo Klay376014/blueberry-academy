@@ -29,13 +29,16 @@ const steps = ['one', 'two', 'three'] as const
     <section class="flex flex-col items-start gap-4" :aria-labelledby="headingId('hero')">
       <h1
         :id="headingId('hero')"
-        class="max-w-3xl text-4xl font-semibold tracking-tight text-balance"
+        class="max-w-3xl text-3xl font-semibold tracking-tight text-balance sm:text-4xl"
       >
         {{ t('landing.hero.title') }}
       </h1>
       <p class="max-w-2xl text-lg text-muted-foreground">{{ t('landing.hero.tagline') }}</p>
 
-      <div class="mt-2 flex flex-wrap items-center gap-3">
+      <!-- Wrapped rather than stacked by a prefix: which of the two labels
+           stops fitting depends on how long the translation is, not on the
+           width (§4 of the responsive baseline). -->
+      <div class="mt-2 flex flex-wrap items-center gap-3" data-testid="landing-actions">
         <UiButton as-child size="lg">
           <NuxtLink :to="localePath('/login')" data-testid="landing-cta">
             {{ t('landing.hero.cta') }}
@@ -52,7 +55,7 @@ const steps = ['one', 'two', 'three'] as const
         {{ t('landing.solution.title') }}
       </h2>
 
-      <div class="grid gap-4 md:grid-cols-3">
+      <div class="grid gap-4 md:grid-cols-3" data-testid="landing-offers">
         <article
           v-for="offer in offers"
           :key="offer"
