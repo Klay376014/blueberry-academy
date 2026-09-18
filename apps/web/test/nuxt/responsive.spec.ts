@@ -45,14 +45,31 @@ describe('the responsive baseline', () => {
       expect(nav).toContain('sm:basis-auto')
     })
 
-    it('reads brand, nav, controls from sm up whatever order it is written in', async () => {
+    it('tabs in the order it reads in from sm up, by reordering nothing there', async () => {
       const header = await headerOf('/import')
 
-      // The nav is last in the source so that below `sm` it lands under a row
-      // the brand and the controls already share; the prefixes put it back in
-      // reading order once there is one row.
-      expect(header.get('[data-testid="site-brand"]').classes()).toContain('sm:order-1')
-      expect(header.get('[data-testid="site-nav"]').classes()).toContain('sm:order-2')
+      // The nav is second in the source, which is where it is read and where
+      // it is tabbed. Only the phone side moves it — `order-last` is what
+      // leaves the first row to the brand and the controls — and only there.
+      expect(
+        [...header.element.children].map((child) => child.getAttribute('data-testid')),
+      ).toEqual(['site-brand', 'site-nav', 'site-header-controls'])
+
+      const nav = header.get('[data-testid="site-nav"]').classes()
+
+      expect(nav).toContain('order-last')
+      expect(nav).toContain('sm:order-none')
+
+      // Nothing else is moved at all, so from `sm` up there is no order to
+      // disagree with the source's.
+      for (const id of ['site-brand', 'site-header-controls']) {
+        const classes = header.get(`[data-testid="${id}"]`).classes()
+
+        expect(
+          classes.filter((name) => /(^|:)order-/.test(name)),
+          id,
+        ).toEqual([])
+      }
     })
 
     it('keeps the brand and the controls on one row at every width', async () => {
