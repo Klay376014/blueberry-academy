@@ -55,4 +55,6 @@ Single-context: `CONTEXT.md` + `docs/adr/` at the repo root. See `docs/agents/do
 - **不要為了讓測試通過而修改 fixture 的 expected snapshot** —— 先確認是實作錯了還是
   預期錯了。
 - **`service_role` key 絕不可出現在 `apps/web/`。** 它只屬於 `scripts/`。
+- **畫面在窄寬度的行為，照 `docs/specs/2026-09-18-responsive-baseline.md`。** 驗收寬度、
+  斷點語彙、觸控與字級下限都在那裡，包含哪些條件只能人工驗證、為什麼。
 - 若某個決定實作起來明顯窒礙難行，回報並更新設計文件的決策紀錄，不要默默改掉。
