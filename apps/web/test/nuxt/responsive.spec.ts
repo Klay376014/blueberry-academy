@@ -4,11 +4,8 @@ import App from '../../app/app.vue'
 import { signIn, signOut } from '../helpers'
 
 /**
- * The class contract of the responsive baseline, and only that much of it:
- * docs/specs/2026-09-18-responsive-baseline.md §6 says what this can and
- * cannot see.
- *
- * The frame's own classes, and that both shells state them alike, are
+ * The class contract of docs/specs/2026-09-18-responsive-baseline.md — §6 of
+ * it says what this can and cannot see. The frame's own classes are
  * `layouts.spec.ts`.
  */
 describe('the responsive baseline', () => {
@@ -18,8 +15,7 @@ describe('the responsive baseline', () => {
     (await mountSuspended(App, { route })).get('[data-testid="site-shell"]').classes()
 
   it('gives the shell a horizontal padding that changes with the viewport', async () => {
-    // That there is a padding at all is `layouts.spec.ts`; this is the second
-    // step, which is what makes it responsive rather than a compromise.
+    // That there is a padding at all is `layouts.spec.ts`. This is the second step.
     expect((await shellOf('/import')).some((name) => /^(sm|md|lg):px-/.test(name))).toBe(true)
   })
 
@@ -34,23 +30,15 @@ describe('the responsive baseline', () => {
       .get('[data-testid="site-header"]')
       .classes()
 
-    // Either of the two the baseline allows (§4): wrap when the content
-    // decides, a prefix when the layout changes its story. A header with
-    // neither has nothing left to do but overflow. Which of the two it is,
-    // is issue #213's to decide.
+    // Either of the two §4 allows. Which one it settles on is issue #213's.
     const answers = header.includes('flex-wrap') || header.some((name) => /^(sm|md|lg):/.test(name))
 
     expect(answers, header.join(' ')).toBe(true)
   })
 
-  /**
-   * 44px of height, which is `min-h-11` — see the baseline §5 for why the
-   * width half is not asserted here.
-   */
+  /** Height only; §5 of the baseline says why the width half is not asserted. */
   describe('the touch-target floor in the site chrome', () => {
     /**
-     * Every pressable thing in the header and the footer.
-     *
      * One region at a time, and one tag at a time: a grouped selector handed
      * to `findAll` matches the region element itself and then misses its
      * children.
@@ -64,10 +52,9 @@ describe('the responsive baseline', () => {
     }
 
     /**
-     * The landmarks that must be among them, so the loop below cannot pass by
-     * finding nothing at all. Named rather than counted: how many links the
-     * header draws at once is the kind of thing a phone layout is allowed to
-     * change, and these three are in the chrome of every page either way.
+     * So the loop below cannot pass by finding nothing. Named rather than
+     * counted, because how many links the header draws at once is exactly
+     * what a phone layout is allowed to change.
      */
     const LANDMARKS = ['site-brand', 'theme-toggle', 'locale-switcher']
 
