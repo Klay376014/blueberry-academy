@@ -46,7 +46,10 @@ const to = computed(() =>
     :aria-current="current ? 'page' : undefined"
     data-testid="team-card"
   >
-    <div class="flex items-center justify-between gap-2">
+    <!-- Wrapped rather than shrunk: the icons cannot give up any width without
+         cropping a Pokémon, so at the narrowest card it is the format chip that
+         moves to its own line. -->
+    <div class="flex flex-wrap items-center justify-between gap-2">
       <SpeciesParty :signature="team.signature" :size="dense ? 30 : 36" />
       <span class="rounded bg-secondary px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
         {{ bestOfLabel(team.formatId) }}

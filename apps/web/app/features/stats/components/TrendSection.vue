@@ -74,7 +74,7 @@ function formatRating(value: number): string {
 
       <fieldset class="flex items-center gap-2">
         <legend class="sr-only">{{ t('trend.window') }}</legend>
-        <span aria-hidden="true" class="text-xs text-muted-foreground">{{
+        <span aria-hidden="true" class="text-sm text-muted-foreground">{{
           t('trend.window')
         }}</span>
         <div class="flex overflow-hidden rounded-md border border-input">
@@ -82,7 +82,7 @@ function formatRating(value: number): string {
             v-for="size of WINDOWS"
             :key="size"
             type="button"
-            class="h-8 cursor-pointer px-3 font-mono text-xs transition-colors"
+            class="min-h-11 cursor-pointer px-4 font-mono text-xs transition-colors"
             :class="
               windowSize === size
                 ? 'bg-secondary text-secondary-foreground'
@@ -101,7 +101,11 @@ function formatRating(value: number): string {
       </fieldset>
     </div>
 
-    <div class="grid gap-3 sm:grid-cols-3">
+    <!-- Stacked below `sm`, because what sets a tile's floor is its own
+         numeral: a third of 320px cannot hold four mono glyphs at `text-3xl`
+         and the tile's own padding. 768 and 1024 change nothing here — three
+         already fit, and a fourth column would be a tile that does not exist. -->
+    <div class="grid grid-cols-1 gap-3 sm:grid-cols-3" data-testid="summary-tiles">
       <div class="rounded-lg border border-border bg-card p-3">
         <span class="font-mono text-[10px] tracking-wider text-muted-foreground uppercase">
           <!-- The tile counts whatever the format is counted in, so it has to

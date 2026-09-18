@@ -112,7 +112,10 @@ const empty = computed(() =>
         </div>
       </div>
 
-      <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      <!-- A card's floor is the six icons it draws, so the column count turns
+           where two and then three of those fit: 768 stays at two on purpose,
+           because a third of it is narrower than a party. -->
+      <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3" data-testid="team-grid">
         <StatsTeamCard v-for="team of teams" :key="team.formatId + team.signature" :team />
       </div>
     </section>
