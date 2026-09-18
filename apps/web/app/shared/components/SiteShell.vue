@@ -11,8 +11,9 @@
  *
  * The container used to be a `#__nuxt` rule in tailwind.css, which no layout
  * could restate and the error page could not reach; it lives here now
- * (issue #125). `px-4` below `sm` rather than `px-8`: at 375px the wider
- * padding leaves the header row nothing to wrap into.
+ * (issue #125). `px-4` below `sm` rather than `px-8`: 32px of gutter is 10% of
+ * a 320px phone, and the header's first row spends what is left down to the
+ * last control (issue #213).
  */
 </script>
 

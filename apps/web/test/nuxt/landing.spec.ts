@@ -65,6 +65,35 @@ describe('the home page, to a stranger', () => {
     expect(load).not.toHaveBeenCalled()
   })
 
+  /**
+   * This page's half of the class contract in
+   * docs/specs/2026-09-18-responsive-baseline.md (issue #213). §6 of it says
+   * what a jsdom test can and cannot see: that the hero fits 320px is read by
+   * eye, what is asserted here is which rule was written down.
+   */
+  describe('at the width of a phone', () => {
+    it('starts the hero at a size 320px can hold and grows it from sm', async () => {
+      const heading = (await mountSuspended(Home)).get('[data-testid="landing"] h1').classes()
+
+      expect(heading).toContain('text-3xl')
+      expect(heading).toContain('sm:text-4xl')
+    })
+
+    it('gives the three answers one column until there is room for three', async () => {
+      const grid = (await mountSuspended(Home)).get('[data-testid="landing-offers"]').classes()
+
+      // Mobile first: no unprefixed column count to undo.
+      expect(grid.some((name) => /^grid-cols-/.test(name))).toBe(false)
+      expect(grid).toContain('md:grid-cols-3')
+    })
+
+    it('lets the two buttons take a second line when the labels need one', async () => {
+      const actions = (await mountSuspended(Home)).get('[data-testid="landing-actions"]').classes()
+
+      expect(actions).toContain('flex-wrap')
+    })
+  })
+
   it('claims nothing it cannot show: no testimonials, no logos, no counts', () => {
     // The landing copy, read as one string. Social proof would have to be
     // invented — there are no customers to quote (issue #126).
