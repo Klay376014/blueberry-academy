@@ -24,7 +24,7 @@ const kept = ['account', 'names', 'battles', 'logs'] as const
     <div class="flex max-w-2xl flex-col gap-3">
       <h1 class="text-4xl font-semibold tracking-tight">{{ t('privacy.title') }}</h1>
       <p class="text-lg text-muted-foreground">{{ t('privacy.lede') }}</p>
-      <p class="text-xs text-muted-foreground">{{ t('privacy.updated', { date: UPDATED }) }}</p>
+      <p class="text-sm text-muted-foreground">{{ t('privacy.updated', { date: UPDATED }) }}</p>
     </div>
 
     <MarketingProseSection :title="t('privacy.stored.title')" data-testid="privacy-stored">
@@ -66,9 +66,15 @@ const kept = ['account', 'names', 'battles', 'logs'] as const
            "email". In the page rather than in the two locale files, for the
            same reason as the date above — an address is not a sentence to be
            translated. -->
+      <!-- `w-fit` because the section is a flex column: without it the 44px
+           this grew to is a full-width strip of mailto, most of it nowhere near
+           the address. The same `w-fit` is on every control that grew to 44 in a
+           flex column, and on none of the ones in normal flow — `inline-flex`
+           already shrinks there, which is why the error page's link carries
+           neither. -->
       <a
         href="mailto:ads1029384756@gmail.com"
-        class="text-primary underline"
+        class="inline-flex min-h-11 w-fit items-center text-primary underline"
         data-testid="privacy-contact"
       >
         ads1029384756@gmail.com

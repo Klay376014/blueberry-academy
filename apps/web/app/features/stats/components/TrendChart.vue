@@ -118,7 +118,7 @@ function formatDate(value: number): string {
 
       <p
         v-if="empty && emptyLabel"
-        class="absolute inset-0 flex items-center justify-center px-6 text-center text-xs text-muted-foreground"
+        class="absolute inset-0 flex items-center justify-center px-6 text-center text-sm text-muted-foreground"
         data-testid="trend-empty"
       >
         {{ emptyLabel }}

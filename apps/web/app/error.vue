@@ -55,7 +55,7 @@ function leave() {
 
       <NuxtLink
         :to="home"
-        class="mt-6 inline-block text-primary underline"
+        class="mt-6 inline-flex min-h-11 items-center text-primary underline"
         data-testid="error-home"
         @click="leave"
       >

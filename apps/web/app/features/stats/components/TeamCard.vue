@@ -41,7 +41,7 @@ const to = computed(() =>
 <template>
   <NuxtLink
     :to
-    class="flex flex-col gap-2 rounded-lg border bg-card p-3 transition-colors hover:border-ring"
+    class="flex min-h-11 flex-col gap-2 rounded-lg border bg-card p-3 transition-colors hover:border-ring"
     :class="current ? 'border-ring bg-accent' : 'border-border'"
     :aria-current="current ? 'page' : undefined"
     data-testid="team-card"

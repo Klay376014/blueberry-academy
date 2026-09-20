@@ -175,7 +175,7 @@ function formatRating(value: number): string {
       />
 
       <div class="flex items-start gap-2">
-        <span class="text-xs text-muted-foreground">{{ t('trend.descriptive') }}</span>
+        <p class="text-sm text-muted-foreground">{{ t('trend.descriptive') }}</p>
         <InfoHint :label="t('trend.whatIsThis')">{{ t('trend.gap') }}</InfoHint>
       </div>
     </div>
