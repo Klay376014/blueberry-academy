@@ -128,7 +128,7 @@ const RESULT_TONE = {
           :href="replayUrl({ id: battle.replayId, password: battle.replayPassword })"
           target="_blank"
           rel="noopener noreferrer"
-          class="text-primary flex items-center gap-1 text-xs underline"
+          class="text-primary flex min-h-11 items-center gap-1 text-xs underline"
           data-testid="replay-link"
         >
           {{ t('battle.drawer.replay') }}
@@ -136,7 +136,7 @@ const RESULT_TONE = {
         </a>
         <button
           type="button"
-          class="text-muted-foreground hover:text-foreground focus-visible:ring-ring rounded p-1 focus-visible:ring-2 focus-visible:outline-none"
+          class="text-muted-foreground hover:text-foreground focus-visible:ring-ring flex min-h-11 min-w-11 items-center justify-center rounded focus-visible:ring-2 focus-visible:outline-none"
           :aria-label="t('battle.drawer.close')"
           data-testid="drawer-close"
           @click="() => emit('close')"
@@ -152,7 +152,7 @@ const RESULT_TONE = {
          the ellipsis ate, and for a spectated battle it is the only thing
          on screen that says who won. This row wraps instead of clipping,
          and it is in the same left-to-right order as the names above it. -->
-    <div v-if="battle && sides" class="flex flex-wrap items-center gap-2">
+    <div v-if="battle && sides" class="flex flex-wrap items-center gap-2" data-testid="drawer-meta">
       <template v-for="(column, index) of columns" :key="column.at">
         <span class="text-muted-foreground font-mono text-[10px]" v-if="index > 0">
           {{ t('battle.drawer.versus') }}
@@ -181,7 +181,13 @@ const RESULT_TONE = {
         </span>
       </template>
 
-      <span class="text-muted-foreground ml-auto font-mono text-[10px] tracking-widest">
+      <!-- `sm:ml-auto` rather than `ml-auto`: below that this row is already
+           wrapping, and pushing the length to the far end there only buys it a
+           line of its own (#215). -->
+      <span
+        class="text-muted-foreground font-mono text-[10px] tracking-widest sm:ml-auto"
+        data-testid="drawer-length"
+      >
         {{ bestOfLabel(battle.formatId) }}
         <template v-if="battle.turnCount !== null">
           · {{ t('battle.recent.turns', { count: battle.turnCount }) }}
@@ -190,12 +196,14 @@ const RESULT_TONE = {
     </div>
 
     <!-- Only a series has other games to move between; a ladder game is on its own. -->
-    <div v-if="games.length" class="flex flex-wrap gap-1.5" role="group">
+    <div v-if="games.length" class="flex flex-wrap gap-2" role="group" data-testid="series-games">
+      <!-- §5's floor, on the height only: the label is a word and a number, so
+           the width is the words' to decide. -->
       <button
         v-for="(game, index) of games"
         :key="game.replayId"
         type="button"
-        class="rounded-md border px-2.5 py-1 text-xs"
+        class="flex min-h-11 items-center rounded-md border px-2.5 py-1 text-xs"
         :class="
           game.replayId === battle?.replayId
             ? 'border-primary bg-primary/10 text-foreground'

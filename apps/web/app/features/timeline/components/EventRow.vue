@@ -86,9 +86,15 @@ const move = computed(() =>
 
 <template>
   <!-- Whose row this is: the rail's hue and dash pattern come from
-       `utils/sideTones.ts`, and the mark in the gutter says it in words. -->
+       `utils/sideTones.ts`, and the mark in the gutter says it in words.
+
+       The three leading marks take the width they need rather than a column
+       each. As a fixed grid every row paid for all three, so a row using none
+       of them still handed over about a third of a phone's line; the price of
+       dropping it is that two rows no longer line up with one another
+       (docs/specs/2026-09-18-responsive-baseline.md §4). -->
   <div
-    class="grid grid-cols-[30px_14px_40px_1fr] items-center gap-2 rounded-sm border-l-2 py-0.5 pr-1.5 pl-2"
+    class="flex min-w-0 items-center gap-2 rounded-sm border-l-2 py-0.5 pr-1.5 pl-2"
     :class="SIDE_RAIL[slot]"
     data-testid="timeline-row"
   >
@@ -96,16 +102,19 @@ const move = computed(() =>
          are telling the reader nothing. -->
     <span
       v-if="sideMark"
-      class="rounded border px-0.5 text-center font-mono text-[9px] tracking-tight uppercase"
+      class="shrink-0 rounded border px-0.5 text-center font-mono text-[9px] tracking-tight uppercase"
       :class="sideMark.tone"
       data-testid="side-mark"
     >
       {{ sideMark.label }}
     </span>
-    <span v-else />
 
-    <component :is="mark" v-if="mark" class="text-muted-foreground size-3.5" aria-hidden="true" />
-    <span v-else />
+    <component
+      :is="mark"
+      v-if="mark"
+      class="text-muted-foreground size-3.5 shrink-0"
+      aria-hidden="true"
+    />
 
     <SpeciesIcon
       v-if="row.species"
@@ -113,9 +122,8 @@ const move = computed(() =>
       :label="labelled(row.species)"
       :size="40"
     />
-    <span v-else />
 
-    <span class="flex min-w-0 flex-wrap items-center gap-1.5 text-sm">
+    <span class="flex min-w-0 flex-1 flex-wrap items-center gap-1.5 text-sm" data-testid="row-body">
       <span v-if="move" class="font-medium">{{ move }}</span>
 
       <!-- What the move did to the Pokémon using it: a Protect that went up, a
@@ -129,7 +137,7 @@ const move = computed(() =>
         <span
           v-for="(target, index) of row.targets"
           :key="`${target.species}-${index}`"
-          class="flex items-center gap-1"
+          class="flex min-w-0 flex-wrap items-center gap-1"
         >
           <SpeciesIcon
             :id="toID(target.species)"
@@ -165,7 +173,7 @@ const move = computed(() =>
       <span
         v-for="(bystander, index) of row.bystanders"
         :key="`${bystander.species}-${index}`"
-        class="flex items-center gap-1"
+        class="flex min-w-0 flex-wrap items-center gap-1"
       >
         <SpeciesIcon
           :id="toID(bystander.species)"

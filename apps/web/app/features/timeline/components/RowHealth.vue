@@ -31,7 +31,7 @@ const { t } = useI18n()
     class="inline-flex items-center gap-1 font-mono text-[10px] whitespace-nowrap tabular-nums"
     data-testid="row-health"
   >
-    <span class="bg-muted relative inline-block h-1.5 w-10 overflow-hidden rounded-full">
+    <span class="bg-muted relative inline-block h-1.5 w-10 shrink-0 overflow-hidden rounded-full">
       <span
         class="absolute inset-y-0 left-0"
         :class="hurt ? 'bg-primary' : 'bg-chart-2'"

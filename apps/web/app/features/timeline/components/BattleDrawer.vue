@@ -79,7 +79,7 @@ const closingField = computed(() => snapshots.value.at(-1) ?? null)
     >
       <BattleDrawerHeader :battle :games @open="openGame" @close="closeDrawer" />
 
-      <div class="flex-1 overflow-y-auto px-3 pb-6">
+      <div class="flex-1 overflow-y-auto px-2 pb-6 sm:px-3" data-testid="timeline-scroll">
         <p v-if="loading" class="text-muted-foreground py-6 text-sm" data-testid="timeline-loading">
           {{ t('battle.drawer.loading') }}
         </p>

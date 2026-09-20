@@ -61,7 +61,7 @@ const RESULT_TONE = {
          show and a zero would be a claim about one. -->
     <span
       v-if="battle.rating !== null"
-      class="text-muted-foreground ml-auto font-mono text-xs tabular-nums"
+      class="text-muted-foreground font-mono text-xs tabular-nums sm:ml-auto"
       data-testid="rating-change"
     >
       <template v-if="ratingBefore !== null">

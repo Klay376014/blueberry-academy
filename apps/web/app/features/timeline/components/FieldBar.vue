@@ -129,8 +129,11 @@ function hpLabel(pokemon: PokemonState) {
       {{ caption }}
     </span>
 
-    <div v-if="hasField" class="flex flex-wrap items-center gap-2">
-      <span class="text-muted-foreground w-8 font-mono text-[9px] tracking-widest">
+    <!-- Each line wraps rather than carrying a prefix: how many chips a side
+         is standing on is the log's business, not the viewport's
+         (docs/specs/2026-09-18-responsive-baseline.md §4). -->
+    <div v-if="hasField" class="flex flex-wrap items-center gap-2" data-testid="field-line">
+      <span class="text-muted-foreground w-8 shrink-0 font-mono text-[9px] tracking-widest">
         {{ t('battle.drawer.field') }}
       </span>
 
@@ -152,9 +155,12 @@ function hpLabel(pokemon: PokemonState) {
         v-for="line of linesOf(side)"
         :key="`${side}-${line.label}`"
         class="flex flex-wrap items-center gap-2"
+        data-testid="field-line"
       >
+        <!-- `shrink-0` because a flex item's declared width is only where it
+             starts: squeezed, a two-word label becomes two lines of one. -->
         <span
-          class="w-8 font-mono text-[9px] tracking-widest"
+          class="w-8 shrink-0 font-mono text-[9px] tracking-widest"
           :class="line.tone"
           data-testid="side-label"
         >
@@ -164,8 +170,9 @@ function hpLabel(pokemon: PokemonState) {
         <span
           v-for="{ key, state } of line.pokemon"
           :key="key"
-          class="flex items-center gap-1"
+          class="flex min-w-0 flex-wrap items-center gap-1"
           :class="state.fainted ? 'opacity-45' : ''"
+          data-testid="field-pokemon"
         >
           <SpeciesIcon
             :id="toID(state.species)"

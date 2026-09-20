@@ -67,7 +67,7 @@ const startedAt = computed(() =>
     <button
       v-if="held"
       type="button"
-      class="text-muted-foreground hover:text-foreground focus-visible:ring-ring flex items-center gap-1 self-start rounded px-2 py-0.5 text-[11px] focus-visible:ring-2 focus-visible:outline-none"
+      class="text-muted-foreground hover:text-foreground focus-visible:ring-ring flex min-h-11 items-center gap-1 self-start rounded px-2 py-0.5 text-[11px] focus-visible:ring-2 focus-visible:outline-none"
       :aria-expanded="detailed"
       data-testid="turn-details"
       @click="toggleDetails"

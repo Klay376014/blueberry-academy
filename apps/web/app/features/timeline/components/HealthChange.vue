@@ -38,8 +38,10 @@ const lost = computed(() => {
 </script>
 
 <template>
-  <span class="inline-flex items-center gap-2" data-testid="health-change">
-    <span class="bg-muted relative inline-block h-1.5 w-20 overflow-hidden rounded-full">
+  <!-- Wraps, and the bar does not give up its width to make the wrap happen:
+       a squeezed bar is a full one to look at. -->
+  <span class="inline-flex flex-wrap items-center gap-x-2 gap-y-0.5" data-testid="health-change">
+    <span class="bg-muted relative inline-block h-1.5 w-20 shrink-0 overflow-hidden rounded-full">
       <span
         class="absolute inset-y-0 left-0"
         :class="hurt ? 'bg-primary' : 'bg-chart-2'"

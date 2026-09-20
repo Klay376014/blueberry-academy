@@ -65,7 +65,7 @@ const STATUS_TONE: Record<string, string> = {
 </script>
 
 <template>
-  <span class="inline-flex flex-wrap items-center gap-1">
+  <span class="inline-flex min-w-0 flex-wrap items-center gap-1">
     <span
       v-if="pokemon.status"
       class="rounded border px-1 font-mono text-[9px] tracking-wide uppercase"
