@@ -199,6 +199,17 @@ describe('the three lists that draw a game as a row', () => {
     }
   })
 
+  it('gives the rating change back its scan column from sm up', async () => {
+    // The one prefix on this row. It has to stay a prefix: below sm the meta
+    // line is already wrapping, and an `ml-auto` there would push the number
+    // onto a line of its own.
+    const { recent } = rows(await mountHome())
+    const rating = classesOf(recent.querySelector('[data-testid="rating-change"]')!)
+
+    expect(rating).toContain('sm:ml-auto')
+    expect(rating).not.toContain('ml-auto')
+  })
+
   it('moves the numbers that used to bracket the party onto that line', async () => {
     const { recent, series } = rows(await mountHome())
 

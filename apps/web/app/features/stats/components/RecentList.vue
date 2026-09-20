@@ -103,10 +103,16 @@ const RESULT_TONE = {
                 </span>
                 <!-- On this line rather than trailing the row: as a column of
                      its own it took its width off the party beside it, and it
-                     is the least of what the row says (#215). -->
+                     is the least of what the row says (#215).
+
+                     `sm:ml-auto` is the one prefix on this row, and it buys
+                     back what moving it cost: a column of numbers is what this
+                     list is scanned down on a desktop, and from 640 the line
+                     has the width to end on it. Below that there is nothing to
+                     align to — the line is already wrapping. -->
                 <span
                   v-if="battle.ratingDelta !== null"
-                  class="text-muted-foreground font-mono text-xs tabular-nums"
+                  class="text-muted-foreground font-mono text-xs tabular-nums sm:ml-auto"
                   data-testid="rating-change"
                 >
                   {{ battle.ratingDelta > 0 ? '+' : '' }}{{ battle.ratingDelta }}
