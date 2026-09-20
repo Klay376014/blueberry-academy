@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { mockNuxtImport, mountSuspended } from '@nuxt/test-utils/runtime'
+import type { BattleRow } from 'battle-row'
 import About from '../../app/pages/about.vue'
 import ErrorPage from '../../app/error.vue'
 import Home from '../../app/pages/index.vue'
@@ -10,25 +11,34 @@ import Settings from '../../app/pages/settings.vue'
 import { fakeBattles } from '../fakes/battles'
 import type { StoredBattle } from '../fakes/battles'
 import { STATS_ROWS } from '../fixtures/stats-rows'
+import type { BatchItem, ImportReport } from '../../app/features/ingest'
 import { forgetTeleported, teleported } from '../teleported'
+import { expectApart, expectFloor } from '../touch-floor'
 import { signIn, signOut } from '../helpers'
 
 /**
  * The touch-target floor of docs/specs/2026-09-18-responsive-baseline.md §5,
- * over the pages that draw controls of their own. The site chrome's own half
- * is `responsive.spec.ts`, and §6 of that document is what says why this
- * asserts classes rather than heights: jsdom has no layout engine, so "the
- * thumb lands on it" is read by hand at the six widths and written back onto
- * issue #218.
+ * over the pages that draw controls of their own; the site chrome's half is
+ * `responsive.spec.ts` and the rule itself is `test/touch-floor.ts`.
  *
- * Written as a rule over every pressable a page holds rather than as a list of
- * testids: a list only ever covers the ten controls somebody thought of, and
- * the eleventh is added by whoever reads this file least.
+ * Written as a sweep over every pressable a page holds rather than as a list
+ * of testids: a list only ever covers the ten controls somebody thought of,
+ * and the eleventh is added by whoever reads this file least.
  */
 
-const { battles } = vi.hoisted(() => ({ battles: { value: null as unknown } }))
+const { battles, importMany } = vi.hoisted(() => ({
+  battles: { value: null as unknown },
+  importMany: vi.fn(),
+}))
 
 mockNuxtImport('useBattles', () => () => battles.value as never)
+
+/** The import itself is faked; what is swept is what the page draws about it. */
+mockNuxtImport('useIngest', () => () => ({
+  importMany,
+  syncAccount: vi.fn(),
+  syncPrivate: vi.fn(),
+}))
 
 /** The alias state, without the trip to `profiles` — as `settings-page.spec.ts`. */
 mockNuxtImport('useProfile', () => () => {
@@ -42,56 +52,6 @@ mockNuxtImport('useProfile', () => () => {
     unbindAlias: () => Promise.resolve(),
   }
 })
-
-/** Anything a thumb can land on, which is more than the things called buttons. */
-const PRESSABLE = 'a, button, input:not([type="hidden"]), select, textarea'
-
-/**
- * The floor, wherever it is carried. §5 allows three answers and this is all
- * three: the control itself, the `<label>` that wraps a 16px checkbox, or a
- * `::before` hit area behind a graphic that keeps its drawn size.
- */
-function carriesFloor(element: Element): boolean {
-  const own = element.getAttribute('class') ?? ''
-  if (own.includes('min-h-11') || own.includes('before:size-11')) return true
-
-  const label = element.closest('label')
-
-  return label !== null && (label.getAttribute('class') ?? '').includes('min-h-11')
-}
-
-function nameOf(element: Element): string {
-  return (
-    element.getAttribute('data-testid') ??
-    element.getAttribute('aria-label') ??
-    element.textContent?.trim().slice(0, 30) ??
-    element.tagName.toLowerCase()
-  )
-}
-
-/**
- * @param landmarks Controls this region is known to hold, so the sweep below
- * cannot pass by finding nothing. Named rather than counted: how many controls
- * a region draws at once is what a narrow layout is allowed to change.
- */
-function expectFloor(root: Element, landmarks: string[]) {
-  const pressables = [...root.querySelectorAll(PRESSABLE)]
-  const names = pressables.map(nameOf)
-
-  for (const landmark of landmarks) expect(names).toContain(landmark)
-
-  expect(pressables.filter((element) => !carriesFloor(element)).map(nameOf)).toEqual([])
-}
-
-/** 8px between two of them, in both axes: these rows wrap. */
-function expectApart(element: Element) {
-  const classes = (element.getAttribute('class') ?? '').split(' ')
-
-  expect(
-    classes.some((name) => /^gap-(?:[2-9]|\d\d)$/.test(name)),
-    nameOf(element),
-  ).toBe(true)
-}
 
 /** A battle between two strangers, which is what the spectated list holds. */
 function watched(replayId: string): StoredBattle {
@@ -120,6 +80,52 @@ function watched(replayId: string): StoredBattle {
   }
 }
 
+/** The same battle as an import has just written it: nobody's, so far. */
+function watchedImport(replayId: string): BatchItem {
+  const battle: BattleRow = {
+    user_id: 'test-user',
+    replay_id: replayId,
+    replay_private: false,
+    replay_password: null,
+    played_at: '2026-08-01T10:00:00Z',
+    format_id: 'gen9championsvgc2026regmb',
+    rated: true,
+    game_type: 'doubles',
+    rating: null,
+    rating_delta: null,
+    series_id: null,
+    my_side: null,
+    my_username: null,
+    opponent_username: null,
+    result: null,
+    team_signature: null,
+    bring_signature: null,
+    bring_complete: false,
+    turn_count: 17,
+    end_reason: null,
+    details: {},
+    log_path: `test-user/${replayId}.json.gz`,
+    parser_version: '1',
+    parse_error: null,
+  }
+
+  return { ref: { id: replayId }, outcome: { status: 'imported', battle } }
+}
+
+function reportOf(items: BatchItem[]): ImportReport {
+  const counts = { imported: 0, unparsed: 0, skipped: 0, failed: 0 }
+  for (const item of items) counts[item.outcome.status] += 1
+
+  return { items, counts }
+}
+
+/** Pastes into the link box and presses the button under it. */
+async function paste(page: Awaited<ReturnType<typeof mountSuspended>>, links: string) {
+  await page.get('[data-testid="import-input"]').setValue(links)
+  await page.get('[data-testid="import-form"]').trigger('submit')
+  await nextTick()
+}
+
 /** One more than the section draws before it offers to draw the rest. */
 const A_SCREENFUL_AND_ONE = 21
 
@@ -129,6 +135,7 @@ beforeEach(() => {
     ...Array.from({ length: A_SCREENFUL_AND_ONE }, (_, index) => watched(`watched-${index}`)),
   ])
 
+  importMany.mockReset()
   useShowdownAliases().value = ['Reader']
   signIn()
   useStatsFilters().value = defaultStatsFilters()
@@ -171,6 +178,30 @@ describe('the touch-target floor, page by page', () => {
     expectApart(page.get('[data-testid="sync-form"]').element)
   })
 
+  /**
+   * Both of these links sit inside a sentence, and both are behind a `v-if`
+   * that the sweep above never reaches: the page draws them only once an
+   * import has landed on nobody. Reached here by importing one, so that the
+   * hit area they carry instead of a height is swept like everything else.
+   */
+  it('holds on the two links out of an import that landed on nobody', async () => {
+    importMany.mockResolvedValue(reportOf([watchedImport('gen9ou-1'), watchedImport('gen9ou-2')]))
+
+    const batch = await mountSuspended(ImportPage)
+    await paste(batch, 'gen9ou-1\ngen9ou-2')
+
+    expectFloor(batch.element as Element, ['all-spectated-bind'])
+
+    // One link is the batch's and the other the single battle's, and the page
+    // draws whichever the import was: never both at once.
+    importMany.mockResolvedValue(reportOf([watchedImport('gen9ou-1')]))
+
+    const one = await mountSuspended(ImportPage)
+    await paste(one, 'gen9ou-1')
+
+    expectFloor(one.element as Element, ['battle-spectated-bind'])
+  })
+
   it('holds on the settings page, the remove button in each alias row included', async () => {
     const page = await mountSuspended(Settings)
 
@@ -199,9 +230,14 @@ describe('the touch-target floor, page by page', () => {
     signOut()
 
     expectFloor((await mountSuspended(Privacy)).element as Element, ['privacy-contact'])
-    // The about page carries prose and no control of its own; it is swept so
-    // that the first link added to it is caught here.
-    expectFloor((await mountSuspended(About)).element as Element, [])
+
+    // The about page carries prose and no control of its own, so it has no
+    // landmark to name; a section of that prose stands in for one, and the
+    // sweep is here so the first link added to the page is caught by it.
+    const about = await mountSuspended(About)
+
+    expect(about.find('[data-testid="about-source"]').exists()).toBe(true)
+    expectFloor(about.element as Element, [])
   })
 
   it('holds on the way back out of a wrong address', async () => {

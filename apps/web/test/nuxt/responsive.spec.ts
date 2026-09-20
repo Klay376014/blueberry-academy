@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { mountSuspended } from '@nuxt/test-utils/runtime'
 import App from '../../app/app.vue'
+import { expectApart, expectFloor } from '../touch-floor'
 import { signIn, signOut } from '../helpers'
 
 /**
@@ -92,60 +93,32 @@ describe('the responsive baseline', () => {
 
   /** Height only; §5 of the baseline says why the width half is not asserted. */
   describe('the touch-target floor in the site chrome', () => {
-    /**
-     * One region at a time, and one tag at a time: a grouped selector handed
-     * to `findAll` matches the region element itself and then misses its
-     * children.
-     */
-    function pressablesIn(wrapper: Awaited<ReturnType<typeof mountSuspended>>) {
-      return ['site-header', 'site-footer'].flatMap((id) => {
-        const region = wrapper.get(`[data-testid="${id}"]`)
+    const regionsOf = async (route: string) => {
+      const wrapper = await mountSuspended(App, { route })
 
-        return [...region.findAll('a'), ...region.findAll('button')]
-      })
+      return ['site-header', 'site-footer'].map(
+        (id) => wrapper.get(`[data-testid="${id}"]`).element,
+      )
     }
 
-    /**
-     * So the loop below cannot pass by finding nothing. Named rather than
-     * counted, because how many links the header draws at once is exactly
-     * what a phone layout is allowed to change.
-     */
     const LANDMARKS = ['site-brand', 'theme-toggle', 'locale-switcher']
 
-    function assertFloor(controls: ReturnType<typeof pressablesIn>) {
-      const testIds = controls.map((control) => control.attributes('data-testid'))
-
-      for (const landmark of LANDMARKS) expect(testIds).toContain(landmark)
-
-      for (const control of controls) {
-        const label =
-          control.attributes('data-testid') ?? control.attributes('aria-label') ?? control.text()
-
-        expect(control.classes(), label).toContain('min-h-11')
-      }
-    }
-
-    /**
-     * §5's other half: two 44px boxes 4px apart are one target as far as a
-     * thumb is concerned. Both of these rows wrap, so the gap is asserted in
-     * both axes at once.
-     */
     it('keeps the controls in either nav 8px apart', async () => {
       const wrapper = await mountSuspended(App, { route: '/import' })
 
       for (const id of ['site-nav', 'site-footer-nav']) {
-        expect(wrapper.get(`[data-testid="${id}"]`).classes(), id).toContain('gap-2')
+        expectApart(wrapper.get(`[data-testid="${id}"]`).element)
       }
     })
 
     it('holds for every pressable thing in the signed-in shell', async () => {
-      assertFloor(pressablesIn(await mountSuspended(App, { route: '/import' })))
+      expectFloor(await regionsOf('/import'), LANDMARKS)
     })
 
     it('holds for every pressable thing in the public shell', async () => {
       signOut()
 
-      assertFloor(pressablesIn(await mountSuspended(App, { route: '/login' })))
+      expectFloor(await regionsOf('/login'), LANDMARKS)
     })
   })
 })

@@ -94,7 +94,7 @@ const day = (playedAt: string) => new Date(playedAt).toLocaleDateString()
     <!-- Said out loud, because the filters are directly above this and a
          reader who narrows the dates and sees this list stay put would
          otherwise read it as the filters being broken. -->
-    <p class="text-muted-foreground text-xs" data-testid="spectated-note">
+    <p class="text-muted-foreground text-sm" data-testid="spectated-note">
       {{ t('spectated.note') }}
     </p>
 
@@ -197,7 +197,7 @@ const day = (playedAt: string) => new Date(playedAt).toLocaleDateString()
     <button
       v-if="hasMore"
       type="button"
-      class="border-border text-muted-foreground hover:text-foreground focus-visible:ring-ring min-h-11 self-start rounded-md border px-3 py-1.5 text-xs focus-visible:ring-2 focus-visible:outline-none"
+      class="border-border text-muted-foreground hover:text-foreground focus-visible:ring-ring min-h-11 w-fit rounded-md border px-3 py-1.5 text-sm focus-visible:ring-2 focus-visible:outline-none"
       data-testid="spectated-more"
       @click="showMore"
     >

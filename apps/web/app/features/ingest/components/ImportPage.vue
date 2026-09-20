@@ -636,7 +636,15 @@ async function syncPrivateReplays() {
       data-testid="import-all-spectated"
     >
       {{ t('import.allSpectated') }}
-      <NuxtLink :to="localePath('/settings')" class="text-primary underline">
+      <!-- Grown by a `::before` rather than by padding: this link sits inside
+           a sentence, and anything that changes its own height opens the line
+           it is on. The area it reaches over is prose in both places it is
+           used — nothing pressable is underneath it. -->
+      <NuxtLink
+        :to="localePath('/settings')"
+        class="relative text-primary underline before:absolute before:top-1/2 before:left-1/2 before:size-11 before:-translate-x-1/2 before:-translate-y-1/2 before:content-['']"
+        data-testid="all-spectated-bind"
+      >
         {{ t('import.bindAction') }}
       </NuxtLink>
     </p>
@@ -714,7 +722,11 @@ async function syncPrivateReplays() {
            carry the same way out the batch-wide note does (#129). -->
       <p v-if="spectated" class="mt-1 text-sm text-muted-foreground" data-testid="battle-spectated">
         {{ t('import.battle.spectated') }}
-        <NuxtLink :to="localePath('/settings')" class="text-primary underline">
+        <NuxtLink
+          :to="localePath('/settings')"
+          class="relative text-primary underline before:absolute before:top-1/2 before:left-1/2 before:size-11 before:-translate-x-1/2 before:-translate-y-1/2 before:content-['']"
+          data-testid="battle-spectated-bind"
+        >
           {{ t('import.bindAction') }}
         </NuxtLink>
       </p>

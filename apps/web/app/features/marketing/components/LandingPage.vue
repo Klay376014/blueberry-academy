@@ -81,7 +81,7 @@ const steps = ['one', 'two', 'three'] as const
 
       <p class="text-sm text-muted-foreground">{{ t('landing.start.note') }}</p>
 
-      <UiButton as-child class="min-h-11 self-start">
+      <UiButton as-child class="min-h-11 w-fit">
         <NuxtLink :to="localePath('/login')">{{ t('landing.start.cta') }}</NuxtLink>
       </UiButton>
 

@@ -28,7 +28,7 @@ const bodyId = useId()
     >
       ?
     </button>
-    <p v-if="open" :id="bodyId" class="max-w-prose text-xs text-muted-foreground">
+    <p v-if="open" :id="bodyId" class="max-w-prose text-sm text-muted-foreground">
       <slot />
     </p>
   </div>

@@ -15,9 +15,10 @@ const forwarded = useForwardPropsEmits(reactiveOmit(props, 'class'), emits)
 </script>
 
 <!--
-  The inset width and `p-4 sm:p-6` are a local edit over what the shadcn CLI
-  writes — `w-full p-6`, which is a sixth of a 320px screen spent on padding
-  alone. Re-running `shadcn-vue add alert-dialog` (ADR-0005) writes it back.
+  The inset width and `p-4 sm:p-6` are a local edit over the `w-full p-6` that
+  `shadcn-vue add alert-dialog` writes, so re-running the CLI writes it back.
+  What the numbers are for: the narrow-screen case in
+  test/nuxt/touch-targets.spec.ts.
 -->
 <template>
   <AlertDialogPortal>
