@@ -78,19 +78,17 @@ const RESULT_TONE = {
       data-testid="recent-battle"
       @click="() => battleRoute.open(game.replayId)"
     >
-      <!-- The recent list's row, down to the order: the mark is the only
-           column, and everything that used to bracket the party is on the
-           line above it (#215). -->
+      <!-- Deliberately the recent list's row, down to the order (#215). -->
       <span
         class="w-5 shrink-0 text-center font-mono text-lg"
         :class="game.result ? RESULT_TONE[game.result] : 'text-muted-foreground'"
-        data-testid="game-result"
+        data-testid="battle-result-mark"
       >
         {{ game.result ? t(`battle.resultShort.${game.result}`) : '·' }}
       </span>
 
       <span class="flex min-w-0 flex-1 flex-col gap-1">
-        <span class="flex flex-wrap items-baseline gap-x-2 gap-y-0.5" data-testid="game-meta">
+        <span class="flex flex-wrap items-baseline gap-x-2 gap-y-0.5" data-testid="battle-meta">
           <!-- Derived from the order, because the log has no game number: the
                drawer's switcher numbers the same games the same way. It reads
                the whole series from the database though, so the two agree only
@@ -98,7 +96,7 @@ const RESULT_TONE = {
                guarantees and a date filter can still break. -->
           <span
             class="border-border text-muted-foreground rounded-full border px-1.5 font-mono text-[10px]"
-            data-testid="game-number"
+            data-testid="battle-number"
           >
             {{ t('battle.drawer.game', { number: index + 1 }) }}
           </span>
@@ -112,17 +110,17 @@ const RESULT_TONE = {
           </span>
         </span>
 
-        <span class="flex flex-wrap items-center gap-1" data-testid="game-teams">
-          <span class="flex min-w-0 flex-wrap items-center gap-1" data-testid="game-side">
+        <span class="flex flex-wrap items-center gap-1" data-testid="battle-teams">
+          <span class="flex min-w-0 flex-wrap items-center gap-1" data-testid="battle-side">
             <SpeciesParty :signature="game.myTeam" :bring="game.myBring" :size="33" />
           </span>
           <span
             class="text-muted-foreground shrink-0 px-1 font-mono text-[10px]"
-            data-testid="game-versus"
+            data-testid="battle-versus"
           >
             {{ t('battle.drawer.versus') }}
           </span>
-          <span class="flex min-w-0 flex-wrap items-center gap-1" data-testid="game-side">
+          <span class="flex min-w-0 flex-wrap items-center gap-1" data-testid="battle-side">
             <SpeciesParty :signature="game.opponentTeam" :bring="game.opponentBring" :size="33" />
           </span>
         </span>

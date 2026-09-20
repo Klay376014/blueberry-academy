@@ -77,15 +77,18 @@ const RESULT_TONE = {
             <span
               class="w-5 shrink-0 text-center font-mono text-lg"
               :class="battle.result ? RESULT_TONE[battle.result] : 'text-muted-foreground'"
-              data-testid="game-result"
+              data-testid="battle-result-mark"
             >
               {{ battle.result ? t(`battle.resultShort.${battle.result}`) : '·' }}
             </span>
 
             <span class="flex min-w-0 flex-1 flex-col gap-1">
-              <!-- Wrapping rather than a breakpoint: what fits here is a
-                   username and a locale's date, not a viewport (baseline §4). -->
-              <span class="flex flex-wrap items-baseline gap-x-2 gap-y-0.5" data-testid="game-meta">
+              <!-- What fits on this line is a username and a locale's date,
+                   not a viewport — so it wraps rather than carrying a prefix. -->
+              <span
+                class="flex flex-wrap items-baseline gap-x-2 gap-y-0.5"
+                data-testid="battle-meta"
+              >
                 <!-- `truncate` shortens nothing without this: a flex item's
                      floor is its content, so the name would push the row wider
                      instead of ending in an ellipsis. -->
@@ -110,19 +113,19 @@ const RESULT_TONE = {
                 </span>
               </span>
 
-              <span class="flex flex-wrap items-center gap-1" data-testid="game-teams">
+              <span class="flex flex-wrap items-center gap-1" data-testid="battle-teams">
                 <!-- Each side is one group so that a wrap cannot move a party
                      across the separator that says whose it is. -->
-                <span class="flex min-w-0 flex-wrap items-center gap-1" data-testid="game-side">
+                <span class="flex min-w-0 flex-wrap items-center gap-1" data-testid="battle-side">
                   <SpeciesParty :signature="battle.myTeam" :bring="battle.myBring" :size="33" />
                 </span>
                 <span
                   class="text-muted-foreground shrink-0 px-1 font-mono text-[10px]"
-                  data-testid="game-versus"
+                  data-testid="battle-versus"
                 >
                   {{ t('battle.drawer.versus') }}
                 </span>
-                <span class="flex min-w-0 flex-wrap items-center gap-1" data-testid="game-side">
+                <span class="flex min-w-0 flex-wrap items-center gap-1" data-testid="battle-side">
                   <SpeciesParty
                     :signature="battle.opponentTeam"
                     :bring="battle.opponentBring"

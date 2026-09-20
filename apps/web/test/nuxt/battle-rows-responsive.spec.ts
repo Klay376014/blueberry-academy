@@ -192,11 +192,9 @@ describe('the three lists that draw a game as a row', () => {
 
   it('lets the meta line wrap, which is where the numbers that gave way went', async () => {
     for (const [name, row] of Object.entries(rows(await mountHome()))) {
-      const meta = row.querySelector('[data-testid="game-meta"]')
+      const meta = row.querySelector('[data-testid="battle-meta"]')
 
       expect(meta, name).toBeTruthy()
-      // §4's content-driven half: how much of "date · format · turns · +12"
-      // fits is the length of a username and a locale's date, not a viewport.
       expect(classesOf(meta!), name).toContain('flex-wrap')
     }
   })
@@ -206,17 +204,15 @@ describe('the three lists that draw a game as a row', () => {
 
     for (const [name, element] of [
       ['rating change', recent.querySelector('[data-testid="rating-change"]')],
-      ['game number', series.querySelector('[data-testid="game-number"]')],
+      ['game number', series.querySelector('[data-testid="battle-number"]')],
       ['turn count', series.querySelector('[data-testid="turn-count"]')],
     ] as const) {
       expect(element, name).toBeTruthy()
-      expect(element!.closest('[data-testid="game-meta"]'), name).toBeTruthy()
+      expect(element!.closest('[data-testid="battle-meta"]'), name).toBeTruthy()
     }
   })
 
   it('lets every truncating name shrink, or it truncates nothing', async () => {
-    // A flex item's floor is its content: `truncate` on one that cannot shrink
-    // widens the row instead of ending in an ellipsis.
     for (const [name, row] of Object.entries(rows(await mountHome()))) {
       for (const element of row.querySelectorAll('.truncate'))
         expect(classesOf(element), name).toContain('min-w-0')
@@ -226,12 +222,12 @@ describe('the three lists that draw a game as a row', () => {
   describe('the two teams on a row', () => {
     it('lets the pair wrap and keeps each side one group', async () => {
       for (const [name, row] of Object.entries(rows(await mountHome()))) {
-        const teams = row.querySelector('[data-testid="game-teams"]')
+        const teams = row.querySelector('[data-testid="battle-teams"]')
 
         expect(teams, name).toBeTruthy()
         expect(classesOf(teams!), name).toContain('flex-wrap')
 
-        const sides = [...teams!.querySelectorAll('[data-testid="game-side"]')]
+        const sides = [...teams!.querySelectorAll('[data-testid="battle-side"]')]
 
         expect(sides, name).toHaveLength(2)
         for (const side of sides) expect(classesOf(side), name).toContain('min-w-0')
@@ -242,10 +238,10 @@ describe('the three lists that draw a game as a row', () => {
       // "mine vs theirs" is the only thing that says which party is whose, and
       // it survives a wrap only while it is a sibling of both.
       for (const [name, row] of Object.entries(rows(await mountHome()))) {
-        const teams = row.querySelector('[data-testid="game-teams"]')!
+        const teams = row.querySelector('[data-testid="battle-teams"]')!
         const order = [...teams.children].map((child) => child.getAttribute('data-testid'))
 
-        expect(order, name).toEqual(['game-side', 'game-versus', 'game-side'])
+        expect(order, name).toEqual(['battle-side', 'battle-versus', 'battle-side'])
       }
     })
 
@@ -257,8 +253,8 @@ describe('the three lists that draw a game as a row', () => {
       const won = spectated.querySelector('[data-testid="side-won"]')
 
       expect(won).toBeTruthy()
-      expect(won!.closest('[data-testid="game-side"]')).toBe(
-        spectated.querySelectorAll('[data-testid="game-side"]')[0],
+      expect(won!.closest('[data-testid="battle-side"]')).toBe(
+        spectated.querySelectorAll('[data-testid="battle-side"]')[0],
       )
     })
   })
@@ -285,6 +281,13 @@ describe('the three lists that draw a game as a row', () => {
       const header = page.get('[data-testid="spectated-header"]').classes()
 
       expect(header).toContain('flex-wrap')
+
+      // A wrap the group can never reach is not a wrap: a flex item is put on
+      // a line by its basis, so `flex-1 min-w-0` on its own would shrink the
+      // box beside the heading forever instead of ever taking a line.
+      const group = page.get('[data-testid="spectated-search"]').element.parentElement!
+
+      expect([...group.classList].some((name) => /^basis-/.test(name))).toBe(true)
     })
   })
 })

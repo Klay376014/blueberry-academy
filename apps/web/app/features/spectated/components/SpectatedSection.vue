@@ -62,7 +62,11 @@ const day = (playedAt: string) => new Date(playedAt).toLocaleDateString()
     >
       <h2 class="text-xl font-semibold tracking-tight">{{ t('spectated.title') }}</h2>
 
-      <div class="flex min-w-0 flex-1 items-center justify-end gap-2">
+      <!-- `basis-56` is what makes the wrap on the row above real: a flex item
+           is put on a line by its basis, and `flex-1 min-w-0` alone would let
+           this group shrink to a sliver beside the heading forever rather than
+           ever take a line of its own. -->
+      <div class="flex min-w-0 flex-1 basis-56 items-center justify-end gap-2">
         <!-- Beside the heading, because it searches this section and nothing
              else: the list above it is the reader's own battles and has its
              own filters.
@@ -115,9 +119,8 @@ const day = (playedAt: string) => new Date(playedAt).toLocaleDateString()
         @click="() => battleRoute.open(battle.replayId)"
       >
         <span class="flex min-w-0 flex-1 flex-col gap-1">
-          <span class="flex flex-wrap items-baseline gap-x-2 gap-y-0.5" data-testid="game-meta">
-            <!-- See the recent list's row: without `min-w-0` a flex item
-                 cannot shrink below its text, and `truncate` never fires. -->
+          <span class="flex flex-wrap items-baseline gap-x-2 gap-y-0.5" data-testid="battle-meta">
+            <!-- `min-w-0`: see the recent list's row. -->
             <span class="min-w-0 truncate font-medium">
               {{ battle.sides.p1.username ?? t('battle.drawer.unknownPlayer') }}
               <span class="text-muted-foreground text-xs">{{ t('battle.drawer.versus') }}</span>
@@ -134,11 +137,11 @@ const day = (playedAt: string) => new Date(playedAt).toLocaleDateString()
           <!-- The winner is marked here rather than beside the name, for the
                reason the drawer's header marks it here: that line truncates,
                and the mark would be the first thing the ellipsis ate. -->
-          <span class="flex flex-wrap items-center gap-1" data-testid="game-teams">
+          <span class="flex flex-wrap items-center gap-1" data-testid="battle-teams">
             <!-- The mark is inside the side it is about, not beside it: this
                  line wraps, and nobody here is "me", so a mark that drifted
                  between the two parties would name no winner at all. -->
-            <span class="flex min-w-0 flex-wrap items-center gap-1" data-testid="game-side">
+            <span class="flex min-w-0 flex-wrap items-center gap-1" data-testid="battle-side">
               <SpeciesParty
                 :signature="battle.sides.p1.team"
                 :bring="battle.sides.p1.bring"
@@ -154,11 +157,11 @@ const day = (playedAt: string) => new Date(playedAt).toLocaleDateString()
             </span>
             <span
               class="text-muted-foreground shrink-0 px-1 font-mono text-[10px]"
-              data-testid="game-versus"
+              data-testid="battle-versus"
             >
               {{ t('battle.drawer.versus') }}
             </span>
-            <span class="flex min-w-0 flex-wrap items-center gap-1" data-testid="game-side">
+            <span class="flex min-w-0 flex-wrap items-center gap-1" data-testid="battle-side">
               <SpeciesParty
                 :signature="battle.sides.p2.team"
                 :bring="battle.sides.p2.bring"
