@@ -412,6 +412,17 @@ describe('the drawer header', () => {
     expect(won.closest('[data-testid="side-name"]')).toBe(null)
   })
 
+  it("keeps everything that is not the title off the title's row", async () => {
+    // The measured cost at 320: the link was 79px of the 158 the title had to
+    // give, and the title truncating is the whole reason the second row is
+    // there. Anything added beside the title later has to answer this.
+    const drawer = await openDrawer()
+    const link = one(drawer, 'replay-link')
+
+    expect(link.closest('[data-testid="drawer-meta"]')).toBeTruthy()
+    expect(classesOf(link)).toContain('min-h-11')
+  })
+
   it('keeps that row wrapping, and its trailing length off ml-auto on a phone', async () => {
     // The same call #215 made on the battle rows: below `sm` the line is
     // already wrapping, and an `ml-auto` there takes a line of its own.
