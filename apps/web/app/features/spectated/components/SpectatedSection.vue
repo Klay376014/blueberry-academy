@@ -56,17 +56,24 @@ const day = (playedAt: string) => new Date(playedAt).toLocaleDateString()
     :aria-label="t('spectated.title')"
     data-testid="spectated"
   >
-    <div class="flex flex-wrap items-baseline justify-between gap-3">
+    <div
+      class="flex flex-wrap items-center justify-between gap-x-3 gap-y-2"
+      data-testid="spectated-header"
+    >
       <h2 class="text-xl font-semibold tracking-tight">{{ t('spectated.title') }}</h2>
 
-      <div class="flex items-baseline gap-3">
+      <div class="flex min-w-0 flex-1 items-center justify-end gap-2">
         <!-- Beside the heading, because it searches this section and nothing
              else: the list above it is the reader's own battles and has its
-             own filters. -->
+             own filters.
+
+             Its width is whatever the row has left rather than a number: the
+             `w-48` it used to carry was 192px of a 320px screen, claimed
+             before the heading and the count had asked for any (#215). -->
         <input
           :value="query"
           type="search"
-          class="border-border bg-background focus-visible:ring-ring w-48 rounded-md border px-2 py-1 text-sm focus-visible:ring-2 focus-visible:outline-none"
+          class="border-border bg-background focus-visible:ring-ring min-h-11 min-w-0 flex-1 rounded-md border px-2 py-1 text-sm focus-visible:ring-2 focus-visible:outline-none"
           :placeholder="t('spectated.search')"
           :aria-label="t('spectated.search')"
           data-testid="spectated-search"
@@ -74,7 +81,7 @@ const day = (playedAt: string) => new Date(playedAt).toLocaleDateString()
         />
         <!-- Announced, because it and the message below are the only things
              that answer "did what I typed do anything". -->
-        <p class="text-muted-foreground font-mono text-xs tabular-nums" aria-live="polite">
+        <p class="text-muted-foreground shrink-0 font-mono text-xs tabular-nums" aria-live="polite">
           {{ matches.length }}
         </p>
       </div>
@@ -98,7 +105,7 @@ const day = (playedAt: string) => new Date(playedAt).toLocaleDateString()
         v-for="battle of visible"
         :key="battle.replayId"
         type="button"
-        class="hover:bg-muted/50 focus-visible:ring-ring flex w-full items-center gap-3 border-l-2 px-3 py-2 text-left focus-visible:ring-2 focus-visible:outline-none"
+        class="hover:bg-muted/50 focus-visible:ring-ring flex min-h-11 w-full items-center gap-2 border-l-2 px-3 py-2 text-left focus-visible:ring-2 focus-visible:outline-none"
         :class="
           battle.replayId === battleRoute.openId.value
             ? 'border-l-primary bg-primary/5'
@@ -108,8 +115,10 @@ const day = (playedAt: string) => new Date(playedAt).toLocaleDateString()
         @click="() => battleRoute.open(battle.replayId)"
       >
         <span class="flex min-w-0 flex-1 flex-col gap-1">
-          <span class="flex flex-wrap items-baseline gap-2">
-            <span class="truncate font-medium">
+          <span class="flex flex-wrap items-baseline gap-x-2 gap-y-0.5" data-testid="game-meta">
+            <!-- See the recent list's row: without `min-w-0` a flex item
+                 cannot shrink below its text, and `truncate` never fires. -->
+            <span class="min-w-0 truncate font-medium">
               {{ battle.sides.p1.username ?? t('battle.drawer.unknownPlayer') }}
               <span class="text-muted-foreground text-xs">{{ t('battle.drawer.versus') }}</span>
               {{ battle.sides.p2.username ?? t('battle.drawer.unknownPlayer') }}
@@ -125,33 +134,43 @@ const day = (playedAt: string) => new Date(playedAt).toLocaleDateString()
           <!-- The winner is marked here rather than beside the name, for the
                reason the drawer's header marks it here: that line truncates,
                and the mark would be the first thing the ellipsis ate. -->
-          <span class="flex flex-wrap items-center gap-1">
-            <SpeciesParty
-              :signature="battle.sides.p1.team"
-              :bring="battle.sides.p1.bring"
-              :size="33"
-            />
-            <span
-              v-if="battle.winner === 'p1'"
-              class="text-primary font-mono text-[10px] tracking-widest uppercase"
-              data-testid="side-won"
-            >
-              {{ t('battle.drawer.won') }}
+          <span class="flex flex-wrap items-center gap-1" data-testid="game-teams">
+            <!-- The mark is inside the side it is about, not beside it: this
+                 line wraps, and nobody here is "me", so a mark that drifted
+                 between the two parties would name no winner at all. -->
+            <span class="flex min-w-0 flex-wrap items-center gap-1" data-testid="game-side">
+              <SpeciesParty
+                :signature="battle.sides.p1.team"
+                :bring="battle.sides.p1.bring"
+                :size="33"
+              />
+              <span
+                v-if="battle.winner === 'p1'"
+                class="text-primary shrink-0 font-mono text-[10px] tracking-widest uppercase"
+                data-testid="side-won"
+              >
+                {{ t('battle.drawer.won') }}
+              </span>
             </span>
-            <span class="text-muted-foreground px-1 font-mono text-[10px]">
+            <span
+              class="text-muted-foreground shrink-0 px-1 font-mono text-[10px]"
+              data-testid="game-versus"
+            >
               {{ t('battle.drawer.versus') }}
             </span>
-            <SpeciesParty
-              :signature="battle.sides.p2.team"
-              :bring="battle.sides.p2.bring"
-              :size="33"
-            />
-            <span
-              v-if="battle.winner === 'p2'"
-              class="text-primary font-mono text-[10px] tracking-widest uppercase"
-              data-testid="side-won"
-            >
-              {{ t('battle.drawer.won') }}
+            <span class="flex min-w-0 flex-wrap items-center gap-1" data-testid="game-side">
+              <SpeciesParty
+                :signature="battle.sides.p2.team"
+                :bring="battle.sides.p2.bring"
+                :size="33"
+              />
+              <span
+                v-if="battle.winner === 'p2'"
+                class="text-primary shrink-0 font-mono text-[10px] tracking-widest uppercase"
+                data-testid="side-won"
+              >
+                {{ t('battle.drawer.won') }}
+              </span>
             </span>
           </span>
         </span>

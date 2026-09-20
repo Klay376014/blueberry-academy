@@ -63,7 +63,7 @@ const RESULT_TONE = {
             v-for="battle of block.games"
             :key="battle.replayId"
             type="button"
-            class="hover:bg-muted/50 focus-visible:ring-ring flex w-full items-center gap-3 border-l-2 px-3 py-2 text-left focus-visible:ring-2 focus-visible:outline-none"
+            class="hover:bg-muted/50 focus-visible:ring-ring flex min-h-11 w-full items-center gap-2 border-l-2 px-3 py-2 text-left focus-visible:ring-2 focus-visible:outline-none"
             :class="
               battle.replayId === battleRoute.openId.value
                 ? 'border-l-primary bg-primary/5'
@@ -72,16 +72,24 @@ const RESULT_TONE = {
             data-testid="recent-battle"
             @click="() => battleRoute.open(battle.replayId)"
           >
+            <!-- The one column the row keeps: it is a symbol of a known width,
+                 and it is what the list is scanned down. -->
             <span
               class="w-5 shrink-0 text-center font-mono text-lg"
               :class="battle.result ? RESULT_TONE[battle.result] : 'text-muted-foreground'"
+              data-testid="game-result"
             >
               {{ battle.result ? t(`battle.resultShort.${battle.result}`) : '·' }}
             </span>
 
             <span class="flex min-w-0 flex-1 flex-col gap-1">
-              <span class="flex flex-wrap items-baseline gap-2">
-                <span class="truncate font-medium">
+              <!-- Wrapping rather than a breakpoint: what fits here is a
+                   username and a locale's date, not a viewport (baseline §4). -->
+              <span class="flex flex-wrap items-baseline gap-x-2 gap-y-0.5" data-testid="game-meta">
+                <!-- `truncate` shortens nothing without this: a flex item's
+                     floor is its content, so the name would push the row wider
+                     instead of ending in an ellipsis. -->
+                <span class="min-w-0 truncate font-medium">
                   {{ battle.opponentUsername ?? t('battle.drawer.unknownOpponent') }}
                 </span>
                 <span class="text-muted-foreground text-xs">
@@ -90,26 +98,38 @@ const RESULT_TONE = {
                     · {{ t('battle.recent.turns', { count: battle.turnCount }) }}
                   </template>
                 </span>
+                <!-- On this line rather than trailing the row: as a column of
+                     its own it took its width off the party beside it, and it
+                     is the least of what the row says (#215). -->
+                <span
+                  v-if="battle.ratingDelta !== null"
+                  class="text-muted-foreground font-mono text-xs tabular-nums"
+                  data-testid="rating-change"
+                >
+                  {{ battle.ratingDelta > 0 ? '+' : '' }}{{ battle.ratingDelta }}
+                </span>
               </span>
 
-              <span class="flex flex-wrap items-center gap-1">
-                <SpeciesParty :signature="battle.myTeam" :bring="battle.myBring" :size="33" />
-                <span class="text-muted-foreground px-1 font-mono text-[10px]">
+              <span class="flex flex-wrap items-center gap-1" data-testid="game-teams">
+                <!-- Each side is one group so that a wrap cannot move a party
+                     across the separator that says whose it is. -->
+                <span class="flex min-w-0 flex-wrap items-center gap-1" data-testid="game-side">
+                  <SpeciesParty :signature="battle.myTeam" :bring="battle.myBring" :size="33" />
+                </span>
+                <span
+                  class="text-muted-foreground shrink-0 px-1 font-mono text-[10px]"
+                  data-testid="game-versus"
+                >
                   {{ t('battle.drawer.versus') }}
                 </span>
-                <SpeciesParty
-                  :signature="battle.opponentTeam"
-                  :bring="battle.opponentBring"
-                  :size="33"
-                />
+                <span class="flex min-w-0 flex-wrap items-center gap-1" data-testid="game-side">
+                  <SpeciesParty
+                    :signature="battle.opponentTeam"
+                    :bring="battle.opponentBring"
+                    :size="33"
+                  />
+                </span>
               </span>
-            </span>
-
-            <span
-              v-if="battle.ratingDelta !== null"
-              class="text-muted-foreground shrink-0 font-mono text-xs tabular-nums"
-            >
-              {{ battle.ratingDelta > 0 ? '+' : '' }}{{ battle.ratingDelta }}
             </span>
           </button>
         </div>
