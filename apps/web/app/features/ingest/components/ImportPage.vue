@@ -428,7 +428,7 @@ async function syncPrivateReplays() {
         :id="linksInputId"
         v-model="links"
         rows="4"
-        class="mt-1 w-full rounded-md border border-input bg-transparent px-3 py-2 font-mono text-sm shadow-xs transition-colors placeholder:text-muted-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none disabled:opacity-50"
+        class="mt-1 min-h-11 w-full rounded-md border border-input bg-transparent px-3 py-2 font-mono text-sm shadow-xs transition-colors placeholder:text-muted-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none disabled:opacity-50"
         :placeholder="t('import.placeholder')"
         :disabled="!aliasesLoaded"
         autocapitalize="off"
@@ -438,7 +438,7 @@ async function syncPrivateReplays() {
       />
       <UiButton
         type="submit"
-        class="mt-2"
+        class="mt-2 min-h-11"
         :disabled="!aliasesLoaded || busy"
         data-testid="import-submit"
       >
@@ -464,7 +464,7 @@ async function syncPrivateReplays() {
         <input
           :id="syncInputId"
           v-model="syncName"
-          class="mt-1 h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs transition-colors placeholder:text-muted-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none disabled:opacity-50"
+          class="mt-1 min-h-11 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs transition-colors placeholder:text-muted-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none disabled:opacity-50"
           :placeholder="t('import.sync.placeholder')"
           :disabled="!aliasesLoaded"
           autocapitalize="off"
@@ -473,12 +473,18 @@ async function syncPrivateReplays() {
           data-testid="sync-input"
         />
       </div>
-      <UiButton type="submit" :disabled="!aliasesLoaded || busy" data-testid="sync-submit">
+      <UiButton
+        type="submit"
+        class="min-h-11"
+        :disabled="!aliasesLoaded || busy"
+        data-testid="sync-submit"
+      >
         {{ busy ? t('import.working') : t('import.sync.submit') }}
       </UiButton>
       <UiButton
         type="button"
         variant="outline"
+        class="min-h-11"
         :disabled="!aliasesLoaded || busy"
         data-testid="private-open"
         @click="askForPassword"
@@ -531,7 +537,7 @@ async function syncPrivateReplays() {
             ref="passwordField"
             v-model="privatePassword"
             type="password"
-            class="mt-1 h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs transition-colors placeholder:text-muted-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none disabled:opacity-50"
+            class="mt-1 min-h-11 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs transition-colors placeholder:text-muted-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none disabled:opacity-50"
             autocapitalize="off"
             autocomplete="off"
             spellcheck="false"
@@ -547,10 +553,10 @@ async function syncPrivateReplays() {
           </p>
 
           <UiAlertDialogFooter class="mt-4">
-            <UiAlertDialogCancel data-testid="private-cancel">
+            <UiAlertDialogCancel class="min-h-11" data-testid="private-cancel">
               {{ t('import.private.cancel') }}
             </UiAlertDialogCancel>
-            <UiButton type="submit" :disabled="busy" data-testid="private-submit">
+            <UiButton type="submit" class="min-h-11" :disabled="busy" data-testid="private-submit">
               {{ busy ? t('import.private.working') : t('import.private.submit') }}
             </UiButton>
           </UiAlertDialogFooter>

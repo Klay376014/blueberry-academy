@@ -197,7 +197,7 @@ const day = (playedAt: string) => new Date(playedAt).toLocaleDateString()
     <button
       v-if="hasMore"
       type="button"
-      class="border-border text-muted-foreground hover:text-foreground focus-visible:ring-ring self-start rounded-md border px-3 py-1.5 text-xs focus-visible:ring-2 focus-visible:outline-none"
+      class="border-border text-muted-foreground hover:text-foreground focus-visible:ring-ring min-h-11 self-start rounded-md border px-3 py-1.5 text-xs focus-visible:ring-2 focus-visible:outline-none"
       data-testid="spectated-more"
       @click="showMore"
     >

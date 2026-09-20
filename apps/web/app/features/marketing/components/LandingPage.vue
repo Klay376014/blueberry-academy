@@ -39,12 +39,12 @@ const steps = ['one', 'two', 'three'] as const
            stops fitting depends on how long the translation is, not on the
            width (§4 of the responsive baseline). -->
       <div class="mt-2 flex flex-wrap items-center gap-3" data-testid="landing-actions">
-        <UiButton as-child size="lg">
+        <UiButton as-child size="lg" class="min-h-11">
           <NuxtLink :to="localePath('/login')" data-testid="landing-cta">
             {{ t('landing.hero.cta') }}
           </NuxtLink>
         </UiButton>
-        <UiButton as-child variant="ghost" size="lg">
+        <UiButton as-child variant="ghost" size="lg" class="min-h-11">
           <NuxtLink :to="localePath('/about')">{{ t('landing.hero.secondary') }}</NuxtLink>
         </UiButton>
       </div>
@@ -81,7 +81,7 @@ const steps = ['one', 'two', 'three'] as const
 
       <p class="text-sm text-muted-foreground">{{ t('landing.start.note') }}</p>
 
-      <UiButton as-child class="self-start">
+      <UiButton as-child class="min-h-11 self-start">
         <NuxtLink :to="localePath('/login')">{{ t('landing.start.cta') }}</NuxtLink>
       </UiButton>
 
@@ -89,7 +89,10 @@ const steps = ['one', 'two', 'three'] as const
         The page that says what signing in hands over, one link from the button
         that starts it (issue #127).
       -->
-      <NuxtLink :to="localePath('/privacy')" class="text-sm text-primary underline">
+      <NuxtLink
+        :to="localePath('/privacy')"
+        class="inline-flex min-h-11 w-fit items-center text-sm text-primary underline"
+      >
         {{ t('privacy.title') }}
       </NuxtLink>
     </MarketingProseSection>

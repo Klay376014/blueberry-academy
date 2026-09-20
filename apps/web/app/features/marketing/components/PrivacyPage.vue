@@ -66,9 +66,12 @@ const kept = ['account', 'names', 'battles', 'logs'] as const
            "email". In the page rather than in the two locale files, for the
            same reason as the date above — an address is not a sentence to be
            translated. -->
+      <!-- `w-fit` because the section is a flex column: without it the 44px
+           the address grew to is a full-width strip of mailto, most of it
+           nowhere near the address. -->
       <a
         href="mailto:ads1029384756@gmail.com"
-        class="text-primary underline"
+        class="inline-flex min-h-11 w-fit items-center text-primary underline"
         data-testid="privacy-contact"
       >
         ads1029384756@gmail.com

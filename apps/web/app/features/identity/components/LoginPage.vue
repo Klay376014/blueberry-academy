@@ -25,8 +25,8 @@ async function signIn() {
       the link inline-block, so left to themselves they sit on one line spaced
       by whatever whitespace happens to be between the tags.
     -->
-    <div class="mt-6 flex items-center gap-2">
-      <UiButton data-testid="sign-in-google" @click="signIn">
+    <div class="mt-6 flex items-center gap-2" data-testid="login-actions">
+      <UiButton class="min-h-11" data-testid="sign-in-google" @click="signIn">
         {{ t('login.google') }}
       </UiButton>
 
@@ -36,7 +36,7 @@ async function signIn() {
       -->
       <NuxtLink
         :to="localePath('/privacy')"
-        class="text-sm text-primary underline"
+        class="inline-flex min-h-11 items-center text-sm text-primary underline"
         data-testid="login-privacy"
       >
         {{ t('privacy.title') }}

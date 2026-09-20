@@ -14,6 +14,11 @@ const emits = defineEmits<AlertDialogContentEmits>()
 const forwarded = useForwardPropsEmits(reactiveOmit(props, 'class'), emits)
 </script>
 
+<!--
+  The inset width and `p-4 sm:p-6` are a local edit over what the shadcn CLI
+  writes — `w-full p-6`, which is a sixth of a 320px screen spent on padding
+  alone. Re-running `shadcn-vue add alert-dialog` (ADR-0005) writes it back.
+-->
 <template>
   <AlertDialogPortal>
     <AlertDialogOverlay />
@@ -21,7 +26,7 @@ const forwarded = useForwardPropsEmits(reactiveOmit(props, 'class'), emits)
       data-slot="alert-dialog-content"
       :class="
         cn(
-          'bg-background data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 duration-200 fixed top-1/2 left-1/2 z-50 grid w-full max-w-lg -translate-x-1/2 -translate-y-1/2 gap-4 rounded-lg border p-6 shadow-lg',
+          'bg-background data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 duration-200 fixed top-1/2 left-1/2 z-50 grid w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 gap-4 rounded-lg border p-4 shadow-lg sm:w-full sm:p-6',
           props.class,
         )
       "

@@ -201,7 +201,7 @@ async function unbind(name: string) {
           <input
             :id="aliasInputId"
             v-model="typed"
-            class="mt-1 h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs transition-colors placeholder:text-muted-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none disabled:opacity-50"
+            class="mt-1 min-h-11 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs transition-colors placeholder:text-muted-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none disabled:opacity-50"
             :placeholder="t('settings.aliases.placeholder')"
             :disabled="busy"
             autocapitalize="off"
@@ -211,7 +211,7 @@ async function unbind(name: string) {
             @input="clearMessages"
           />
         </div>
-        <UiButton type="submit" :disabled="busy" data-testid="alias-bind">
+        <UiButton type="submit" class="min-h-11" :disabled="busy" data-testid="alias-bind">
           {{ t('settings.aliases.bind') }}
         </UiButton>
       </form>
@@ -266,6 +266,7 @@ async function unbind(name: string) {
           <UiButton
             variant="ghost"
             size="sm"
+            class="min-h-11"
             :aria-label="t('settings.aliases.remove', { name: alias })"
             :disabled="busy"
             data-testid="alias-remove"
@@ -287,6 +288,7 @@ async function unbind(name: string) {
         <UiButton
           variant="outline"
           size="sm"
+          class="min-h-11"
           :disabled="busy"
           data-testid="reattribute"
           @click="rerun"
@@ -312,11 +314,12 @@ async function unbind(name: string) {
           }}
         </UiAlertDialogDescription>
         <UiAlertDialogFooter>
-          <UiAlertDialogCancel data-testid="unbind-cancel">
+          <UiAlertDialogCancel class="min-h-11" data-testid="unbind-cancel">
             {{ t('settings.aliases.removeCancel') }}
           </UiAlertDialogCancel>
           <UiAlertDialogAction
             variant="destructive"
+            class="min-h-11"
             data-testid="unbind-remove"
             @click="confirmRemoval"
           >
