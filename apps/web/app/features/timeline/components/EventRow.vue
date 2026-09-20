@@ -102,7 +102,7 @@ const move = computed(() =>
          are telling the reader nothing. -->
     <span
       v-if="sideMark"
-      class="shrink-0 rounded border px-0.5 text-center font-mono text-[9px] tracking-tight uppercase"
+      class="shrink-0 rounded border px-0.5 font-mono text-[9px] tracking-tight uppercase"
       :class="sideMark.tone"
       data-testid="side-mark"
     >
@@ -151,7 +151,7 @@ const move = computed(() =>
             <span
               v-for="(hit, at) of target.hits"
               :key="`${hit.change.kind}-${hit.change.hpAfter}-${at}`"
-              class="flex items-center gap-1"
+              class="flex min-w-0 flex-wrap items-center gap-x-1 gap-y-0.5"
               data-testid="row-hit"
             >
               <BattleRowNotes :notes="hit.notes" />

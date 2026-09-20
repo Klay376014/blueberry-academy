@@ -197,7 +197,7 @@ const RESULT_TONE = {
 
     <!-- Only a series has other games to move between; a ladder game is on its own. -->
     <div v-if="games.length" class="flex flex-wrap gap-2" role="group" data-testid="series-games">
-      <!-- §5's floor, on the height only: the label is a word and a number, so
+      <!-- The floor on the height only: the label is a word and a number, so
            the width is the words' to decide. -->
       <button
         v-for="(game, index) of games"

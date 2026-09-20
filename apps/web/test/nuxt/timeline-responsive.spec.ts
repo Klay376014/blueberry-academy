@@ -303,16 +303,21 @@ describe('the event row’s four columns', () => {
   })
 
   it('keeps one line per hit, which is what the body is widest for', async () => {
-    // The row this file is written against: `multi-hit-rows.spec.ts` owns why
-    // the hits are separate lines, this owns that they still are once the row
-    // stopped being a grid.
+    // `multi-hit-rows.spec.ts` owns why the hits are separate lines. What is
+    // here is that each of them can now wrap on its own, which is what the
+    // grid denied them.
     const hits = all(await openDrawer(), 'row-hit')
 
     expect(hits.length).toBeGreaterThan(1)
+    for (const hit of hits) expect(classesOf(hit)).toContain('flex-wrap')
   })
 
-  it('keeps the words beside the marks a sentence, which §5 floors at text-sm', async () => {
-    // §2.5's density argument covers the marks. It does not cover the message.
+  it("keeps the words beside the marks out of the marks' own size", async () => {
+    // §2.5's density argument covers the marks. It does not cover the words,
+    // and this is the line it does not let them cross. §5 puts a note at
+    // `text-sm` and a whole sentence at `text-base`; which of the two a
+    // timeline message is has never been settled, so what is locked here is
+    // only the floor both readings share.
     const bodies = all(await openDrawer(), 'row-body')
 
     expect(bodies.length).toBeGreaterThan(0)

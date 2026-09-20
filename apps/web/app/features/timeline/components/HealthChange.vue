@@ -38,8 +38,8 @@ const lost = computed(() => {
 </script>
 
 <template>
-  <!-- Wraps, and the bar does not give up its width to make the wrap happen:
-       a squeezed bar is a full one to look at. -->
+  <!-- The bar does not give up its width to make the wrap happen: squeezed,
+       it is a full one to look at. -->
   <span class="inline-flex flex-wrap items-center gap-x-2 gap-y-0.5" data-testid="health-change">
     <span class="bg-muted relative inline-block h-1.5 w-20 shrink-0 overflow-hidden rounded-full">
       <span
