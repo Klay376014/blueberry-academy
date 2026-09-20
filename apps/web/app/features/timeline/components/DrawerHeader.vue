@@ -123,20 +123,9 @@ const RESULT_TONE = {
         >
           {{ t('battle.result.tie') }}
         </span>
-        <a
-          v-if="battle"
-          :href="replayUrl({ id: battle.replayId, password: battle.replayPassword })"
-          target="_blank"
-          rel="noopener noreferrer"
-          class="text-primary flex items-center gap-1 text-xs underline"
-          data-testid="replay-link"
-        >
-          {{ t('battle.drawer.replay') }}
-          <ExternalLink class="size-3" aria-hidden="true" />
-        </a>
         <button
           type="button"
-          class="text-muted-foreground hover:text-foreground focus-visible:ring-ring rounded p-1 focus-visible:ring-2 focus-visible:outline-none"
+          class="text-muted-foreground hover:text-foreground focus-visible:ring-ring flex min-h-11 min-w-11 items-center justify-center rounded focus-visible:ring-2 focus-visible:outline-none"
           :aria-label="t('battle.drawer.close')"
           data-testid="drawer-close"
           @click="() => emit('close')"
@@ -152,36 +141,59 @@ const RESULT_TONE = {
          the ellipsis ate, and for a spectated battle it is the only thing
          on screen that says who won. This row wraps instead of clipping,
          and it is in the same left-to-right order as the names above it. -->
-    <div v-if="battle && sides" class="flex flex-wrap items-center gap-2">
-      <template v-for="(column, index) of columns" :key="column.at">
-        <span class="text-muted-foreground font-mono text-[10px]" v-if="index > 0">
-          {{ t('battle.drawer.versus') }}
-        </span>
+    <div v-if="battle" class="flex flex-wrap items-center gap-2" data-testid="drawer-meta">
+      <template v-if="sides">
+        <template v-for="(column, index) of columns" :key="column.at">
+          <span class="text-muted-foreground font-mono text-[10px]" v-if="index > 0">
+            {{ t('battle.drawer.versus') }}
+          </span>
 
-        <!-- The side in words, in the same hue and the same wording the rows
+          <!-- The side in words, in the same hue and the same wording the rows
              use, so the header and the timeline name a side alike. -->
-        <span
-          v-if="column.sideMark"
-          class="rounded border px-0.5 font-mono text-[9px] tracking-tight uppercase"
-          :class="column.sideMark.tone"
-          data-testid="side-mark"
-        >
-          {{ column.sideMark.label }}
-        </span>
+          <span
+            v-if="column.sideMark"
+            class="rounded border px-0.5 font-mono text-[9px] tracking-tight uppercase"
+            :class="column.sideMark.tone"
+            data-testid="side-mark"
+          >
+            {{ column.sideMark.label }}
+          </span>
 
-        <SpeciesParty :signature="column.team" :bring="column.bring" :size="36" />
+          <SpeciesParty :signature="column.team" :bring="column.bring" :size="36" />
 
-        <span
-          v-if="column.won"
-          class="font-mono text-[10px] tracking-widest uppercase"
-          :class="column.tone"
-          data-testid="side-won"
-        >
-          {{ t('battle.drawer.won') }}
-        </span>
+          <span
+            v-if="column.won"
+            class="font-mono text-[10px] tracking-widest uppercase"
+            :class="column.tone"
+            data-testid="side-won"
+          >
+            {{ t('battle.drawer.won') }}
+          </span>
+        </template>
       </template>
 
-      <span class="text-muted-foreground ml-auto font-mono text-[10px] tracking-widest">
+      <!-- Down here rather than beside the title: at 320 it was 79px of the
+           158 the title had to give, and the title truncating is the whole
+           reason this row exists. Reached through it the link also survives a
+           battle with no sides, where it is the only way left to the replay. -->
+      <a
+        :href="replayUrl({ id: battle.replayId, password: battle.replayPassword })"
+        target="_blank"
+        rel="noopener noreferrer"
+        class="text-primary flex min-h-11 items-center gap-1 text-xs underline"
+        data-testid="replay-link"
+      >
+        {{ t('battle.drawer.replay') }}
+        <ExternalLink class="size-3" aria-hidden="true" />
+      </a>
+
+      <!-- `sm:ml-auto` rather than `ml-auto`: below that this row is already
+           wrapping, and pushing the length to the far end there only buys it a
+           line of its own (#215). -->
+      <span
+        class="text-muted-foreground font-mono text-[10px] tracking-widest sm:ml-auto"
+        data-testid="drawer-length"
+      >
         {{ bestOfLabel(battle.formatId) }}
         <template v-if="battle.turnCount !== null">
           · {{ t('battle.recent.turns', { count: battle.turnCount }) }}
@@ -190,12 +202,14 @@ const RESULT_TONE = {
     </div>
 
     <!-- Only a series has other games to move between; a ladder game is on its own. -->
-    <div v-if="games.length" class="flex flex-wrap gap-1.5" role="group">
+    <div v-if="games.length" class="flex flex-wrap gap-2" role="group" data-testid="series-games">
+      <!-- The floor on the height only: the label is a word and a number, so
+           the width is the words' to decide. -->
       <button
         v-for="(game, index) of games"
         :key="game.replayId"
         type="button"
-        class="rounded-md border px-2.5 py-1 text-xs"
+        class="flex min-h-11 items-center rounded-md border px-2.5 py-1 text-xs"
         :class="
           game.replayId === battle?.replayId
             ? 'border-primary bg-primary/10 text-foreground'
