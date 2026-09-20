@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { mockNuxtImport, mountSuspended } from '@nuxt/test-utils/runtime'
 import { teamRouteId } from '~/features/stats'
-import TeamDetail from '../../app/pages/teams/[id].vue'
+import TeamDetailPage from '../../app/pages/teams/[id].vue'
 import { fakeBattles } from '../fakes/battles'
 import { FORMATS, SIGNATURES, STATS_ROWS } from '../fixtures/stats-rows'
 import { signIn } from '../helpers'
@@ -39,7 +39,7 @@ const classesOf = (page: Page, testId: string): string[] =>
 const detailOf = (signature: string) => {
   routeParams.value = { id: teamRouteId({ formatId: FORMATS.LADDER, signature }) }
 
-  return mountSuspended(TeamDetail)
+  return mountSuspended(TeamDetailPage)
 }
 
 beforeEach(() => {
@@ -61,7 +61,8 @@ describe('the team detail page at a narrow width', () => {
       const layout = classesOf(await detailOf(SIGNATURES.TEAM_A), 'team-layout')
 
       expect(layout.some((name) => name.startsWith('md:grid-cols-'))).toBe(true)
-      // One column is the phone's shape, so it is written without a prefix.
+      // One column is the grid's own default, so the phone's shape is the
+      // absence of a `grid-cols-*` rather than a declaration of one.
       expect(layout.filter((name) => /^grid-cols-/.test(name))).toEqual([])
     })
 
@@ -110,11 +111,6 @@ describe('the team detail page at a narrow width', () => {
   })
 
   describe('the two stat tiles', () => {
-    /**
-     * Answered by the container rather than by a prefix: from `md` the rail
-     * takes a column, so the card is narrower at 768 than at 640 and a
-     * viewport-keyed prefix would be claiming width the card does not have.
-     */
     it('lets the tiles fold on the width the card actually has', async () => {
       const stats = classesOf(await detailOf(SIGNATURES.TEAM_A), 'team-stats')
 
@@ -133,14 +129,18 @@ describe('the team detail page at a narrow width', () => {
   })
 
   describe('the header party', () => {
-    it('asks for a party of six that fits the card at 320', async () => {
+    /**
+     * Nothing here may claim the party fitted — that is the half of §6 read by
+     * hand. What it does hold is the floor the number was chosen against:
+     * `SpeciesIcon` smooths below the sheet's own 40, so a later squeeze of
+     * this header has to find its width somewhere other than these icons.
+     */
+    it('asks for the party at the width the icon sheet draws sharp', async () => {
       const page = await detailOf(SIGNATURES.TEAM_A)
       const icons = page.get('[data-testid="team-header"]').findAll('[title]')
 
       expect(icons).toHaveLength(6)
-      // 254px of card interior at 320 (shell `px-4`, the border, `p-4`), and
-      // six of these plus their `gap-px` come to 239.
-      for (const icon of icons) expect(icon.attributes('style')).toContain('width: 39px')
+      for (const icon of icons) expect(icon.attributes('style')).toContain('width: 40px')
     })
   })
 })

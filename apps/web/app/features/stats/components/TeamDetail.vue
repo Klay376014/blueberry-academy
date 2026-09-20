@@ -11,10 +11,8 @@ import { rateFill } from '../utils/rateFill'
  * list is the dashboard the reader just came from, so it gives way to a
  * stepper that walks the same ranking.
  *
- * Where "wide enough" is, is `md` and not `lg` (issue #216): a rail of 14rem
- * plus the card still leaves 768 more room than the card alone needs, and the
- * reader at that width did not necessarily arrive from the dashboard list —
- * that was a phone's story. See docs/specs/2026-09-18-responsive-baseline.md §3.
+ * Where "wide enough" starts was reopened by issue #216 and is now `md`:
+ * docs/specs/2026-09-18-responsive-baseline.md §3.
  */
 const { t } = useI18n()
 const route = useRoute()
@@ -104,10 +102,8 @@ const next = computed(() => stepTo(1))
         class="grid gap-5 md:grid-cols-[minmax(0,14rem)_1fr] lg:grid-cols-[minmax(0,18rem)_1fr]"
         data-testid="team-layout"
       >
-        <!-- The ranking, still there to compare against. A sidebar appearing
-             is a layout telling another story, so it is a prefix rather than a
-             wrap (§4). 14rem is what a dense card's six icons need; `lg` only
-             widens it. -->
+        <!-- The ranking, still there to compare against. 14rem is the floor a
+             dense card's six icons need; `lg` only widens it. -->
         <nav
           class="hidden flex-col gap-2 md:flex"
           :aria-label="t('teams.title')"
@@ -126,10 +122,12 @@ const next = computed(() => stepTo(1))
              the widest thing in it rather than from what is left. -->
         <article class="flex min-w-0 flex-col gap-5 rounded-lg border border-border bg-card p-4">
           <header class="flex flex-wrap items-center gap-3" data-testid="team-header">
-            <!-- 39 rather than 48: at 320 the card's interior is 254px (shell
-                 `px-4`, the border, `p-4`), and six of these with their
-                 `gap-px` come to 239. At 48 they came to 293 and wrapped. -->
-            <SpeciesParty :signature="team.signature" :size="39" />
+            <!-- 40 is the icon sheet's own cell width, and `SpeciesIcon`
+                 smooths anything under it. Six of them plus `gap-px` are 245,
+                 inside the 254px this card has at 320 (shell `px-4`, the
+                 border, `p-4`) — the largest party that still draws sharp
+                 there. 48 fit nothing and only wrapped. -->
+            <SpeciesParty :signature="team.signature" :size="40" />
             <span
               class="rounded bg-secondary px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground"
             >
@@ -138,10 +136,10 @@ const next = computed(() => stepTo(1))
             <p class="w-full font-mono text-xs text-muted-foreground">{{ team.formatId }}</p>
           </header>
 
-          <!-- Container-driven rather than a prefix (§4): from `md` the rail
-               takes a column, so this card is narrower at 768 than at 640 and
-               a viewport-keyed column count would claim width it has not got.
-               8rem is the floor a tile's label and its numeral need. -->
+          <!-- Auto-fit rather than a breakpoint: from `md` the rail takes a
+               column, so this card is narrower at 768 than it is at 640, and a
+               viewport-keyed count would claim width it has not got. 8rem is
+               the floor a tile's label and its numeral need. -->
           <dl
             class="grid grid-cols-[repeat(auto-fit,minmax(8rem,1fr))] gap-3"
             data-testid="team-stats"
