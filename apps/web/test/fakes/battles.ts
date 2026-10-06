@@ -139,6 +139,14 @@ export function fakeBattles(rows: StoredBattle[] = []): FakeBattles {
       return Promise.resolve(new Set(held))
     },
 
+    newestPrivatePlayedAt() {
+      const [newest] = read('newestPrivatePlayedAt', undefined)
+        .filter((row) => row.replay_password !== null)
+        .sort((a, b) => (a.played_at < b.played_at ? 1 : -1))
+
+      return Promise.resolve(newest?.played_at ?? null)
+    },
+
     putBattle(row) {
       fake.written.push(row)
 

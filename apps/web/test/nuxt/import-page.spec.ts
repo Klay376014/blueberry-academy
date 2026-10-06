@@ -828,8 +828,9 @@ describe('syncing private replays', () => {
   })
 
   it('does not promise a second run will reach what this one could not', async () => {
-    // The listing always starts at page one, so re-running re-lists the same
-    // pages. Saying otherwise would send a reader round a loop.
+    // The listing starts at page one and stops at the newest stored private
+    // game, so a re-run never gets past this batch. Saying otherwise would
+    // send a reader round a loop.
     syncPrivate.mockResolvedValue({
       status: 'listed',
       report: report([imported()]),
@@ -856,6 +857,17 @@ describe('syncing private replays', () => {
 
   it('tells a signed-out reader that the password went nowhere', async () => {
     syncPrivate.mockResolvedValue({ status: 'failed', reason: 'signed-out', message: '' })
+
+    const wrapper = await mountSuspended(App, { route: '/import' })
+    await syncPrivately(wrapper, 'DavoPro1214', 'hunter2')
+
+    expect(wrapper.get('[data-testid="import-error"]').text()).toContain(
+      'your Showdown password was not sent anywhere',
+    )
+  })
+
+  it('says nothing was sent when what is already stored could not be read', async () => {
+    syncPrivate.mockResolvedValue({ status: 'failed', reason: 'lookup-failed', message: '' })
 
     const wrapper = await mountSuspended(App, { route: '/import' })
     await syncPrivately(wrapper, 'DavoPro1214', 'hunter2')

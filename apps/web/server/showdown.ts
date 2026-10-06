@@ -78,13 +78,22 @@ export class ShowdownSyncError extends Error {
 
 export interface PrivateReplayList {
   refs: ReplayRef[]
-  /** Whether the subrequest budget ran out before the replays did. */
+  /**
+   * Whether the page budget ran out before the replays did — or, given a
+   * `since`, before a row that old came up.
+   */
   truncated: boolean
 }
 
 export interface PrivateSyncRequest {
   name: string
   password: Secret
+  /**
+   * The upload time, in Showdown's seconds, of the newest private game this
+   * reader has stored. The listing stops at the first row no later than it.
+   * Absent lists every page, as before (#229).
+   */
+  since?: number
   /** Injected by the tests, which answer with fixtures rather than call Showdown. */
   fetch?: typeof globalThis.fetch
 }
@@ -175,19 +184,35 @@ function decodedSid(cookie: string): string | null {
   }
 }
 
-function asListings(value: unknown): ReplayListing[] | null {
+/**
+ * The upload time is only demanded when there is a `since` to compare it with:
+ * without one, a row that lacks it pages the way it always has.
+ */
+function asListings(value: unknown, dated: boolean): ReplayListing[] | null {
   if (!Array.isArray(value)) return null
 
-  return value.every((row) => typeof (row as ReplayListing | null)?.id === 'string')
+  return value.every((row) => {
+    const listing = row as Partial<ReplayListing> | null
+
+    return typeof listing?.id === 'string' && (!dated || typeof listing.uploadtime === 'number')
+  })
     ? (value as ReplayListing[])
     : null
 }
 
-/** Every page, deduplicated by id, in Showdown's order. */
+/**
+ * Every page, deduplicated by id, in Showdown's order — or, given `since`,
+ * every row down to the first one no later than it.
+ *
+ * Stopping there leans on Showdown listing newest first. Measured within one
+ * page (spike transcript); across pages it is read out of the source only,
+ * the same caveat as `PAGE_SIZE`.
+ */
 async function listPrivate(
   fetcher: typeof globalThis.fetch,
   sid: string,
   username: string,
+  since: number | undefined,
 ): Promise<PrivateReplayList> {
   const byId = new Map<string, ReplayRef>()
 
@@ -199,7 +224,7 @@ async function listPrivate(
       page: String(page),
     })
 
-    const rows = asListings(value)
+    const rows = asListings(value, since !== undefined)
     if (!rows) {
       throw new ShowdownSyncError('malformed', 'Showdown answered the search with something else.')
     }
@@ -207,6 +232,9 @@ async function listPrivate(
     // First seen wins, so the row adjacent pages share keeps its earlier
     // position and the order stays Showdown's.
     for (const row of rows) {
+      if (since !== undefined && row.uploadtime <= since) {
+        return { refs: [...byId.values()], truncated: false }
+      }
       if (!byId.has(row.id)) byId.set(row.id, { id: row.id, password: row.password })
     }
 
@@ -219,6 +247,7 @@ async function listPrivate(
 export async function privateReplayRefs({
   name,
   password,
+  since,
   fetch = globalThis.fetch,
 }: PrivateSyncRequest): Promise<PrivateReplayList> {
   // The same normalisation the browser applies (useShowdown.listReplays).
@@ -260,7 +289,7 @@ export async function privateReplayRefs({
       )
     }
 
-    return await listPrivate(fetch, sid, username)
+    return await listPrivate(fetch, sid, username, since)
   } finally {
     // We came, and we closed the door behind us (§5.1) — on the way out of a
     // failure too. Inside the `try` because the cookie is proof a session
@@ -291,6 +320,29 @@ export function credentialsOf(body: unknown): { name: string; password: Secret }
   if (!toID(name)) return null
 
   return { name, password: new Secret(password) }
+}
+
+/**
+ * Seconds fit under this until 2106; milliseconds have not since February
+ * 1970. A `since` in the wrong unit would stop on the very first row and
+ * report an account with nothing new.
+ */
+const MAX_SINCE = 2 ** 32
+
+/**
+ * The `since` out of a request body: `{}` when it carries none, null when what
+ * it carries is not a time. Null is a 400 rather than "absent": read as absent,
+ * a browser that got it wrong would quietly turn every sync back into a full one.
+ */
+export function sinceOf(body: unknown): { since?: number } | null {
+  const fields = (body ?? {}) as { since?: unknown }
+  if (!('since' in fields)) return {}
+
+  const { since } = fields
+
+  return typeof since === 'number' && Number.isSafeInteger(since) && since >= 0 && since < MAX_SINCE
+    ? { since }
+    : null
 }
 
 /**

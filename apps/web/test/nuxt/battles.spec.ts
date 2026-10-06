@@ -43,8 +43,11 @@ function answer(calls: Call[]): Record<string, unknown>[] {
   const noSpectators = calls.some(([name, column]) => name === 'not' && column === 'my_side')
   const spectatedOnly = calls.some(([name, column]) => name === 'is' && column === 'my_side')
   const parsedOnly = calls.some(([name, column]) => name === 'is' && column === 'parse_error')
+  const withPassword = calls.some(
+    ([name, column]) => name === 'not' && column === 'replay_password',
+  )
 
-  return db.rows.filter((row) => {
+  const matching = db.rows.filter((row) => {
     if (ids && !ids.includes(row.replay_id as string)) return false
     if (replayId && row.replay_id !== replayId) return false
     if (seriesId && row.series_id !== seriesId) return false
@@ -53,9 +56,19 @@ function answer(calls: Call[]): Record<string, unknown>[] {
     if (noSpectators && row.my_side === null) return false
     if (spectatedOnly && row.my_side !== null) return false
     if (parsedOnly && row.parse_error != null) return false
+    if (withPassword && row.replay_password == null) return false
 
     return true
   })
+
+  // Only the one read that caps itself is sorted here: every other read pages
+  // through everything, and its order is asserted on the calls instead.
+  const limit = calls.find(([name]) => name === 'limit')?.[1] as number | undefined
+  if (limit === undefined) return matching
+
+  return matching
+    .toSorted((a, b) => ((a.played_at as string) < (b.played_at as string) ? 1 : -1))
+    .slice(0, limit)
 }
 
 function builder() {
@@ -80,6 +93,7 @@ function builder() {
     lte: record('lte'),
     in: record('in'),
     order: record('order'),
+    limit: record('limit'),
     upsert: record('upsert'),
     update: record('update'),
     range: (from: number, to: number) => {
@@ -172,8 +186,9 @@ describe('every read is this user’s', () => {
     await scoped.gamesOfSeries('series-1')
     await scoped.detailsOf(['ladder-1'])
     await scoped.knownReplayIds(['ladder-1'])
+    await scoped.newestPrivatePlayedAt()
 
-    expect(db.requests).toHaveLength(4)
+    expect(db.requests).toHaveLength(5)
     for (const calls of db.requests) expect(calls).toContainEqual(['eq', 'user_id', USER])
   })
 })
@@ -438,6 +453,56 @@ describe('the lookups PostgREST puts in a query string', () => {
     const found = await battles().detailsOf(['ladder-1', 'never-imported'])
 
     expect([...found.keys()]).toEqual(['ladder-1'])
+  })
+})
+
+describe('how far back a private sync has to look', () => {
+  it('answers with the newest game that has a replay password', async () => {
+    db.rows = [
+      stored({
+        replay_id: 'old',
+        replay_password: 'a'.repeat(31),
+        played_at: '2026-08-01T10:00:00+00:00',
+      }),
+      stored({
+        replay_id: 'new',
+        replay_password: 'b'.repeat(31),
+        played_at: '2026-08-03T10:00:00+00:00',
+      }),
+      // Newer still, but public: the private listing never shows it.
+      stored({
+        replay_id: 'ladder',
+        replay_password: null,
+        played_at: '2026-08-05T10:00:00+00:00',
+      }),
+    ]
+
+    await expect(battles().newestPrivatePlayedAt()).resolves.toBe('2026-08-03T10:00:00+00:00')
+  })
+
+  it('asks for one row, newest first, of the password-carrying ones', async () => {
+    await battles().newestPrivatePlayedAt()
+
+    const calls = onlyRequest()
+
+    expect(calls).toContainEqual(['select', 'played_at'])
+    expect(calls).toContainEqual(['not', 'replay_password', 'is', null])
+    expect(calls).toContainEqual(['order', 'played_at', { ascending: false }])
+    expect(calls).toContainEqual(['limit', 1])
+  })
+
+  it('answers null when there is no private game at all', async () => {
+    db.rows = [stored({ replay_password: null })]
+
+    await expect(battles().newestPrivatePlayedAt()).resolves.toBeNull()
+  })
+
+  it('throws rather than answering null', async () => {
+    // Null means "list everything", which an unreachable database must not
+    // be mistaken for.
+    db.error = new Error('unreachable')
+
+    await expect(battles().newestPrivatePlayedAt()).rejects.toThrow('unreachable')
   })
 })
 

@@ -203,6 +203,14 @@ export interface Battles {
    */
   knownReplayIds(ids: string[]): Promise<Set<string>>
 
+  /**
+   * When the newest battle with a replay password was played, or `null` when
+   * there is none — how far back a private sync has to list (#229).
+   *
+   * Throws rather than answering `null`: `null` means "list everything".
+   */
+  newestPrivatePlayedAt(): Promise<string | null>
+
   /** Writes one battle and answers with the row as the database kept it. */
   putBattle(row: BattleRow): Promise<BattleRow>
 
@@ -384,6 +392,19 @@ export function createBattles(client: SupabaseClient, currentUserId: () => strin
       }
 
       return known
+    },
+
+    async newestPrivatePlayedAt() {
+      const { data, error } = await scoped('played_at')
+        // The password rather than `replay_private`: a `private: 2` replay
+        // has none, and whether `searchprivate` lists those is unmeasured.
+        .not('replay_password', 'is', null)
+        .order('played_at', { ascending: false })
+        .limit(1)
+
+      if (error) throw error
+
+      return (data as unknown as { played_at: string }[] | null)?.[0]?.played_at ?? null
     },
 
     async putBattle(row) {

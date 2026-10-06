@@ -190,7 +190,8 @@
       "storeFailed": "The raw record could not be stored, so no battle was recorded. Nothing is half-imported, so try the link again.",
       "writeFailed": "The raw record was stored, but the battle could not be written to your data. Import the link again.",
       "signedOut": "You are signed out, so nothing was synced — and your Showdown password was not sent anywhere. Sign in again and run it once more.",
-      "rejected": "Showdown did not accept that name and password. Check both: the password is your Showdown one, not the one you sign in here with."
+      "rejected": "Showdown did not accept that name and password. Check both: the password is your Showdown one, not the one you sign in here with.",
+      "lookupFailed": "Your imported battles could not be read, so it is unknown which private replays are new. Nothing was synced, and your Showdown password was not sent anywhere. Try again in a moment."
     },
     "battle": {
       "win": "Win",

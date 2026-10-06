@@ -1,6 +1,12 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest'
-import { ShowdownSyncError, credentialsOf, privateReplayRefs, statusOf } from '../server/showdown'
+import {
+  ShowdownSyncError,
+  credentialsOf,
+  privateReplayRefs,
+  sinceOf,
+  statusOf,
+} from '../server/showdown'
 import { Secret } from '../server/utils/secret'
 
 const NAME = 'NotLittleStar'
@@ -21,11 +27,13 @@ interface Call {
 interface Row {
   id: string
   password: string | null
+  /** Seconds, as Showdown sends it. One fixed time unless a test needs an order. */
+  uploadtime?: unknown
 }
 
 function listing(row: Row) {
   return {
-    uploadtime: 1786863388,
+    uploadtime: 'uploadtime' in row ? row.uploadtime : 1786863388,
     id: row.id,
     format: '[Gen 9 Champions] VGC 2026 Reg M-B',
     players: [NAME, 'someone'],
@@ -90,12 +98,17 @@ function showdown(
   return { calls, fetcher: fetcher as unknown as typeof fetch }
 }
 
-function sync(options: Parameters<typeof showdown>[0] = {}) {
+function sync(options: Parameters<typeof showdown>[0] & { since?: number } = {}) {
   const { calls, fetcher } = showdown(options)
 
   return {
     calls,
-    result: privateReplayRefs({ name: NAME, password: new Secret(PASSWORD), fetch: fetcher }),
+    result: privateReplayRefs({
+      name: NAME,
+      password: new Secret(PASSWORD),
+      since: options.since,
+      fetch: fetcher,
+    }),
   }
 }
 
@@ -245,6 +258,106 @@ describe('paging', () => {
   })
 })
 
+/**
+ * A full page, newest first, the way the spike's transcript shows the rows
+ * (uploadtime 1786863388, then 1786863150, then 1786677558).
+ */
+function datedPage(prefix: string, newest: number): Row[] {
+  return Array.from({ length: 51 }, (_, index) => ({
+    id: `${prefix}-${index}`,
+    password: `pw${index}`,
+    uploadtime: newest - index,
+  }))
+}
+
+function searchesOf(calls: Call[]) {
+  return calls.filter((call) => call.url.includes('searchprivate')).map((call) => call.fields.page)
+}
+
+describe('paging back only as far as the newest stored game', () => {
+  it('stops partway down the first page and asks for no other', async () => {
+    // Rows 1000, 999, …, 950: the stored game is at 997.
+    const { calls, result } = sync({
+      pages: [datedPage('a', 1000), datedPage('b', 949)],
+      since: 997,
+    })
+
+    expect((await result).refs.map((ref) => ref.id)).toEqual(['a-0', 'a-1', 'a-2'])
+    expect(calls.map((call) => call.url)).toEqual([
+      `${PLAY}/api/login`,
+      `${REPLAY}/api/replays/searchprivate`,
+      `${PLAY}/api/logout`,
+    ])
+  })
+
+  it('takes a row at exactly that time as already stored', async () => {
+    const { result } = sync({ pages: [datedPage('a', 1000)], since: 1000 })
+
+    expect((await result).refs).toEqual([])
+  })
+
+  it('crosses pages when the stop is further back, then asks for no more', async () => {
+    const first = datedPage('a', 1000)
+    // The row adjacent pages share, then the rest of page two.
+    const second = [first.at(-1)!, ...datedPage('b', 949).slice(0, 50)]
+    const third = datedPage('c', 899)
+    const { calls, result } = sync({ pages: [first, second, third], since: 940 })
+
+    const { refs, truncated } = await result
+
+    expect(searchesOf(calls)).toEqual(['1', '2'])
+    expect(refs).toHaveLength(51 + 9)
+    expect(refs.at(-1)?.id).toBe('b-8')
+    expect(truncated).toBe(false)
+    expect(calls.at(-1)?.url).toBe(`${PLAY}/api/logout`)
+  })
+
+  it('pages to the end, as it always has, without one', async () => {
+    const { calls, result } = sync({
+      pages: [datedPage('a', 1000), [{ id: 'b-1', password: 'x', uploadtime: 1 }]],
+    })
+
+    const { refs, truncated } = await result
+
+    expect(searchesOf(calls)).toEqual(['1', '2'])
+    expect(refs).toHaveLength(52)
+    expect(truncated).toBe(false)
+  })
+
+  it('is still truncated when the budget runs out before the stop', async () => {
+    const pages = Array.from({ length: 30 }, (_, index) =>
+      datedPage(`p${index}`, 100_000 - index * 51),
+    )
+    const { calls, result } = sync({ pages, since: 1 })
+
+    expect((await result).truncated).toBe(true)
+    expect(searchesOf(calls)).toHaveLength(20)
+  })
+
+  it('is not truncated when the stop is on the last page the budget allows', async () => {
+    const pages = Array.from({ length: 30 }, (_, index) =>
+      datedPage(`p${index}`, 100_000 - index * 51),
+    )
+    // Halfway down page 20.
+    const { calls, result } = sync({ pages, since: 100_000 - 19 * 51 - 25 })
+
+    expect((await result).truncated).toBe(false)
+    expect(searchesOf(calls)).toHaveLength(20)
+  })
+
+  it('reads a row with no upload time as malformed rather than paging past it', async () => {
+    // Without a number to compare, the stop could never be found and the
+    // whole account would be listed under the name of an increment.
+    const { calls, result } = sync({
+      pages: [[{ id: 'a-1', password: 'x', uploadtime: '1000' }]],
+      since: 900,
+    })
+
+    await expect(result).rejects.toMatchObject({ reason: 'malformed' })
+    expect(calls.at(-1)?.url).toBe(`${PLAY}/api/logout`)
+  })
+})
+
 describe('when Showdown says no', () => {
   it('reports a refused login as a refusal, not as an empty list', async () => {
     const { result } = sync({ loginError: 'Wrong password.' })
@@ -368,6 +481,29 @@ describe('what the route makes of a request body', () => {
     expect(credentialsOf(null)).toBeNull()
     expect(credentialsOf('name=x&password=y')).toBeNull()
     expect(credentialsOf({ name: 1, password: 2 })).toBeNull()
+  })
+})
+
+describe('what the route makes of since', () => {
+  it('is absent when the body does not carry one', () => {
+    expect(sinceOf({ name: NAME, password: PASSWORD })).toEqual({})
+  })
+
+  it('takes a whole number of seconds', () => {
+    expect(sinceOf({ since: 1786863388 })).toEqual({ since: 1786863388 })
+    expect(sinceOf({ since: 0 })).toEqual({ since: 0 })
+  })
+
+  it('refuses anything else rather than reading it as absent', () => {
+    // Read as absent, a since the browser got wrong would quietly turn every
+    // sync back into a full one.
+    for (const since of [null, '1786863388', 1786863388.5, -1, Number.NaN, Infinity, {}, true]) {
+      expect(sinceOf({ since })).toBeNull()
+    }
+  })
+
+  it('refuses milliseconds, which would stop on nothing', () => {
+    expect(sinceOf({ since: Date.UTC(2026, 7, 1) })).toBeNull()
   })
 })
 

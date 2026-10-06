@@ -85,6 +85,11 @@ export type SyncFailure =
   | 'signed-out'
   /** Showdown would not accept that Showdown name and password. */
   | 'rejected'
+  /**
+   * The newest stored private game could not be read, so where the listing
+   * should stop is unknown. Not quietly a full listing instead (#229).
+   */
+  | 'lookup-failed'
 
 export type SyncOutcome =
   | { status: 'listed'; report: ImportReport; truncated: boolean }
@@ -333,12 +338,22 @@ export function useIngest() {
     // for nothing.
     if (!token) return { status: 'failed', reason: 'signed-out', message: '' }
 
+    // Asked before the password goes anywhere, so a failure here sends nothing.
+    let since: number | undefined
+    try {
+      since = await sinceOfNewestPrivate()
+    } catch (error) {
+      return { status: 'failed', reason: 'lookup-failed', message: messageOf(error) }
+    }
+
     let response: Awaited<ReturnType<typeof fetch>>
     try {
       response = await fetch(PRIVATE_SYNC_ROUTE, {
         method: 'POST',
         headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` },
-        body: JSON.stringify({ name: username, password }),
+        // `since` per reader, not per Showdown name: the whole stored history
+        // is one reader's, whichever account a game was synced from (#229).
+        body: JSON.stringify({ name: username, password, since }),
       })
     } catch {
       return { status: 'failed', reason: 'unavailable', message: '' }
@@ -365,6 +380,21 @@ export function useIngest() {
       // Passed on rather than swallowed: silence would read as "that was all".
       truncated: listed.truncated === true,
     }
+  }
+
+  /**
+   * The newest stored private game's time in Showdown's own unit — whole
+   * seconds, which is what `played_at` was written from — or undefined when
+   * there is none, which `JSON.stringify` then leaves out of the body.
+   */
+  async function sinceOfNewestPrivate(): Promise<number | undefined> {
+    const playedAt = await storedBattles.newestPrivatePlayedAt()
+    if (playedAt === null) return undefined
+
+    const milliseconds = Date.parse(playedAt)
+    if (Number.isNaN(milliseconds)) throw new Error(`${playedAt} is not a time.`)
+
+    return Math.floor(milliseconds / 1000)
   }
 
   return { importReplay, importMany, syncAccount, syncPrivate }
