@@ -55,17 +55,11 @@ const truncated = ref<'account' | 'private' | null>(null)
 
 /**
  * The name to sync, prefilled with the first bound alias — the account whose
- * battles these are is almost always the one already on the profile, and the
- * other bound aliases are a menu beside the field. One
+ * battles these are is almost always the one already on the profile. One
  * field for both buttons: public and private replays belong to the same
  * account, and asking for the name twice only invited the two to disagree.
  */
 const syncName = ref(props.aliases[0] ?? '')
-
-/** The bound alias the field already names, compared the way Showdown compares names. */
-const pickedAlias = computed(
-  () => props.aliases.find((alias) => toID(alias) === toID(syncName.value)) ?? '',
-)
 
 /**
  * The password, asked for only when it is needed — in a dialog the private
@@ -90,7 +84,10 @@ const privatePasswordId = useId()
  * refused by Showdown, after the password has already been sent, in wording
  * written for somebody else.
  */
-const boundIds = computed(() => new Set(props.aliases.map((alias) => toID(alias))))
+const boundIds = computed(() => new Map(props.aliases.map((alias) => [toID(alias), alias])))
+
+/** The bound alias the field names — typed or picked — for the menu to mark. */
+const matchedAlias = computed(() => boundIds.value.get(toID(syncName.value)) ?? '')
 
 interface ReportRow {
   key: string
@@ -468,12 +465,11 @@ async function syncPrivateReplays() {
     >
       <div class="min-w-40 flex-1">
         <label class="text-sm font-medium" :for="syncInputId">{{ t('import.sync.label') }}</label>
-        <div class="mt-1 flex">
+        <div class="mt-1 flex gap-2" data-testid="sync-field">
           <input
             :id="syncInputId"
             v-model="syncName"
             class="min-h-11 w-full min-w-0 flex-1 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs transition-colors placeholder:text-muted-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none disabled:opacity-50"
-            :class="{ 'rounded-r-none': aliases.length > 1 }"
             :placeholder="t('import.sync.placeholder')"
             :disabled="!aliasesLoaded"
             autocapitalize="off"
@@ -491,7 +487,7 @@ async function syncPrivateReplays() {
                 type="button"
                 variant="outline"
                 size="icon"
-                class="min-h-11 min-w-11 rounded-l-none border-l-0"
+                class="min-h-11 min-w-11"
                 :aria-label="t('import.sync.aliases')"
                 data-testid="sync-aliases"
               >
@@ -499,7 +495,7 @@ async function syncPrivateReplays() {
               </UiButton>
             </UiDropdownMenuTrigger>
             <UiDropdownMenuContent align="end" data-testid="sync-aliases-menu">
-              <UiDropdownMenuRadioGroup :model-value="pickedAlias">
+              <UiDropdownMenuRadioGroup :model-value="matchedAlias">
                 <UiDropdownMenuRadioItem
                   v-for="alias of aliases"
                   :key="alias"

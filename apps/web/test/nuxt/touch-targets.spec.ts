@@ -12,7 +12,7 @@ import { fakeBattles } from '../fakes/battles'
 import type { StoredBattle } from '../fakes/battles'
 import { STATS_ROWS } from '../fixtures/stats-rows'
 import type { BatchItem, ImportReport } from '../../app/features/ingest'
-import { forgetTeleported, teleported } from '../teleported'
+import { forgetTeleported, openMenu, teleported } from '../teleported'
 import { carriesFloor, expectApart, expectFloor, nameOf } from '../touch-floor'
 import { signIn, signOut } from '../helpers'
 
@@ -189,9 +189,10 @@ describe('the touch-target floor, page by page', () => {
     expectFloor(page.get('[data-testid="sync-form"]').element, ['sync-input', 'sync-aliases'])
     // An icon with no text to widen it, so §5 asks for the width in writing.
     expect(trigger.classes()).toContain('min-w-11')
+    // Two targets side by side, not one control drawn as two halves.
+    expectApart(page.get('[data-testid="sync-field"]').element)
 
-    await trigger.trigger('keydown', { key: 'Enter' })
-    for (let turn = 0; turn < 3; turn += 1) await new Promise((resolve) => setTimeout(resolve, 0))
+    await openMenu(trigger)
 
     // reka-ui draws menu items as `div[role=menuitemradio]`, which `PRESSABLE`
     // does not match, so they are checked one by one rather than swept.

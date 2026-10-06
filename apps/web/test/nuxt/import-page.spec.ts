@@ -7,7 +7,7 @@ import { STATS_ROWS } from '../fixtures/stats-rows'
 import en from '../../i18n/locales/en.json'
 import zhTW from '../../i18n/locales/zh-TW.json'
 import { signIn } from '../helpers'
-import { forgetTeleported } from '../teleported'
+import { forgetTeleported, openMenu, settle } from '../teleported'
 import type { BatchItem, ImportOptions, ImportReport } from '../../app/features/ingest'
 
 // The import itself is faked; the page, the link parsing and the alias state
@@ -35,11 +35,6 @@ mockNuxtImport('useBattles', () => () => battles.value as never)
 
 function stored() {
   return battles.value as ReturnType<typeof fakeBattles>
-}
-
-/** Long enough for a read the fake resolves immediately to have landed. */
-async function settle() {
-  for (let turn = 0; turn < 3; turn += 1) await new Promise((resolve) => setTimeout(resolve, 0))
 }
 
 mockNuxtImport('useProfile', () => () => {
@@ -360,13 +355,15 @@ describe('the import page', () => {
   })
 
   describe('picking a bound alias (#228)', () => {
-    // The menu is teleported to `document.body`; clearing what earlier mounts
-    // left there keeps the items found below this mount's own.
-    beforeEach(() => forgetTeleported('sync-alias'))
+    // The menu and the password dialog are teleported to `document.body`;
+    // clearing what earlier mounts left there keeps what is found this mount's.
+    beforeEach(() => {
+      forgetTeleported('sync-alias')
+      forgetTeleported('private-dialog')
+    })
 
     async function openAliases(wrapper: Wrapper) {
-      await wrapper.get('[data-testid="sync-aliases"]').trigger('keydown', { key: 'Enter' })
-      await settle()
+      await openMenu(wrapper.get('[data-testid="sync-aliases"]'))
     }
 
     function listed(): HTMLElement[] {
@@ -437,7 +434,6 @@ describe('the import page', () => {
     })
 
     it('syncs the private replays of the alias that was picked', async () => {
-      document.body.innerHTML = ''
       useShowdownAliases().value = ['NotLittleStar', 'DavoPro1214']
 
       const wrapper = await mountSuspended(App, { route: '/import' })
@@ -474,6 +470,16 @@ describe('the import page', () => {
 
       expect(wrapper.find('[data-testid="sync-aliases"]').exists()).toBe(false)
       expect((wrapper.get('[data-testid="sync-input"]').element as HTMLInputElement).value).toBe('')
+    })
+
+    it('offers no choice while the alias list has not arrived', async () => {
+      // `load` settles without filling the list: the page is up, the list is not.
+      useShowdownAliases().value = null
+
+      const wrapper = await mountSuspended(App, { route: '/import' })
+
+      expect(wrapper.get('[data-testid="sync-input"]').attributes('disabled')).toBeDefined()
+      expect(wrapper.find('[data-testid="sync-aliases"]').exists()).toBe(false)
     })
 
     it('is translated', () => {
