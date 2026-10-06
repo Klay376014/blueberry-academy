@@ -79,6 +79,11 @@ PS_USERNAME=notlittlestar PS_SID='[redacted]' node scripts/spike-private-replay.
 #178 的分頁測試因此只能對 fixture 驗，不能宣稱量過真實行為；等哪天有帳號累積到 51 筆以上
 再回來補這一項。
 
+> **2026-10-06 補量（#229），成立。** 一個有 83 筆私人 replay 的真帳號，同一條
+> login → `searchprivate` 第 1..n 頁 → logout，只比對 `uploadtime` 與 `id`：第 1 頁 51 列、
+> 第 2 頁 32 列後結束；兩頁共用一列（第 1 頁最後一列 = 第 2 頁第一列）；每列都有數字型
+> `uploadtime`，83 列整體由新到舊。詳見設計文件 §4。
+
 ## 逐一請求
 
 腳本輸出的原文，憑證已塗掉，每個 body 截到 600 字元。

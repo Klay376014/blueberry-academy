@@ -27,8 +27,9 @@ const REPLAY_ORIGIN = 'https://replay.pokemonshowdown.com'
  * Rows in a full page. Showdown's offset moves by 50 while 51 come back, so
  * adjacent pages always share one — the same arithmetic as `search.json`.
  *
- * Not measured: the spike's account had 32 private replays and could not
- * reach a second page (spike note, "分頁那項為什麼是空的").
+ * Measured 2026-10-06 on an account with 83 private replays: 51 rows then 32,
+ * the last of page 1 and the first of page 2 the same id, and the short page
+ * the last one (design document §4).
  */
 const PAGE_SIZE = 51
 
@@ -89,9 +90,9 @@ export interface PrivateSyncRequest {
   name: string
   password: Secret
   /**
-   * The upload time, in Showdown's seconds, of the newest private game this
-   * reader has stored. The listing stops at the first row no later than it.
-   * Absent lists every page, as before (#229).
+   * The upload time, in Showdown's seconds, of the newest game the private
+   * sync has written for this reader. The listing stops at the first row no later than it.
+   * Absent lists every page (#229).
    */
   since?: number
   /** Injected by the tests, which answer with fixtures rather than call Showdown. */
@@ -204,9 +205,9 @@ function asListings(value: unknown, dated: boolean): ReplayListing[] | null {
  * Every page, deduplicated by id, in Showdown's order — or, given `since`,
  * every row down to the first one no later than it.
  *
- * Stopping there leans on Showdown listing newest first. Measured within one
- * page (spike transcript); across pages it is read out of the source only,
- * the same caveat as `PAGE_SIZE`.
+ * Stopping there leans on Showdown listing newest first, within a page and
+ * across pages: measured 2026-10-06 on an account with 83 private replays
+ * (design document §4).
  */
 async function listPrivate(
   fetcher: typeof globalThis.fetch,

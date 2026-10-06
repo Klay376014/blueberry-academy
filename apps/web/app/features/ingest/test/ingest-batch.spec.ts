@@ -199,6 +199,18 @@ describe('importing a batch', () => {
     expect(table.rows).toHaveLength(2)
   })
 
+  it('does not mark a pasted batch as the private sync’s, passwords and all', async () => {
+    fetchMock = showdownServing(
+      Object.fromEntries(THREE.map((id) => [`${id}-b1cd2efpw`, replayNamed(id)])),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    await useIngest().importMany(THREE.map((id) => ({ id, password: 'b1cd2ef' })))
+
+    expect(table.rows).toHaveLength(3)
+    for (const row of table.rows) expect(row).not.toHaveProperty('via_private_sync')
+  })
+
   it('imports a replay named twice only once', async () => {
     const report = await useIngest().importMany([{ id: 'gen9ou-1' }, { id: 'gen9ou-1' }])
 
@@ -260,6 +272,17 @@ describe('syncing a Showdown account', () => {
 
     expect(outcome).toMatchObject({ status: 'listed', truncated: false })
     expect(outcome.status === 'listed' && outcome.report.counts.imported).toBe(3)
+  })
+
+  it('does not mark what it writes as the private sync’s', async () => {
+    const rows = THREE.map((id) => ({ id, players: ['DavoPro1214', 'Someone'], format: 'x' }))
+    fetchMock = showdownServing(threeReplays(), rows)
+    vi.stubGlobal('fetch', fetchMock)
+
+    await useIngest().syncAccount('DavoPro1214')
+
+    expect(table.rows).toHaveLength(3)
+    for (const row of table.rows) expect(row).not.toHaveProperty('via_private_sync')
   })
 
   it('says when Showdown ran out of pages before the account ran out of replays', async () => {

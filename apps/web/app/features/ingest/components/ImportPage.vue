@@ -584,7 +584,7 @@ async function syncPrivateReplays() {
     </p>
 
     <!-- A different ceiling, and one with no way out from here: the listing
-         starts at page one and stops at the newest stored private game, so
+         starts at page one and stops at the newest privately synced game, so
          once this batch is in, running it again stops before the older ones
          (#229). Saying "try again" would be a loop. -->
     <p

@@ -13,7 +13,7 @@ const ROUTE = '/api/showdown/sync-private'
 // the app that needs the reader's access token.
 const { table, storage, session, newest, createClient } = vi.hoisted(() => {
   const rows: Record<string, unknown>[] = []
-  /** The newest stored private game, as the since lookup reads it. */
+  /** The newest game the private sync wrote, as the since lookup reads it. */
   const newest = { playedAt: null as string | null, error: null as Error | null }
   const uploads: { path: string; body: Blob }[] = []
   const session = { value: { access_token: 'a.jwt.value' } as { access_token: string } | null }
@@ -33,7 +33,7 @@ const { table, storage, session, newest, createClient } = vi.hoisted(() => {
         eq: (_column: string, _value: unknown) => ({
           in: (_target: string, _ids: string[]) => Promise.resolve({ data: [], error: null }),
           // How far back the private listing has to go.
-          not: () => ({
+          eq: () => ({
             order: () => ({
               limit: () =>
                 Promise.resolve(
@@ -170,7 +170,7 @@ describe('asking our own Worker for the private list', () => {
   })
 })
 
-describe('asking only for what is newer than the newest stored private game', () => {
+describe('asking only for what is newer than the newest privately synced game', () => {
   function sentBody() {
     return JSON.parse(String(routeCall()?.init?.body)) as Record<string, unknown>
   }
@@ -189,15 +189,14 @@ describe('asking only for what is newer than the newest stored private game', ()
     })
   })
 
-  it('sends no since at all when nothing private is stored yet', async () => {
+  it('sends no since at all when the private sync has written nothing yet', async () => {
     await useIngest().syncPrivate(NAME, PASSWORD)
 
     expect(sentBody()).not.toHaveProperty('since')
   })
 
   it('fails the whole sync, without sending the password, when the lookup fails', async () => {
-    // Falling back to a full listing would hide the failure behind a slower
-    // sync; an unreadable database is a failure to report, not a since of none.
+    // Not a full listing instead: design document §9 D6.
     newest.error = new Error('the database went away')
 
     const outcome = await useIngest().syncPrivate(NAME, PASSWORD)
@@ -234,6 +233,12 @@ describe('what comes back goes through the existing pipeline', () => {
     await useIngest().syncPrivate(NAME, PASSWORD)
 
     expect(table.rows[0]).toMatchObject({ replay_private: true, replay_password: 'abc' })
+  })
+
+  it('marks the rows it writes as the private sync’s, which is what moves the stop', async () => {
+    await useIngest().syncPrivate(NAME, PASSWORD)
+
+    expect(table.rows[0]).toMatchObject({ via_private_sync: true })
   })
 
   it('reports progress the way an account sync does', async () => {

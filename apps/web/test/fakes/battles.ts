@@ -26,6 +26,8 @@ export interface StoredBattle extends StatsRow {
   my_side?: SideId | null
   /** The password of a private replay. Absent means a public one. */
   replay_password?: string | null
+  /** Whether the private sync wrote it. Absent means it did not. */
+  via_private_sync?: boolean
   opponent_username?: string | null
   turn_count?: number | null
   end_reason?: string | null
@@ -42,8 +44,8 @@ export interface StoredBattle extends StatsRow {
 export interface FakeBattles extends Battles {
   /** The rows the fake answers from. Replaceable per test. */
   rows: StoredBattle[]
-  /** The rows `putBattle` was given, in order. */
-  written: BattleRow[]
+  /** The rows `putBattle` was given, in order, with the private-sync mark when set. */
+  written: (BattleRow & { via_private_sync?: true })[]
   /** The attributions `setAttribution` was given, in order. */
   attributed: { replayId: string; attribution: Attribution }[]
   /** Set to make every read fail the way an unreachable database would. */
@@ -139,16 +141,19 @@ export function fakeBattles(rows: StoredBattle[] = []): FakeBattles {
       return Promise.resolve(new Set(held))
     },
 
-    newestPrivatePlayedAt() {
-      const [newest] = read('newestPrivatePlayedAt', undefined)
-        .filter((row) => row.replay_password !== null)
+    newestPrivateSyncedAt() {
+      read('newestPrivateSyncedAt', undefined)
+      // The stored rows rather than what `read` fills in: the mark is not a
+      // column any other read selects.
+      const [newest] = fake.rows
+        .filter((row) => row.via_private_sync === true)
         .sort((a, b) => (a.played_at < b.played_at ? 1 : -1))
 
-      return Promise.resolve(newest?.played_at ?? null)
+      return Promise.resolve(newest ? Math.floor(Date.parse(newest.played_at) / 1000) : null)
     },
 
-    putBattle(row) {
-      fake.written.push(row)
+    putBattle(row, options = {}) {
+      fake.written.push(options.viaPrivateSync ? { ...row, via_private_sync: true } : row)
 
       return Promise.resolve(row)
     },

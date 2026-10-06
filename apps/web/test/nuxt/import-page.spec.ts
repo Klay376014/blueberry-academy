@@ -828,7 +828,7 @@ describe('syncing private replays', () => {
   })
 
   it('does not promise a second run will reach what this one could not', async () => {
-    // The listing starts at page one and stops at the newest stored private
+    // The listing starts at page one and stops at the newest privately synced
     // game, so a re-run never gets past this batch. Saying otherwise would
     // send a reader round a loop.
     syncPrivate.mockResolvedValue({

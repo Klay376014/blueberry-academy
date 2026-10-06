@@ -86,7 +86,7 @@ export type SyncFailure =
   /** Showdown would not accept that Showdown name and password. */
   | 'rejected'
   /**
-   * The newest stored private game could not be read, so where the listing
+   * The newest privately synced game could not be read, so where the listing
    * should stop is unknown. Not quietly a full listing instead (#229).
    */
   | 'lookup-failed'
@@ -95,6 +95,14 @@ export type SyncOutcome =
   | { status: 'listed'; report: ImportReport; truncated: boolean }
   /** The listing itself failed, so there is nothing to report per replay. */
   | { status: 'failed'; reason: SyncFailure; message: string }
+
+/**
+ * Which road a replay came in by, as far as the row needs to know. Only
+ * `syncPrivate` sets it; `importReplay` and `importMany` cannot be asked to.
+ */
+interface Road {
+  viaPrivateSync?: boolean
+}
 
 /** Our own Worker, which is the only thing that can list a private replay. */
 const PRIVATE_SYNC_ROUTE = '/api/showdown/sync-private'
@@ -174,7 +182,7 @@ export function useIngest() {
    * throwing, except for the two programming errors: no signed-in user, and an
    * alias list that was never read.
    */
-  async function importReplay(ref: ReplayRef): Promise<IngestOutcome> {
+  async function importOne(ref: ReplayRef, road: Road): Promise<IngestOutcome> {
     const userId = requireUserId()
     const aliases = requireAliases()
 
@@ -217,7 +225,7 @@ export function useIngest() {
 
     let written: BattleRow
     try {
-      written = await storedBattles.putBattle(row)
+      written = await storedBattles.putBattle(row, road)
     } catch (error) {
       return { status: 'failed', reason: 'write-failed', message: messageOf(error) }
     }
@@ -243,7 +251,11 @@ export function useIngest() {
    *
    * `onTotal` then `onResult` per replay is what a progress display reads.
    */
-  async function importMany(refs: ReplayRef[], options: ImportOptions = {}): Promise<ImportReport> {
+  async function importBatch(
+    refs: ReplayRef[],
+    options: ImportOptions,
+    road: Road,
+  ): Promise<ImportReport> {
     // First spelling of each id wins. A pasted list is typed by a human, and a
     // listing that was paged through shares one row between adjacent pages.
     const unique = [...new Map(refs.map((ref) => [ref.id, ref])).values()]
@@ -265,7 +277,7 @@ export function useIngest() {
 
         const outcome: BatchOutcome = known.has(ref.id)
           ? { status: 'skipped' }
-          : await importReplay(ref)
+          : await importOne(ref, road)
 
         // By index, so the report stays in the order the replays were given
         // however the workers interleave.
@@ -341,7 +353,8 @@ export function useIngest() {
     // Asked before the password goes anywhere, so a failure here sends nothing.
     let since: number | undefined
     try {
-      since = await sinceOfNewestPrivate()
+      // Undefined rather than null, so `JSON.stringify` leaves it out.
+      since = (await storedBattles.newestPrivateSyncedAt()) ?? undefined
     } catch (error) {
       return { status: 'failed', reason: 'lookup-failed', message: messageOf(error) }
     }
@@ -351,8 +364,7 @@ export function useIngest() {
       response = await fetch(PRIVATE_SYNC_ROUTE, {
         method: 'POST',
         headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` },
-        // `since` per reader, not per Showdown name: the whole stored history
-        // is one reader's, whichever account a game was synced from (#229).
+        // `since` per reader, not per Showdown name: design document §9 D6.
         body: JSON.stringify({ name: username, password, since }),
       })
     } catch {
@@ -376,25 +388,22 @@ export function useIngest() {
 
     return {
       status: 'listed',
-      report: await importMany(listed.refs as ReplayRef[], options),
+      report: await importBatch(listed.refs as ReplayRef[], options, { viaPrivateSync: true }),
       // Passed on rather than swallowed: silence would read as "that was all".
       truncated: listed.truncated === true,
     }
   }
 
   /**
-   * The newest stored private game's time in Showdown's own unit — whole
-   * seconds, which is what `played_at` was written from — or undefined when
-   * there is none, which `JSON.stringify` then leaves out of the body.
+   * A pasted link: never marked as the private sync's, whatever its password,
+   * so it cannot move where the next private sync stops (#229).
    */
-  async function sinceOfNewestPrivate(): Promise<number | undefined> {
-    const playedAt = await storedBattles.newestPrivatePlayedAt()
-    if (playedAt === null) return undefined
+  function importReplay(ref: ReplayRef): Promise<IngestOutcome> {
+    return importOne(ref, {})
+  }
 
-    const milliseconds = Date.parse(playedAt)
-    if (Number.isNaN(milliseconds)) throw new Error(`${playedAt} is not a time.`)
-
-    return Math.floor(milliseconds / 1000)
+  function importMany(refs: ReplayRef[], options: ImportOptions = {}): Promise<ImportReport> {
+    return importBatch(refs, options, {})
   }
 
   return { importReplay, importMany, syncAccount, syncPrivate }
