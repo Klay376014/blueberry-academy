@@ -7,7 +7,7 @@ begin;
 
 create extension if not exists pgtap;
 
-select plan(19);
+select plan(21);
 
 -- Two users who have never met.
 insert into auth.users (id, email) values
@@ -73,6 +73,34 @@ select throws_ok(
   null,
   'a battle written without saying whether its replay is private is refused'
 );
+
+-- which road a row came in by ----------------------------------------------
+
+select is(
+  (select via_private_sync from public.battles
+   where user_id = '11111111-1111-1111-1111-111111111111' and replay_id = 'gen9vgc2026regj-1'),
+  false,
+  'a battle written without the mark is not the private sync''s'
+);
+
+-- The way PostgREST upserts: ON CONFLICT updates the columns the payload
+-- carries and no others. Every write but the private sync's leaves the column
+-- out, so a later write must not take the mark away.
+insert into public.battles (user_id, replay_id, played_at, format_id, bring_complete, replay_private, via_private_sync)
+  values ('11111111-1111-1111-1111-111111111111', 'synced', now(), 'gen9vgc2026regj', false, true, true);
+insert into public.battles (user_id, replay_id, played_at, format_id, bring_complete, replay_private, result)
+  values ('11111111-1111-1111-1111-111111111111', 'synced', now(), 'gen9vgc2026regj', false, true, 'win')
+  on conflict (user_id, replay_id) do update
+    set result = excluded.result, played_at = excluded.played_at;
+
+select is(
+  (select via_private_sync from public.battles
+   where user_id = '11111111-1111-1111-1111-111111111111' and replay_id = 'synced'),
+  true,
+  'a write that leaves the mark out does not take it off a row the private sync wrote'
+);
+
+delete from public.battles where replay_id = 'synced';
 
 -- the unique key -----------------------------------------------------------
 

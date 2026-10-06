@@ -1,5 +1,5 @@
 import { CallerError, bearerOf, callerOf } from '../../caller'
-import { credentialsOf, privateReplayRefs, statusOf } from '../../showdown'
+import { credentialsOf, privateReplayRefs, sinceOf, statusOf } from '../../showdown'
 
 /**
  * `POST /api/showdown/sync-private` — the reader's private replays as
@@ -18,7 +18,8 @@ import { credentialsOf, privateReplayRefs, statusOf } from '../../showdown'
  *
  * - **401** the caller is not signed in to *this* app
  * - **422** Showdown rejected the Showdown name and password
- * - **400** the body did not carry a usable pair
+ * - **400** the body did not carry a usable pair, or carried a `since` that is
+ *   not a time
  * - **502 / 503** Showdown, or Supabase, could not be reached
  */
 export default defineEventHandler(async (event) => {
@@ -46,7 +47,8 @@ export default defineEventHandler(async (event) => {
 
   // POST with a body, never a query string: a query string is in every access
   // log along the way (§5.4). The file name is what makes it POST-only.
-  const credentials = credentialsOf(await readBody(event))
+  const body: unknown = await readBody(event)
+  const credentials = credentialsOf(body)
 
   if (!credentials) {
     throw createError({
@@ -55,8 +57,17 @@ export default defineEventHandler(async (event) => {
     })
   }
 
+  const since = sinceOf(body)
+
+  if (!since) {
+    throw createError({
+      statusCode: 400,
+      statusMessage: 'since must be a whole number of seconds.',
+    })
+  }
+
   try {
-    return await privateReplayRefs(credentials)
+    return await privateReplayRefs({ ...credentials, ...since })
   } catch (error) {
     const statusCode = statusOf(error)
 

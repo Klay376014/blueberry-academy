@@ -106,6 +106,7 @@ function reasonOf(reason: string) {
     'write-failed': t('import.failed.writeFailed'),
     'signed-out': t('import.failed.signedOut'),
     rejected: t('import.failed.rejected'),
+    'lookup-failed': t('import.failed.lookupFailed'),
   }
 
   return messages[reason] ?? reason
@@ -623,8 +624,9 @@ async function syncPrivateReplays() {
     </p>
 
     <!-- A different ceiling, and one with no way out from here: the listing
-         always starts at page one, so running it again re-lists the same
-         pages. Saying "try again" would be a loop. -->
+         starts at page one and stops at the newest privately synced game, so
+         once this batch is in, running it again stops before the older ones
+         (#229). Saying "try again" would be a loop. -->
     <p
       v-else-if="truncated === 'private'"
       class="mt-4 rounded-md border border-border bg-muted/40 p-3 text-sm text-muted-foreground"

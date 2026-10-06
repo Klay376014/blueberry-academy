@@ -8,7 +8,7 @@ begin;
 
 create extension if not exists pgtap;
 
-select plan(41);
+select plan(44);
 
 -- profiles ------------------------------------------------------------------
 
@@ -35,6 +35,7 @@ select columns_are(
     'replay_id',
     'replay_private',
     'replay_password',
+    'via_private_sync',
     'played_at',
     'format_id',
     'regulation',
@@ -91,6 +92,21 @@ select col_hasnt_default(
 select col_is_null(
   'public', 'battles', 'replay_password',
   'replay_password is null for a public replay, which is most of them'
+);
+
+-- Which road a row came in by: the private sync's own rows are where it stops.
+
+select col_type_is(
+  'public', 'battles', 'via_private_sync', 'boolean',
+  'via_private_sync is a boolean'
+);
+select col_not_null(
+  'public', 'battles', 'via_private_sync',
+  'via_private_sync always answers the question, never leaves it open'
+);
+select col_default_is(
+  'public', 'battles', 'via_private_sync', 'false',
+  'via_private_sync defaults to false, since only the private sync ever sends it'
 );
 
 -- The signature columns stay open: a spectated battle has no team of mine.

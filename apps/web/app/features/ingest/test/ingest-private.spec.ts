@@ -11,8 +11,10 @@ const ROUTE = '/api/showdown/sync-private'
 // Supabase is faked the way `ingest.spec.ts` fakes it, with one difference:
 // there is a session here, because the private route is the first thing in
 // the app that needs the reader's access token.
-const { table, storage, session, createClient } = vi.hoisted(() => {
+const { table, storage, session, newest, createClient } = vi.hoisted(() => {
   const rows: Record<string, unknown>[] = []
+  /** The newest game the private sync wrote, as the since lookup reads it. */
+  const newest = { playedAt: null as string | null, error: null as Error | null }
   const uploads: { path: string; body: Blob }[] = []
   const session = { value: { access_token: 'a.jwt.value' } as { access_token: string } | null }
 
@@ -30,6 +32,20 @@ const { table, storage, session, createClient } = vi.hoisted(() => {
       select: (_columns: string) => ({
         eq: (_column: string, _value: unknown) => ({
           in: (_target: string, _ids: string[]) => Promise.resolve({ data: [], error: null }),
+          // How far back the private listing has to go.
+          eq: () => ({
+            order: () => ({
+              limit: () =>
+                Promise.resolve(
+                  newest.error
+                    ? { data: null, error: newest.error }
+                    : {
+                        data: newest.playedAt ? [{ played_at: newest.playedAt }] : [],
+                        error: null,
+                      },
+                ),
+            }),
+          }),
         }),
       }),
     })),
@@ -50,6 +66,7 @@ const { table, storage, session, createClient } = vi.hoisted(() => {
     table,
     storage,
     session,
+    newest,
     createClient: vi.fn(() => ({
       auth: {
         getSession: vi.fn(() => Promise.resolve({ data: { session: session.value } })),
@@ -101,6 +118,8 @@ beforeEach(async () => {
   useShowdownAliases().value = [NAME]
 
   session.value = { access_token: TOKEN }
+  newest.playedAt = null
+  newest.error = null
   calls = []
   route = () => json({ refs: [{ id: 'battle-1', password: 'abc' }], truncated: false })
 
@@ -151,6 +170,51 @@ describe('asking our own Worker for the private list', () => {
   })
 })
 
+describe('asking only for what is newer than the newest privately synced game', () => {
+  function sentBody() {
+    return JSON.parse(String(routeCall()?.init?.body)) as Record<string, unknown>
+  }
+
+  it('sends that game’s upload time, in Showdown’s seconds', async () => {
+    // As PostgREST spells a timestamptz. `played_at` was written from the
+    // replay's own `uploadtime`, so this is the same second Showdown lists.
+    newest.playedAt = '2026-08-16T07:36:28+00:00'
+
+    await useIngest().syncPrivate(NAME, PASSWORD)
+
+    expect(sentBody()).toEqual({
+      name: NAME,
+      password: PASSWORD,
+      since: Date.UTC(2026, 7, 16, 7, 36, 28) / 1000,
+    })
+  })
+
+  it('sends no since at all when the private sync has written nothing yet', async () => {
+    await useIngest().syncPrivate(NAME, PASSWORD)
+
+    expect(sentBody()).not.toHaveProperty('since')
+  })
+
+  it('fails the whole sync, without sending the password, when the lookup fails', async () => {
+    // Not a full listing instead: design document §9 D6.
+    newest.error = new Error('the database went away')
+
+    const outcome = await useIngest().syncPrivate(NAME, PASSWORD)
+
+    expect(outcome).toMatchObject({ status: 'failed', reason: 'lookup-failed' })
+    expect(routeCall()).toBeUndefined()
+  })
+
+  it('fails the same way when the stored time cannot be read as one', async () => {
+    newest.playedAt = 'not a time'
+
+    const outcome = await useIngest().syncPrivate(NAME, PASSWORD)
+
+    expect(outcome).toMatchObject({ status: 'failed', reason: 'lookup-failed' })
+    expect(routeCall()).toBeUndefined()
+  })
+})
+
 describe('what comes back goes through the existing pipeline', () => {
   it('imports the refs the route listed, password and all', async () => {
     // `fetchReplay` builds `<id>-<password>pw.json` from the ref, which is
@@ -169,6 +233,12 @@ describe('what comes back goes through the existing pipeline', () => {
     await useIngest().syncPrivate(NAME, PASSWORD)
 
     expect(table.rows[0]).toMatchObject({ replay_private: true, replay_password: 'abc' })
+  })
+
+  it('marks the rows it writes as the private sync’s, which is what moves the stop', async () => {
+    await useIngest().syncPrivate(NAME, PASSWORD)
+
+    expect(table.rows[0]).toMatchObject({ via_private_sync: true })
   })
 
   it('reports progress the way an account sync does', async () => {

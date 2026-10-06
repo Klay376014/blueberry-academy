@@ -267,6 +267,13 @@ describe('importing one replay', () => {
     expect(writtenRow()).toMatchObject({ replay_private: true, replay_password: 'b1cd2ef' })
   })
 
+  it('does not mark a pasted private link as the private sync’s', async () => {
+    // A pasted link must not move where the next private sync stops (#229).
+    await useIngest().importReplay({ id: ladder.id, password: 'b1cd2ef' })
+
+    expect(writtenRow()).not.toHaveProperty('via_private_sync')
+  })
+
   it('writes no password for a replay that needs none', async () => {
     await useIngest().importReplay({ id: ladder.id })
 

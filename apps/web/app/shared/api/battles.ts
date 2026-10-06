@@ -203,8 +203,20 @@ export interface Battles {
    */
   knownReplayIds(ids: string[]): Promise<Set<string>>
 
-  /** Writes one battle and answers with the row as the database kept it. */
-  putBattle(row: BattleRow): Promise<BattleRow>
+  /**
+   * The upload time, in Showdown's whole seconds, of the newest battle the
+   * private sync wrote, or `null` when it has written none — where the next
+   * private sync stops listing (#229).
+   *
+   * Throws rather than answering `null`: `null` means "list everything".
+   */
+  newestPrivateSyncedAt(): Promise<number | null>
+
+  /**
+   * Writes one battle and answers with the row as the database kept it.
+   * `viaPrivateSync` marks it as the private sync's; only that road sets it.
+   */
+  putBattle(row: BattleRow, options?: { viaPrivateSync?: boolean }): Promise<BattleRow>
 
   /**
    * Writes the attribution of one row, and nothing else about it.
@@ -386,11 +398,39 @@ export function createBattles(client: SupabaseClient, currentUserId: () => strin
       return known
     },
 
-    async putBattle(row) {
+    async newestPrivateSyncedAt() {
+      const { data, error } = await scoped('played_at')
+        .eq('via_private_sync', true)
+        .order('played_at', { ascending: false })
+        .limit(1)
+
+      if (error) throw error
+
+      const playedAt = (data as unknown as { played_at: string }[] | null)?.[0]?.played_at
+      if (playedAt === undefined) return null
+
+      // `played_at` was written as `uploadtime * 1000` (battle-row), so this
+      // is the same second Showdown lists.
+      const milliseconds = Date.parse(playedAt)
+      if (Number.isNaN(milliseconds)) throw new Error(`${playedAt} is not a time.`)
+
+      return Math.floor(milliseconds / 1000)
+    },
+
+    async putBattle(row, options = {}) {
       const { data, error } = await client
         .from('battles')
         // The user is the module's to fill in on a write as much as on a read.
-        .upsert({ ...row, user_id: currentUserId() }, { onConflict: 'user_id,replay_id' })
+        // The mark is left out rather than sent as false, so a write over a
+        // row the private sync wrote does not take it away.
+        .upsert(
+          {
+            ...row,
+            user_id: currentUserId(),
+            ...(options.viaPrivateSync && { via_private_sync: true }),
+          },
+          { onConflict: 'user_id,replay_id' },
+        )
         .select()
         // Asked for back, so a write that RLS quietly matched nothing cannot
         // pass for an import.

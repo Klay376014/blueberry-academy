@@ -43,8 +43,9 @@ function answer(calls: Call[]): Record<string, unknown>[] {
   const noSpectators = calls.some(([name, column]) => name === 'not' && column === 'my_side')
   const spectatedOnly = calls.some(([name, column]) => name === 'is' && column === 'my_side')
   const parsedOnly = calls.some(([name, column]) => name === 'is' && column === 'parse_error')
+  const viaPrivateSync = valueOf(calls, 'eq', 'via_private_sync') as boolean | undefined
 
-  return db.rows.filter((row) => {
+  const matching = db.rows.filter((row) => {
     if (ids && !ids.includes(row.replay_id as string)) return false
     if (replayId && row.replay_id !== replayId) return false
     if (seriesId && row.series_id !== seriesId) return false
@@ -53,9 +54,21 @@ function answer(calls: Call[]): Record<string, unknown>[] {
     if (noSpectators && row.my_side === null) return false
     if (spectatedOnly && row.my_side !== null) return false
     if (parsedOnly && row.parse_error != null) return false
+    if (viaPrivateSync !== undefined && (row.via_private_sync ?? false) !== viaPrivateSync) {
+      return false
+    }
 
     return true
   })
+
+  // Only the one read that caps itself is sorted here: every other read pages
+  // through everything, and its order is asserted on the calls instead.
+  const limit = calls.find(([name]) => name === 'limit')?.[1] as number | undefined
+  if (limit === undefined) return matching
+
+  return matching
+    .toSorted((a, b) => ((a.played_at as string) < (b.played_at as string) ? 1 : -1))
+    .slice(0, limit)
 }
 
 function builder() {
@@ -80,6 +93,7 @@ function builder() {
     lte: record('lte'),
     in: record('in'),
     order: record('order'),
+    limit: record('limit'),
     upsert: record('upsert'),
     update: record('update'),
     range: (from: number, to: number) => {
@@ -172,8 +186,9 @@ describe('every read is this user’s', () => {
     await scoped.gamesOfSeries('series-1')
     await scoped.detailsOf(['ladder-1'])
     await scoped.knownReplayIds(['ladder-1'])
+    await scoped.newestPrivateSyncedAt()
 
-    expect(db.requests).toHaveLength(4)
+    expect(db.requests).toHaveLength(5)
     for (const calls of db.requests) expect(calls).toContainEqual(['eq', 'user_id', USER])
   })
 })
@@ -441,6 +456,55 @@ describe('the lookups PostgREST puts in a query string', () => {
   })
 })
 
+describe('how far back a private sync has to look', () => {
+  it('answers with the newest game the private sync wrote, in Showdown’s seconds', async () => {
+    db.rows = [
+      stored({ replay_id: 'old', via_private_sync: true, played_at: '2026-08-01T10:00:00+00:00' }),
+      stored({ replay_id: 'new', via_private_sync: true, played_at: '2026-08-03T10:00:00+00:00' }),
+      // Newer still, but a pasted link: it does not move the stop (#229).
+      stored({
+        replay_id: 'pasted',
+        replay_password: 'b'.repeat(31),
+        via_private_sync: false,
+        played_at: '2026-08-05T10:00:00+00:00',
+      }),
+    ]
+
+    await expect(battles().newestPrivateSyncedAt()).resolves.toBe(Date.UTC(2026, 7, 3, 10) / 1000)
+  })
+
+  it('asks for one row, newest first, of the ones the private sync wrote', async () => {
+    await battles().newestPrivateSyncedAt()
+
+    const calls = onlyRequest()
+
+    expect(calls).toContainEqual(['select', 'played_at'])
+    expect(calls).toContainEqual(['eq', 'via_private_sync', true])
+    expect(calls).toContainEqual(['order', 'played_at', { ascending: false }])
+    expect(calls).toContainEqual(['limit', 1])
+  })
+
+  it('answers null when the private sync has written nothing yet', async () => {
+    db.rows = [stored({ replay_password: 'a'.repeat(31), via_private_sync: false })]
+
+    await expect(battles().newestPrivateSyncedAt()).resolves.toBeNull()
+  })
+
+  it('throws on a played_at that is not a time, rather than answering null', async () => {
+    db.rows = [stored({ via_private_sync: true, played_at: 'not a time' })]
+
+    await expect(battles().newestPrivateSyncedAt()).rejects.toThrow('not a time')
+  })
+
+  it('throws rather than answering null', async () => {
+    // Null means "list everything", which an unreachable database must not
+    // be mistaken for.
+    db.error = new Error('unreachable')
+
+    await expect(battles().newestPrivateSyncedAt()).rejects.toThrow('unreachable')
+  })
+})
+
 describe('counting the battles under each Showdown name', () => {
   it('scopes to the user, leaves spectated battles out, and reads one column', async () => {
     await battles().nameCounts()
@@ -577,6 +641,24 @@ describe('writing a battle', () => {
     expect(calls).toContainEqual(['upsert', row, { onConflict: 'user_id,replay_id' }])
     expect(calls.map(([name]) => name)).toContain('select')
     expect(calls.map(([name]) => name)).toContain('single')
+  })
+
+  it('leaves the private-sync mark out of an ordinary write', async () => {
+    // Out, not false: an upsert that sends false would wipe the mark off a
+    // row the private sync wrote, should it ever be written again.
+    await battles().putBattle(row)
+
+    const written = onlyRequest().find(([name]) => name === 'upsert')?.[1]
+
+    expect(written).not.toHaveProperty('via_private_sync')
+  })
+
+  it('marks a write the private sync asked for', async () => {
+    await battles().putBattle(row, { viaPrivateSync: true })
+
+    const written = onlyRequest().find(([name]) => name === 'upsert')?.[1]
+
+    expect(written).toMatchObject({ via_private_sync: true })
   })
 
   it('answers with the row the database kept', async () => {
