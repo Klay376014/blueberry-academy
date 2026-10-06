@@ -54,7 +54,8 @@ const truncated = ref<'account' | 'private' | null>(null)
 
 /**
  * The name to sync, prefilled with the first bound alias — the account whose
- * battles these are is almost always the one already on the profile. One
+ * battles these are is almost always the one already on the profile, and the
+ * other bound aliases are offered under the field for the rest. One
  * field for both buttons: public and private replays belong to the same
  * account, and asking for the name twice only invited the two to disagree.
  */
@@ -491,6 +492,34 @@ async function syncPrivateReplays() {
       >
         {{ t('import.private.open') }}
       </UiButton>
+
+      <!-- Buttons rather than a <datalist>: browsers filter a datalist by
+           what the field already holds, so the prefilled first alias would
+           hide every other one (#228). Never remembered between visits. -->
+      <div
+        v-if="aliases.length > 1"
+        role="group"
+        :aria-label="t('import.sync.aliases')"
+        class="flex basis-full flex-wrap items-center gap-2"
+        data-testid="sync-aliases"
+      >
+        <span aria-hidden="true" class="text-sm text-muted-foreground">
+          {{ t('import.sync.aliases') }}
+        </span>
+        <UiButton
+          v-for="alias of aliases"
+          :key="alias"
+          type="button"
+          variant="outline"
+          size="sm"
+          class="min-h-11"
+          :aria-pressed="toID(alias) === toID(syncName)"
+          data-testid="sync-alias"
+          @click="() => (syncName = alias)"
+        >
+          {{ alias }}
+        </UiButton>
+      </div>
     </form>
 
     <p class="mt-2 text-sm text-muted-foreground">{{ t('import.private.tagline') }}</p>

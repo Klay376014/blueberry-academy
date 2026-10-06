@@ -358,6 +358,107 @@ describe('the import page', () => {
     )
   })
 
+  describe('picking a bound alias (#228)', () => {
+    const picks = (wrapper: Wrapper) => wrapper.findAll('[data-testid="sync-alias"]')
+
+    async function pick(wrapper: Wrapper, alias: string) {
+      const chip = picks(wrapper).find((each: { text: () => string }) => each.text() === alias)
+      await chip!.trigger('click')
+      await nextTick()
+    }
+
+    it('lists every bound alias, so a second account is one press away', async () => {
+      useShowdownAliases().value = ['NotLittleStar', 'DavoPro1214', 'Blueberry Alt']
+
+      const wrapper = await mountSuspended(App, { route: '/import' })
+
+      expect(picks(wrapper).map((chip: { text: () => string }) => chip.text())).toEqual([
+        'NotLittleStar',
+        'DavoPro1214',
+        'Blueberry Alt',
+      ])
+    })
+
+    it('puts the picked alias in the name field', async () => {
+      useShowdownAliases().value = ['NotLittleStar', 'DavoPro1214']
+
+      const wrapper = await mountSuspended(App, { route: '/import' })
+      await pick(wrapper, 'DavoPro1214')
+
+      expect((wrapper.get('[data-testid="sync-input"]').element as HTMLInputElement).value).toBe(
+        'DavoPro1214',
+      )
+    })
+
+    it('marks the alias the field already holds, however it was typed', async () => {
+      useShowdownAliases().value = ['NotLittleStar', 'DavoPro1214']
+
+      const wrapper = await mountSuspended(App, { route: '/import' })
+      await wrapper.get('[data-testid="sync-input"]').setValue('davopro 1214')
+
+      expect(
+        picks(wrapper).map((chip: { attributes: (name: string) => string | undefined }) =>
+          chip.attributes('aria-pressed'),
+        ),
+      ).toEqual(['false', 'true'])
+    })
+
+    it('syncs the public replays of the alias that was picked', async () => {
+      useShowdownAliases().value = ['NotLittleStar', 'DavoPro1214']
+
+      const wrapper = await mountSuspended(App, { route: '/import' })
+      await pick(wrapper, 'DavoPro1214')
+      await wrapper.get('[data-testid="sync-form"]').trigger('submit')
+      await nextTick()
+
+      expect(syncAccount.mock.calls[0]![0]).toBe('DavoPro1214')
+    })
+
+    it('syncs the private replays of the alias that was picked', async () => {
+      document.body.innerHTML = ''
+      useShowdownAliases().value = ['NotLittleStar', 'DavoPro1214']
+
+      const wrapper = await mountSuspended(App, { route: '/import' })
+      await pick(wrapper, 'DavoPro1214')
+      await wrapper.get('[data-testid="private-open"]').trigger('click')
+      await nextTick()
+      await settle()
+      await submitPassword('hunter2')
+
+      expect(syncPrivate.mock.calls[0]?.slice(0, 2)).toEqual(['DavoPro1214', 'hunter2'])
+    })
+
+    it('still takes a name that is on no list', async () => {
+      useShowdownAliases().value = ['NotLittleStar', 'DavoPro1214']
+
+      const wrapper = await mountSuspended(App, { route: '/import' })
+      await pick(wrapper, 'DavoPro1214')
+      await sync(wrapper, 'Bibas Rozkurwiator')
+
+      expect(syncAccount.mock.calls[0]![0]).toBe('Bibas Rozkurwiator')
+    })
+
+    it('offers no choice when there is only one alias to choose', async () => {
+      const wrapper = await mountSuspended(App, { route: '/import' })
+
+      expect(wrapper.find('[data-testid="sync-aliases"]').exists()).toBe(false)
+    })
+
+    it('offers no choice when the alias list could not be read', async () => {
+      useShowdownAliases().value = null
+      load.mockRejectedValue(new Error('offline'))
+
+      const wrapper = await mountSuspended(App, { route: '/import' })
+
+      expect(wrapper.find('[data-testid="sync-aliases"]').exists()).toBe(false)
+      expect((wrapper.get('[data-testid="sync-input"]').element as HTMLInputElement).value).toBe('')
+    })
+
+    it('is translated', () => {
+      expect(Object.keys(zhTW.import.sync)).toEqual(Object.keys(en.import.sync))
+    })
+  })
+
   it('says when a search ran out of pages before the account ran out of replays', async () => {
     syncAccount.mockResolvedValue({
       status: 'listed',

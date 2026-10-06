@@ -157,6 +157,7 @@
       "tagline": "輸入 Showdown 名稱可以即時同步公開的 replay，私人 replay 則需要輸入密碼。已經匯入過的都會自動跳過，如果同步中斷了，重新同步會接著上次的進度繼續。",
       "label": "Showdown 名稱",
       "placeholder": "",
+      "aliases": "已綁定的名稱",
       "submit": "同步公開 replay",
       "unusable": "這不是 Showdown 名稱，至少要有一個英數字元。",
       "truncated": "搜尋已達 Showdown 上限，可能會有遺漏的場次。"

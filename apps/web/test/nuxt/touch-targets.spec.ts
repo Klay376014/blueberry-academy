@@ -178,6 +178,16 @@ describe('the touch-target floor, page by page', () => {
     expectApart(page.get('[data-testid="sync-form"]').element)
   })
 
+  it('holds on the bound aliases the sync name can be picked from', async () => {
+    // Drawn only for a reader with more than one alias to choose between.
+    useShowdownAliases().value = ['Reader', 'ReaderAlt']
+
+    const page = await mountSuspended(ImportPage)
+
+    expectFloor(page.get('[data-testid="sync-aliases"]').element, ['sync-alias'])
+    expectApart(page.get('[data-testid="sync-aliases"]').element)
+  })
+
   /**
    * Both of these links sit inside a sentence, and both are behind a `v-if`
    * that the sweep above never reaches: the page draws them only once an
