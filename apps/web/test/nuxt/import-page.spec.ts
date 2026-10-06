@@ -7,6 +7,7 @@ import { STATS_ROWS } from '../fixtures/stats-rows'
 import en from '../../i18n/locales/en.json'
 import zhTW from '../../i18n/locales/zh-TW.json'
 import { signIn } from '../helpers'
+import { forgetTeleported, openMenu, settle } from '../teleported'
 import type { BatchItem, ImportOptions, ImportReport } from '../../app/features/ingest'
 
 // The import itself is faked; the page, the link parsing and the alias state
@@ -34,11 +35,6 @@ mockNuxtImport('useBattles', () => () => battles.value as never)
 
 function stored() {
   return battles.value as ReturnType<typeof fakeBattles>
-}
-
-/** Long enough for a read the fake resolves immediately to have landed. */
-async function settle() {
-  for (let turn = 0; turn < 3; turn += 1) await new Promise((resolve) => setTimeout(resolve, 0))
 }
 
 mockNuxtImport('useProfile', () => () => {
@@ -356,6 +352,139 @@ describe('the import page', () => {
     expect((wrapper.get('[data-testid="sync-input"]').element as HTMLInputElement).value).toBe(
       'NotLittleStar',
     )
+  })
+
+  describe('picking a bound alias (#228)', () => {
+    // The menu and the password dialog are teleported to `document.body`;
+    // clearing what earlier mounts left there keeps what is found this mount's.
+    beforeEach(() => {
+      forgetTeleported('sync-alias')
+      forgetTeleported('private-dialog')
+    })
+
+    async function openAliases(wrapper: Wrapper) {
+      await openMenu(wrapper.get('[data-testid="sync-aliases"]'))
+    }
+
+    function listed(): HTMLElement[] {
+      return [...document.body.querySelectorAll<HTMLElement>('[data-testid="sync-alias"]')]
+    }
+
+    async function pick(wrapper: Wrapper, alias: string) {
+      await openAliases(wrapper)
+      listed()
+        .find((item) => item.textContent?.trim() === alias)!
+        .click()
+      await settle()
+    }
+
+    it('lists every bound alias, so a second account is one pick away', async () => {
+      useShowdownAliases().value = ['NotLittleStar', 'DavoPro1214', 'Blueberry Alt']
+
+      const wrapper = await mountSuspended(App, { route: '/import' })
+      await openAliases(wrapper)
+
+      expect(listed().map((item) => item.textContent?.trim())).toEqual([
+        'NotLittleStar',
+        'DavoPro1214',
+        'Blueberry Alt',
+      ])
+    })
+
+    it('names its trigger, which has nothing but an icon to show', async () => {
+      useShowdownAliases().value = ['NotLittleStar', 'DavoPro1214']
+
+      const wrapper = await mountSuspended(App, { route: '/import' })
+
+      expect(wrapper.get('[data-testid="sync-aliases"]').attributes('aria-label')).toBe(
+        'Choose a bound name',
+      )
+    })
+
+    it('puts the picked alias in the name field', async () => {
+      useShowdownAliases().value = ['NotLittleStar', 'DavoPro1214']
+
+      const wrapper = await mountSuspended(App, { route: '/import' })
+      await pick(wrapper, 'DavoPro1214')
+
+      expect((wrapper.get('[data-testid="sync-input"]').element as HTMLInputElement).value).toBe(
+        'DavoPro1214',
+      )
+    })
+
+    it('marks the alias the field already holds, however it was typed', async () => {
+      useShowdownAliases().value = ['NotLittleStar', 'DavoPro1214']
+
+      const wrapper = await mountSuspended(App, { route: '/import' })
+      await wrapper.get('[data-testid="sync-input"]').setValue('davopro 1214')
+      await openAliases(wrapper)
+
+      expect(listed().map((item) => item.getAttribute('aria-checked'))).toEqual(['false', 'true'])
+    })
+
+    it('syncs the public replays of the alias that was picked', async () => {
+      useShowdownAliases().value = ['NotLittleStar', 'DavoPro1214']
+
+      const wrapper = await mountSuspended(App, { route: '/import' })
+      await pick(wrapper, 'DavoPro1214')
+      await wrapper.get('[data-testid="sync-form"]').trigger('submit')
+      await nextTick()
+
+      expect(syncAccount.mock.calls[0]![0]).toBe('DavoPro1214')
+    })
+
+    it('syncs the private replays of the alias that was picked', async () => {
+      useShowdownAliases().value = ['NotLittleStar', 'DavoPro1214']
+
+      const wrapper = await mountSuspended(App, { route: '/import' })
+      await pick(wrapper, 'DavoPro1214')
+      await wrapper.get('[data-testid="private-open"]').trigger('click')
+      await nextTick()
+      await settle()
+      await submitPassword('hunter2')
+
+      expect(syncPrivate.mock.calls[0]?.slice(0, 2)).toEqual(['DavoPro1214', 'hunter2'])
+    })
+
+    it('still takes a name that is on no list', async () => {
+      useShowdownAliases().value = ['NotLittleStar', 'DavoPro1214']
+
+      const wrapper = await mountSuspended(App, { route: '/import' })
+      await pick(wrapper, 'DavoPro1214')
+      await sync(wrapper, 'Bibas Rozkurwiator')
+
+      expect(syncAccount.mock.calls[0]![0]).toBe('Bibas Rozkurwiator')
+    })
+
+    it('offers no choice when there is only one alias to choose', async () => {
+      const wrapper = await mountSuspended(App, { route: '/import' })
+
+      expect(wrapper.find('[data-testid="sync-aliases"]').exists()).toBe(false)
+    })
+
+    it('offers no choice when the alias list could not be read', async () => {
+      useShowdownAliases().value = null
+      load.mockRejectedValue(new Error('offline'))
+
+      const wrapper = await mountSuspended(App, { route: '/import' })
+
+      expect(wrapper.find('[data-testid="sync-aliases"]').exists()).toBe(false)
+      expect((wrapper.get('[data-testid="sync-input"]').element as HTMLInputElement).value).toBe('')
+    })
+
+    it('offers no choice while the alias list has not arrived', async () => {
+      // `load` settles without filling the list: the page is up, the list is not.
+      useShowdownAliases().value = null
+
+      const wrapper = await mountSuspended(App, { route: '/import' })
+
+      expect(wrapper.get('[data-testid="sync-input"]').attributes('disabled')).toBeDefined()
+      expect(wrapper.find('[data-testid="sync-aliases"]').exists()).toBe(false)
+    })
+
+    it('is translated', () => {
+      expect(Object.keys(zhTW.import.sync)).toEqual(Object.keys(en.import.sync))
+    })
   })
 
   it('says when a search ran out of pages before the account ran out of replays', async () => {

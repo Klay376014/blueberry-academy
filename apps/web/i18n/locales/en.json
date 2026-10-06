@@ -157,6 +157,7 @@
       "tagline": "Enter a Showdown name to sync its public replays right away; the private ones need your password too. Anything already imported is skipped, so a sync that stopped partway picks up where it left off.",
       "label": "Showdown name",
       "placeholder": "",
+      "aliases": "Choose a bound name",
       "submit": "Sync public replays",
       "unusable": "That is not a Showdown name. It needs at least one letter or digit.",
       "truncated": "This search reached Showdown’s limit, so some battles may be missing."
