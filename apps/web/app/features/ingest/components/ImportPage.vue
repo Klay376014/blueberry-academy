@@ -463,7 +463,10 @@ async function syncPrivateReplays() {
       data-testid="sync-form"
       @submit.prevent="syncByName"
     >
-      <div class="min-w-40 flex-1">
+      <!-- Below `sm` the field takes its own row so the two buttons share the
+           next one, rather than one riding beside the field and the other
+           wrapping alone. -->
+      <div class="w-full sm:w-auto sm:min-w-40 sm:flex-1">
         <label class="text-sm font-medium" :for="syncInputId">{{ t('import.sync.label') }}</label>
         <div class="mt-1 flex gap-2" data-testid="sync-field">
           <input
@@ -512,7 +515,7 @@ async function syncPrivateReplays() {
       </div>
       <UiButton
         type="submit"
-        class="min-h-11"
+        class="min-h-11 flex-1 sm:flex-none"
         :disabled="!aliasesLoaded || busy"
         data-testid="sync-submit"
       >
@@ -521,7 +524,7 @@ async function syncPrivateReplays() {
       <UiButton
         type="button"
         variant="outline"
-        class="min-h-11"
+        class="min-h-11 flex-1 sm:flex-none"
         :disabled="!aliasesLoaded || busy"
         data-testid="private-open"
         @click="askForPassword"
