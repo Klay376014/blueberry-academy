@@ -7,6 +7,7 @@ import { STATS_ROWS } from '../fixtures/stats-rows'
 import en from '../../i18n/locales/en.json'
 import zhTW from '../../i18n/locales/zh-TW.json'
 import { signIn } from '../helpers'
+import { forgetTeleported } from '../teleported'
 import type { BatchItem, ImportOptions, ImportReport } from '../../app/features/ingest'
 
 // The import itself is faked; the page, the link parsing and the alias state
@@ -359,24 +360,48 @@ describe('the import page', () => {
   })
 
   describe('picking a bound alias (#228)', () => {
-    const picks = (wrapper: Wrapper) => wrapper.findAll('[data-testid="sync-alias"]')
+    // The menu is teleported to `document.body`; clearing what earlier mounts
+    // left there keeps the items found below this mount's own.
+    beforeEach(() => forgetTeleported('sync-alias'))
 
-    async function pick(wrapper: Wrapper, alias: string) {
-      const chip = picks(wrapper).find((each: { text: () => string }) => each.text() === alias)
-      await chip!.trigger('click')
-      await nextTick()
+    async function openAliases(wrapper: Wrapper) {
+      await wrapper.get('[data-testid="sync-aliases"]').trigger('keydown', { key: 'Enter' })
+      await settle()
     }
 
-    it('lists every bound alias, so a second account is one press away', async () => {
+    function listed(): HTMLElement[] {
+      return [...document.body.querySelectorAll<HTMLElement>('[data-testid="sync-alias"]')]
+    }
+
+    async function pick(wrapper: Wrapper, alias: string) {
+      await openAliases(wrapper)
+      listed()
+        .find((item) => item.textContent?.trim() === alias)!
+        .click()
+      await settle()
+    }
+
+    it('lists every bound alias, so a second account is one pick away', async () => {
       useShowdownAliases().value = ['NotLittleStar', 'DavoPro1214', 'Blueberry Alt']
 
       const wrapper = await mountSuspended(App, { route: '/import' })
+      await openAliases(wrapper)
 
-      expect(picks(wrapper).map((chip: { text: () => string }) => chip.text())).toEqual([
+      expect(listed().map((item) => item.textContent?.trim())).toEqual([
         'NotLittleStar',
         'DavoPro1214',
         'Blueberry Alt',
       ])
+    })
+
+    it('names its trigger, which has nothing but an icon to show', async () => {
+      useShowdownAliases().value = ['NotLittleStar', 'DavoPro1214']
+
+      const wrapper = await mountSuspended(App, { route: '/import' })
+
+      expect(wrapper.get('[data-testid="sync-aliases"]').attributes('aria-label')).toBe(
+        'Choose a bound name',
+      )
     })
 
     it('puts the picked alias in the name field', async () => {
@@ -395,12 +420,9 @@ describe('the import page', () => {
 
       const wrapper = await mountSuspended(App, { route: '/import' })
       await wrapper.get('[data-testid="sync-input"]').setValue('davopro 1214')
+      await openAliases(wrapper)
 
-      expect(
-        picks(wrapper).map((chip: { attributes: (name: string) => string | undefined }) =>
-          chip.attributes('aria-pressed'),
-        ),
-      ).toEqual(['false', 'true'])
+      expect(listed().map((item) => item.getAttribute('aria-checked'))).toEqual(['false', 'true'])
     })
 
     it('syncs the public replays of the alias that was picked', async () => {

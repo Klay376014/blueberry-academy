@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ChevronDown } from '@lucide/vue'
 import { toID } from 'replay-parser'
 import type { BatchItem, BatchOutcome, ImportReport } from '../composables/useIngest'
 import type { ReplayRef } from '~/shared/api/showdown'
@@ -55,11 +56,16 @@ const truncated = ref<'account' | 'private' | null>(null)
 /**
  * The name to sync, prefilled with the first bound alias — the account whose
  * battles these are is almost always the one already on the profile, and the
- * other bound aliases are offered under the field for the rest. One
+ * other bound aliases are a menu beside the field. One
  * field for both buttons: public and private replays belong to the same
  * account, and asking for the name twice only invited the two to disagree.
  */
 const syncName = ref(props.aliases[0] ?? '')
+
+/** The bound alias the field already names, compared the way Showdown compares names. */
+const pickedAlias = computed(
+  () => props.aliases.find((alias) => toID(alias) === toID(syncName.value)) ?? '',
+)
 
 /**
  * The password, asked for only when it is needed — in a dialog the private
@@ -462,17 +468,51 @@ async function syncPrivateReplays() {
     >
       <div class="min-w-40 flex-1">
         <label class="text-sm font-medium" :for="syncInputId">{{ t('import.sync.label') }}</label>
-        <input
-          :id="syncInputId"
-          v-model="syncName"
-          class="mt-1 min-h-11 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs transition-colors placeholder:text-muted-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none disabled:opacity-50"
-          :placeholder="t('import.sync.placeholder')"
-          :disabled="!aliasesLoaded"
-          autocapitalize="off"
-          autocomplete="off"
-          spellcheck="false"
-          data-testid="sync-input"
-        />
+        <div class="mt-1 flex">
+          <input
+            :id="syncInputId"
+            v-model="syncName"
+            class="min-h-11 w-full min-w-0 flex-1 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs transition-colors placeholder:text-muted-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none disabled:opacity-50"
+            :class="{ 'rounded-r-none': aliases.length > 1 }"
+            :placeholder="t('import.sync.placeholder')"
+            :disabled="!aliasesLoaded"
+            autocapitalize="off"
+            autocomplete="off"
+            spellcheck="false"
+            data-testid="sync-input"
+          />
+          <!-- A menu rather than a <datalist>: browsers filter a datalist by
+               what the field already holds, so the prefilled first alias
+               would hide every other one (#228). Never remembered between
+               visits. -->
+          <UiDropdownMenu v-if="aliases.length > 1">
+            <UiDropdownMenuTrigger as-child>
+              <UiButton
+                type="button"
+                variant="outline"
+                size="icon"
+                class="min-h-11 min-w-11 rounded-l-none border-l-0"
+                :aria-label="t('import.sync.aliases')"
+                data-testid="sync-aliases"
+              >
+                <ChevronDown />
+              </UiButton>
+            </UiDropdownMenuTrigger>
+            <UiDropdownMenuContent align="end" data-testid="sync-aliases-menu">
+              <UiDropdownMenuRadioGroup :model-value="pickedAlias">
+                <UiDropdownMenuRadioItem
+                  v-for="alias of aliases"
+                  :key="alias"
+                  :value="alias"
+                  data-testid="sync-alias"
+                  @select="() => (syncName = alias)"
+                >
+                  {{ alias }}
+                </UiDropdownMenuRadioItem>
+              </UiDropdownMenuRadioGroup>
+            </UiDropdownMenuContent>
+          </UiDropdownMenu>
+        </div>
       </div>
       <UiButton
         type="submit"
@@ -492,34 +532,6 @@ async function syncPrivateReplays() {
       >
         {{ t('import.private.open') }}
       </UiButton>
-
-      <!-- Buttons rather than a <datalist>: browsers filter a datalist by
-           what the field already holds, so the prefilled first alias would
-           hide every other one (#228). Never remembered between visits. -->
-      <div
-        v-if="aliases.length > 1"
-        role="group"
-        :aria-label="t('import.sync.aliases')"
-        class="flex basis-full flex-wrap items-center gap-2"
-        data-testid="sync-aliases"
-      >
-        <span aria-hidden="true" class="text-sm text-muted-foreground">
-          {{ t('import.sync.aliases') }}
-        </span>
-        <UiButton
-          v-for="alias of aliases"
-          :key="alias"
-          type="button"
-          variant="outline"
-          size="sm"
-          class="min-h-11"
-          :aria-pressed="toID(alias) === toID(syncName)"
-          data-testid="sync-alias"
-          @click="() => (syncName = alias)"
-        >
-          {{ alias }}
-        </UiButton>
-      </div>
     </form>
 
     <p class="mt-2 text-sm text-muted-foreground">{{ t('import.private.tagline') }}</p>

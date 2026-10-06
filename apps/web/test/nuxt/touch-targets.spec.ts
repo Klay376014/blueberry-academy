@@ -13,7 +13,7 @@ import type { StoredBattle } from '../fakes/battles'
 import { STATS_ROWS } from '../fixtures/stats-rows'
 import type { BatchItem, ImportReport } from '../../app/features/ingest'
 import { forgetTeleported, teleported } from '../teleported'
-import { expectApart, expectFloor } from '../touch-floor'
+import { carriesFloor, expectApart, expectFloor, nameOf } from '../touch-floor'
 import { signIn, signOut } from '../helpers'
 
 /**
@@ -178,14 +178,27 @@ describe('the touch-target floor, page by page', () => {
     expectApart(page.get('[data-testid="sync-form"]').element)
   })
 
-  it('holds on the bound aliases the sync name can be picked from', async () => {
+  it('holds on the menu of bound aliases the sync name can be picked from', async () => {
     // Drawn only for a reader with more than one alias to choose between.
     useShowdownAliases().value = ['Reader', 'ReaderAlt']
+    forgetTeleported('sync-aliases-menu')
 
     const page = await mountSuspended(ImportPage)
+    const trigger = page.get('[data-testid="sync-aliases"]')
 
-    expectFloor(page.get('[data-testid="sync-aliases"]').element, ['sync-alias'])
-    expectApart(page.get('[data-testid="sync-aliases"]').element)
+    expectFloor(page.get('[data-testid="sync-form"]').element, ['sync-input', 'sync-aliases'])
+    // An icon with no text to widen it, so §5 asks for the width in writing.
+    expect(trigger.classes()).toContain('min-w-11')
+
+    await trigger.trigger('keydown', { key: 'Enter' })
+    for (let turn = 0; turn < 3; turn += 1) await new Promise((resolve) => setTimeout(resolve, 0))
+
+    // reka-ui draws menu items as `div[role=menuitemradio]`, which `PRESSABLE`
+    // does not match, so they are checked one by one rather than swept.
+    const items = [...teleported('sync-aliases-menu')!.querySelectorAll('[role="menuitemradio"]')]
+
+    expect(items).toHaveLength(2)
+    expect(items.filter((item) => !carriesFloor(item)).map(nameOf)).toEqual([])
   })
 
   /**
